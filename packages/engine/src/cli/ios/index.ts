@@ -1,5 +1,6 @@
 // IOS 방식 CLI의 공통 부분. Switch와 Router의 명령 정의가 이것을 쓴다.
 
+export { BASE_COMMANDS } from "./base-commands";
 export { defineCommand, param } from "./define";
 export type {
   CliMode,
