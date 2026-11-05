@@ -12,6 +12,7 @@ import {
 } from "@ping9/shared";
 import type { ErrorInfo, TopologyDocument } from "@ping9/shared";
 
+import { describeValue } from "../describe";
 import type { CommandHandler, ReduceResult } from "../reducer";
 import { findSwitch, withSwitchConfig } from "./switch-common";
 
@@ -22,7 +23,7 @@ const accepted = (document: TopologyDocument): ReduceResult => ({ ok: true, docu
 function checkName(value: unknown): ErrorInfo | null {
   return typeof value === "string"
     ? checkVlanName(value)
-    : errorInfo("INVALID_VLAN_NAME", { value: String(value).slice(0, 64) });
+    : errorInfo("INVALID_VLAN_NAME", { value: describeValue(value) });
 }
 
 export const createVlan: CommandHandler<"vlan/create"> = (document, command) => {
@@ -51,7 +52,7 @@ export const createVlan: CommandHandler<"vlan/create"> = (document, command) => 
   return accepted(
     withSwitchConfig(document, device.id, {
       ...device.config,
-      vlans: [...vlans, { id: command.vlanId, name }],
+      vlans: [...device.config.vlans, { id: command.vlanId, name }],
     }),
   );
 };
@@ -78,7 +79,9 @@ export const renameVlan: CommandHandler<"vlan/rename"> = (document, command) => 
   return accepted(
     withSwitchConfig(document, device.id, {
       ...device.config,
-      vlans: vlans.map((vlan) => (vlan.id === command.vlanId ? { id: vlan.id, name: command.name } : vlan)),
+      vlans: device.config.vlans.map((vlan) =>
+        vlan.id === command.vlanId ? { id: vlan.id, name: command.name } : vlan,
+      ),
     }),
   );
 };
@@ -103,7 +106,7 @@ export const removeVlan: CommandHandler<"vlan/remove"> = (document, command) => 
   return accepted(
     withSwitchConfig(document, device.id, {
       ...device.config,
-      vlans: vlans.filter((vlan) => vlan.id !== command.vlanId),
+      vlans: device.config.vlans.filter((vlan) => vlan.id !== command.vlanId),
     }),
   );
 };

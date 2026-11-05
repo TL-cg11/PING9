@@ -263,6 +263,8 @@ describe("dispatch", () => {
     ["Object의 기본 속성 이름", { type: "toString" }, "toString"],
     ["__proto__", { type: "__proto__" }, "__proto__"],
     ["문자열", "device/add", "undefined"],
+    // String()이 예외를 던지는 값. JSON으로도 올 수 있다
+    ["문자열로 바꿀 수 없는 type", { type: { toString: 1, valueOf: 1 } }, "object"],
   ])("Command가 아닌 값(%s)도 오류 결과로 끝난다", (_name, value, type) => {
     const simulator = createSimulator();
 

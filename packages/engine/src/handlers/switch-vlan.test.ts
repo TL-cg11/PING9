@@ -1,5 +1,6 @@
 // vlan/create, vlan/rename, vlan/remove (FR-31). Simulator.dispatch로 확인한다.
-import type { Command, SwitchConfig } from "@ping9/shared";
+import { validateDocument } from "@ping9/shared";
+import type { Command, SwitchConfig, TopologyDocument } from "@ping9/shared";
 import {
   TWO_PC_SWITCH,
   TWO_SWITCH_VLAN,
@@ -194,6 +195,80 @@ describe("거부", () => {
       ok: false,
       error: { code: "DEVICE_NOT_FOUND", params: { deviceId: "42" } },
     });
+  });
+
+  test("문자열로 바꿀 수 없는 값(JSON으로 올 수 있는 객체)도 예외 없이 거부한다", () => {
+    const simulator = start();
+    // String()이 예외를 던지는 값
+    const hostile = { toString: 1, valueOf: 1 };
+
+    expect(
+      simulator.dispatch({ type: "vlan/create", deviceId: hostile, vlanId: 10 } as unknown as Command),
+    ).toEqual({ ok: false, error: { code: "DEVICE_NOT_FOUND", params: { deviceId: "object" } } });
+    expect(
+      simulator.dispatch({ type: "vlan/create", deviceId: SW, vlanId: 10, name: hostile } as unknown as Command),
+    ).toEqual({ ok: false, error: { code: "INVALID_VLAN_NAME", params: { value: "object" } } });
+
+    simulator.dispatch({ type: "vlan/create", deviceId: SW, vlanId: 10 });
+    expect(
+      simulator.dispatch({ type: "vlan/rename", deviceId: SW, vlanId: 10, name: hostile } as unknown as Command),
+    ).toEqual({ ok: false, error: { code: "INVALID_VLAN_NAME", params: { value: "object" } } });
+  });
+});
+
+describe("VLAN 1이 없는 문서 (가져온 문서)", () => {
+  /** Switch에 VLAN 1 없이 VLAN을 `count`개 넣은 문서. 번호는 2부터 */
+  function withoutVlan1(count: number): Simulator {
+    const document = JSON.parse(JSON.stringify(twoPcSwitchDocument)) as {
+      devices: { id: string; config: { vlans: { id: number; name: string }[] } }[];
+    };
+    document.devices.find((device) => device.id === SW)!.config.vlans = Array.from({ length: count }, (_, index) => ({
+      id: index + 2,
+      name: `V${index + 2}`,
+    }));
+    const simulator = createSimulator();
+    expect(simulator.load(document as unknown as TopologyDocument)).toEqual({ ok: true });
+    return simulator;
+  }
+
+  test("VLAN이 64개여도 이름을 바꾼 결과가 유효한 문서다", () => {
+    const simulator = withoutVlan1(64);
+
+    expect(simulator.dispatch({ type: "vlan/rename", deviceId: SW, vlanId: 2, name: "X" })).toEqual({
+      ok: true,
+      notices: [],
+    });
+
+    expect(validateDocument(simulator.getSnapshot().document).ok).toBe(true);
+    expect(vlansOf(simulator)).toHaveLength(64);
+    expect(vlansOf(simulator)[0]).toEqual({ id: 2, name: "X" });
+  });
+
+  test("VLAN이 64개면 지운 결과에 VLAN 1이 들어가 다시 64개가 된다", () => {
+    const simulator = withoutVlan1(64);
+
+    expect(simulator.dispatch({ type: "vlan/remove", deviceId: SW, vlanId: 65 }).ok).toBe(true);
+
+    expect(validateDocument(simulator.getSnapshot().document).ok).toBe(true);
+    expect(vlansOf(simulator).map((vlan) => vlan.id)).toEqual([1, ...Array.from({ length: 63 }, (_, i) => i + 2)]);
+  });
+
+  test("VLAN 1까지 세어 64개면 더 만들 수 없다", () => {
+    const simulator = withoutVlan1(63);
+
+    expect(simulator.dispatch({ type: "vlan/create", deviceId: SW, vlanId: 100 })).toEqual({
+      ok: false,
+      error: { code: "LIMIT_EXCEEDED", params: { limit: "vlans", max: 64 } },
+    });
+  });
+
+  test("자리가 있으면 바꿀 때 VLAN 1이 채워진다", () => {
+    const simulator = withoutVlan1(3);
+
+    expect(simulator.dispatch({ type: "vlan/create", deviceId: SW, vlanId: 100 }).ok).toBe(true);
+
+    expect(vlansOf(simulator).map((vlan) => vlan.id)).toEqual([1, 2, 3, 4, 100]);
+    expect(validateDocument(simulator.getSnapshot().document).ok).toBe(true);
   });
 });
 

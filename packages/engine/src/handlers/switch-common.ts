@@ -1,7 +1,7 @@
 // Switch를 다루는 Command 처리기가 함께 쓰는 것: 장비 찾기, 구성 정규화, 구성 바꿔 끼우기.
 // 출처: docs/superpowers/specs/2026-11-05-switch-vlan-design.md 5.2절, 5.3절.
 
-import { VLAN_ID_MAX, VLAN_ID_MIN, errorInfo, portIndex, switchVlans } from "@ping9/shared";
+import { DEFAULT_VLAN_ID, LIMITS, VLAN_ID_MAX, VLAN_ID_MIN, errorInfo, portIndex, switchVlans } from "@ping9/shared";
 import type {
   ErrorInfo,
   SwitchConfig,
@@ -9,6 +9,8 @@ import type {
   SwitchPortConfig,
   TopologyDocument,
 } from "@ping9/shared";
+
+import { describeValue } from "../describe";
 
 export type FoundSwitch =
   | { readonly ok: true; readonly device: SwitchDevice }
@@ -19,7 +21,7 @@ export function findSwitch(document: TopologyDocument, deviceId: unknown): Found
   const device =
     typeof deviceId === "string" ? document.devices.find((candidate) => candidate.id === deviceId) : undefined;
   if (device === undefined) {
-    return { ok: false, error: errorInfo("DEVICE_NOT_FOUND", { deviceId: String(deviceId).slice(0, 64) }) };
+    return { ok: false, error: errorInfo("DEVICE_NOT_FOUND", { deviceId: describeValue(deviceId) }) };
   }
   if (device.kind !== "switch") {
     return {
@@ -52,7 +54,8 @@ function normalizePort(port: SwitchPortConfig): SwitchPortConfig | undefined {
 
 /**
  * 같은 구성은 항상 같은 값이 되게 한다. `show running-config` 왕복을 비교하는 기준이다.
- * - VLAN 1이 없으면 넣고, VLAN을 번호순으로 놓는다.
+ * - VLAN 1이 없으면 넣고, VLAN을 번호순으로 놓는다. 넣으면 한도(64개)를 넘는 경우에는 넣지 않는다.
+ *   (VLAN 1 없이 64개가 든 문서를 가져온 경우. 넣으면 validateDocument를 통과하지 못한다)
  * - 포트에서 기본값과 같은 설정(access VLAN 1, 전부 허용)을 지우고, 전부 기본값인 포트는 뺀다.
  * - 포트를 순번대로 놓는다.
  */
@@ -64,8 +67,13 @@ export function normalizeSwitchConfig(config: SwitchConfig): SwitchConfig {
     if (port !== undefined) ports[name] = port;
   }
 
+  const hasDefaultVlan = config.vlans.some((vlan) => vlan.id === DEFAULT_VLAN_ID);
+  const hasRoom = config.vlans.length < LIMITS.maxVlansPerSwitch;
+
   return {
-    vlans: switchVlans(config).map((vlan) => ({ id: vlan.id, name: vlan.name })),
+    vlans: switchVlans(config)
+      .filter((vlan) => vlan.id !== DEFAULT_VLAN_ID || hasDefaultVlan || hasRoom)
+      .map((vlan) => ({ id: vlan.id, name: vlan.name })),
     ports,
   };
 }

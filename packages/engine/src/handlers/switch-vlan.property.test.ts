@@ -1,6 +1,6 @@
 // 속성 기반 테스트: 어떤 vlan/* Command 열을 넣어도 Document는 유효하고 정규화된 형태다 (PBT-1).
 import { validateDocument } from "@ping9/shared";
-import type { Command } from "@ping9/shared";
+import type { Command, TopologyDocument } from "@ping9/shared";
 import { TWO_SWITCH_VLAN, twoSwitchVlanDocument } from "@ping9/shared/examples";
 import fc from "fast-check";
 import { expect, test } from "vitest";
@@ -13,6 +13,23 @@ const deviceId = fc.constantFrom(TWO_SWITCH_VLAN.sw1.id, TWO_SWITCH_VLAN.sw2.id,
 const vlanId = fc.oneof(fc.integer({ min: -1, max: 70 }), fc.constantFrom(4094, 4095));
 const name = fc.constantFrom("", "A", "SALES", "a b", "N".repeat(32), "N".repeat(33));
 
+/** 가져온 문서를 흉내 낸 것: SW1에 VLAN 1 없이 VLAN이 한도(64개)까지 차 있다 */
+const fullWithoutVlan1: TopologyDocument = {
+  ...twoSwitchVlanDocument,
+  devices: twoSwitchVlanDocument.devices.map((device) =>
+    device.id === TWO_SWITCH_VLAN.sw1.id && device.kind === "switch"
+      ? {
+          ...device,
+          config: {
+            ...device.config,
+            vlans: Array.from({ length: 64 }, (_, index) => ({ id: index + 2, name: `V${index + 2}` })),
+          },
+        }
+      : device,
+  ),
+};
+const startingDocument = fc.constantFrom(twoSwitchVlanDocument, fullWithoutVlan1);
+
 const command: fc.Arbitrary<Command> = fc.oneof(
   fc.record({ deviceId, vlanId }).map((fields): Command => ({ type: "vlan/create", ...fields })),
   fc.record({ deviceId, vlanId, name }).map((fields): Command => ({ type: "vlan/create", ...fields })),
@@ -24,9 +41,9 @@ test("vlan/* Command 열을 넣어도 Document는 유효하고, 거부되면 그
   let accepted = 0;
 
   fc.assert(
-    fc.property(fc.array(command, { maxLength: 40 }), (commands) => {
+    fc.property(startingDocument, fc.array(command, { maxLength: 40 }), (start, commands) => {
       const simulator = createSimulator();
-      simulator.load(twoSwitchVlanDocument);
+      expect(simulator.load(start)).toEqual({ ok: true });
 
       for (const next of commands) {
         const before = simulator.getSnapshot();

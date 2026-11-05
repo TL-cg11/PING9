@@ -9,6 +9,7 @@
 import { errorInfo } from "@ping9/shared";
 import type { Command, CommandOf, CommandType, ErrorInfo, Notice, TopologyDocument } from "@ping9/shared";
 
+import { describeValue } from "./describe";
 import { createVlan, removeVlan, renameVlan } from "./handlers/switch-vlan";
 
 export type ReduceResult =
@@ -37,7 +38,7 @@ export function reduce(document: TopologyDocument, command: Command): ReduceResu
   if (typeof type !== "string" || !Object.hasOwn(handlers, type)) {
     return {
       ok: false,
-      error: errorInfo("UNKNOWN_COMMAND", { type: String(type).slice(0, 64) }),
+      error: errorInfo("UNKNOWN_COMMAND", { type: describeValue(type) }),
     };
   }
 
