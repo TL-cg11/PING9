@@ -10,6 +10,7 @@ import {
 import { describe, expect, test, vi } from "vitest";
 
 import { createSimulator } from "./index";
+import { HANDLED_COMMAND_TYPES } from "./reducer";
 
 /** 예시 자료를 고쳐 쓸 수 있게 깊이 복사한다 */
 function copy<T = unknown>(value: unknown): T {
@@ -226,7 +227,9 @@ describe("포트 상태 (AD-7)", () => {
 });
 
 describe("dispatch", () => {
-  test.each(COMMAND_TYPES)("%s: 처리기가 아직 없어 오류 결과로 돌려주고 예외를 던지지 않는다", (type) => {
+  const unhandled = COMMAND_TYPES.filter((type) => !HANDLED_COMMAND_TYPES.includes(type));
+
+  test.each(unhandled)("%s: 처리기가 아직 없어 오류 결과로 돌려주고 예외를 던지지 않는다", (type) => {
     const simulator = createSimulator();
     simulator.load(twoPcDocument);
     const before = simulator.getSnapshot();

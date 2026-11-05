@@ -9,6 +9,8 @@
 import { errorInfo } from "@ping9/shared";
 import type { Command, CommandOf, CommandType, ErrorInfo, Notice, TopologyDocument } from "@ping9/shared";
 
+import { setPcIp } from "./reducer/pc-set-ip";
+
 export type ReduceResult =
   | {
       readonly ok: true;
@@ -23,8 +25,11 @@ export type CommandHandler<T extends CommandType> = (
 ) => ReduceResult;
 
 const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
-  // 예: "device/add": addDevice,
+  "pc/set-ip": setPcIp,
 };
+
+/** 처리기가 있는 Command. 처리기가 없는 Command를 확인하는 테스트가 쓴다 */
+export const HANDLED_COMMAND_TYPES = Object.keys(handlers) as readonly CommandType[];
 
 export function reduce(document: TopologyDocument, command: Command): ReduceResult {
   // 타입으로는 Command지만 경계 밖에서 온 값일 수 있다. 예외 대신 오류 결과를 돌려준다 (AD-16)
