@@ -21,6 +21,8 @@
 
 **확정 이후 바뀐 결정 (2026-11-05):** 제품 이름은 **PING9**, 배포는 **Vercel**, DB는 **Vercel Marketplace의 무료 Postgres**로 정했습니다. 03 문서 3.10절과 Story 2.2의 Task는 아직 옛 내용(VM + Docker Compose)입니다. 바뀐 내용과 영향 범위는 [T0.1 기록](../task-logs/T0.1-repo-and-deploy-setup.md#6-계획과-달라진-점)에 있습니다.
 
+**지금 진행 중인 목표:** [06-two-pc-ping-plan.md](06-two-pc-ping-plan.md) — PC 2대를 직접 연결해 ping이 되는지 먼저 확인합니다. E1의 앞부분만 잘라낸 계획과 3인 분담이 있습니다.
+
 팀 공유용 요약 페이지: [team-overview.html](team-overview.html). 위 문서를 한 화면으로 간추린 것이며, 내용이 다르면 위 문서가 맞습니다.
 
 ## 검토 게이트
