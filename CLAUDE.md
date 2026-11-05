@@ -2,7 +2,7 @@
 
 웹 브라우저에서 네트워크 장비를 배치·연결하고 CLI로 설정해 통신을 실습하는 네트워크 시뮬레이터. 3인 팀 프로젝트.
 
-- 저장소: https://github.com/TL-cg11/PING9
+- 저장소: https://github.com/TL-cg11/PING9 (**공개**). 2026-11-05에 새로 만든 저장소이고, 그 전의 저장소는 비공개 `TL-cg11/PING9-archive`로 남아 있다 (옛 PR #1 ~ #4가 거기 있음).
 - 배포: Vercel 프로젝트 `ping9`, 운영 주소 https://ping9.vercel.app. `main`에 push하면 자동 배포.
 - DB: Vercel Marketplace의 Neon `ping9-db` (PostgreSQL 18, 무료 플랜, 싱가포르). 운영 환경에만 연결. 접속 주소는 Vercel 환경 변수 `DATABASE_URL`에 있고 저장소에 넣지 않는다.
 - 계획 문서: [docs/project-plan/README.md](docs/project-plan/README.md) — 문서의 "PacketTracer WEB"은 이 프로젝트의 옛 이름
@@ -21,8 +21,10 @@
 ## 검사와 배포
 
 - PR을 올리면 GitHub Actions의 `check`가 돈다: 비밀값 형태 검사, 취약점 검사, lint, 타입 검사, 테스트, 빌드. 올리기 전에 `pnpm check`와 `pnpm check:secrets`로 미리 본다.
-- `main`에 들어온 커밋은 Actions가 같은 검사를 한 뒤 Vercel 운영에 배포한다. 상세와 남은 설정은 [docs/task-logs/T1.1.3-ci-and-deploy.md](docs/task-logs/T1.1.3-ci-and-deploy.md).
-- 비밀값(토큰, DB 주소, `.env` 파일)은 저장소에 넣지 않는다. Vercel 환경 변수와 GitHub 환경 `production`의 비밀값에만 둔다.
+- `main`에 들어온 커밋에도 같은 검사가 돈다. 배포는 Actions가 아니라 Vercel의 Git 연동이 한다. 저장소가 공개여야 팀원의 커밋이 배포된다. 이유와 경과는 [docs/task-logs/T0.4-public-repo-and-git-deploy.md](docs/task-logs/T0.4-public-repo-and-git-deploy.md).
+- 비밀값(토큰, DB 주소, `.env` 파일)은 저장소에 넣지 않는다. Vercel 환경 변수에만 둔다. 저장소가 공개이므로 커밋한 내용은 누구나 본다.
+- 커밋에는 개인 이메일 대신 GitHub의 noreply 주소를 쓴다. GitHub 설정의 Emails에서 "Keep my email addresses private"와 "Block command line pushes that expose my email"을 켜고, `git config user.email`을 그 화면에 나오는 `<숫자>+<아이디>@users.noreply.github.com`으로 맞춘다.
+- 2026-11-05 전에 받은 폴더에서는 push하지 않는다. 옛 커밋이 공개 저장소에 올라간다. 저장소를 새로 받는다.
 
 ## 계획 문서와 달라진 결정
 
