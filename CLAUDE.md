@@ -15,7 +15,8 @@
 2. 기록 문서는 그 Task의 코드와 **같은 Pull Request**에 넣고, [docs/task-logs/README.md](docs/task-logs/README.md)의 목록에 한 줄을 추가한다.
 3. Task마다 브랜치를 만든다: `feat/<Task ID>-<설명>` (예: `feat/T1.3.1-device-commands`). `main`에는 Pull Request로만 넣고, 다른 팀원 한 명이 검토한다.
 4. 완료 판단은 [개발 계획 4.3절의 공통 완료 조건](docs/project-plan/04-development-plan.md#43-분해-구조-읽는-법)을 따른다.
-5. 계획 문서와 다르게 구현했으면 기록 문서의 "계획과 달라진 점"에 적는다. 계획 문서 본문은 팀이 합의한 뒤에 고친다.
+5. **커밋 메시지와 Pull Request 제목·설명은 영어로 쓴다.** `Co-Authored-By: Claude ...`, "Generated with Claude Code" 같은 AI 표시 줄을 넣지 않는다. 문서 본문은 한국어로 쓴다.
+6. 계획 문서와 다르게 구현했으면 기록 문서의 "계획과 달라진 점"에 적는다. 계획 문서 본문은 팀이 합의한 뒤에 고친다.
 
 ## 계획 문서와 달라진 결정
 
