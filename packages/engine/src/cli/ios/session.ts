@@ -1,6 +1,7 @@
 // CLI 세션: 장비마다 현재 모드와 설정 중인 대상을 기억한다 (FR-19).
 // 세션은 Simulator가 장비별로 하나씩 보관하고, 문서를 다시 불러오면 처음 상태로 돌아간다.
 
+import { switchVlans } from "@ping9/shared";
 import type { ConsoleLine, Device, DispatchResult } from "@ping9/shared";
 
 import type { CliSession } from "./define";
@@ -29,8 +30,9 @@ export function promptFor(deviceName: string, session: CliSession): string {
  */
 export function effectiveSession(session: CliSession, device: Device): CliSession {
   if (session.mode === "config-vlan") {
+    // VLAN 1은 구성에 없어도 있는 것으로 친다 (switchVlans)
     const exists =
-      device.kind === "switch" && device.config.vlans.some((vlan) => vlan.id === session.targetVlan);
+      device.kind === "switch" && switchVlans(device.config).some((vlan) => vlan.id === session.targetVlan);
     if (!exists) return { mode: "config" };
   }
   return session;

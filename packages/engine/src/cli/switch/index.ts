@@ -2,5 +2,6 @@
 
 import { BASE_COMMANDS } from "../ios";
 import type { CommandDefinition } from "../ios";
+import { VLAN_COMMANDS } from "./vlan-commands";
 
-export const SWITCH_COMMANDS: readonly CommandDefinition[] = [...BASE_COMMANDS];
+export const SWITCH_COMMANDS: readonly CommandDefinition[] = [...BASE_COMMANDS, ...VLAN_COMMANDS];
