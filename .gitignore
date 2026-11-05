@@ -30,3 +30,7 @@ docs/project-plan/project-plan.zip
 .DS_Store
 Thumbs.db
 *.log
+
+.vercel
+.env*
+!.env.example
