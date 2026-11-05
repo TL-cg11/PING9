@@ -23,4 +23,11 @@ export default tseslint.config(
       reportUnusedDisableDirectives: "error",
     },
   },
+  {
+    // 저장소 관리용 Node 스크립트
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { console: "readonly", process: "readonly" },
+    },
+  },
 );

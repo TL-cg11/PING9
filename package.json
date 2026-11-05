@@ -10,7 +10,9 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "pnpm -r run typecheck",
-    "test": "pnpm -r run test",
+    "test": "pnpm test:scripts && pnpm -r run test",
+    "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
+    "check:secrets": "node scripts/check-secrets.mjs",
     "build": "pnpm -r run build",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "dev": "pnpm --filter @ping9/web dev"

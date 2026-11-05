@@ -18,6 +18,12 @@
 5. **커밋 메시지와 Pull Request 제목·설명은 영어로 쓴다.** `Co-Authored-By: Claude ...`, "Generated with Claude Code" 같은 AI 표시 줄을 넣지 않는다. 문서 본문은 한국어로 쓴다.
 6. 계획 문서와 다르게 구현했으면 기록 문서의 "계획과 달라진 점"에 적는다. 계획 문서 본문은 팀이 합의한 뒤에 고친다.
 
+## 검사와 배포
+
+- PR을 올리면 GitHub Actions의 `check`가 돈다: 비밀값 형태 검사, 취약점 검사, lint, 타입 검사, 테스트, 빌드. 올리기 전에 `pnpm check`와 `pnpm check:secrets`로 미리 본다.
+- `main`에 들어온 커밋은 Actions가 같은 검사를 한 뒤 Vercel 운영에 배포한다. 상세와 남은 설정은 [docs/task-logs/T1.1.3-ci-and-deploy.md](docs/task-logs/T1.1.3-ci-and-deploy.md).
+- 비밀값(토큰, DB 주소, `.env` 파일)은 저장소에 넣지 않는다. Vercel 환경 변수와 GitHub 환경 `production`의 비밀값에만 둔다.
+
 ## 계획 문서와 달라진 결정
 
 [docs/task-logs/T0.1-repo-and-deploy-setup.md](docs/task-logs/T0.1-repo-and-deploy-setup.md)에 기록. 요약: 배포를 "VM 한 대 + Docker Compose + Caddy"에서 **Vercel**로, DB를 "PostgreSQL 컨테이너"에서 **Vercel Marketplace의 무료 Postgres**로 바꿨다. 03 문서 3.10절과 Story 2.2의 Task는 아직 옛 내용이다.
