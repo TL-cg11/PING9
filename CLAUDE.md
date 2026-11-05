@@ -3,7 +3,8 @@
 웹 브라우저에서 네트워크 장비를 배치·연결하고 CLI로 설정해 통신을 실습하는 네트워크 시뮬레이터. 3인 팀 프로젝트.
 
 - 저장소: https://github.com/TL-cg11/PING9
-- 배포: Vercel (프로젝트 `ping9`). DB는 Vercel Marketplace의 무료 Postgres.
+- 배포: Vercel 프로젝트 `ping9`, 운영 주소 https://ping9.vercel.app. `main`에 push하면 자동 배포.
+- DB: Vercel Marketplace의 Neon `ping9-db` (PostgreSQL 18, 무료 플랜, 싱가포르). 운영 환경에만 연결. 접속 주소는 Vercel 환경 변수 `DATABASE_URL`에 있고 저장소에 넣지 않는다.
 - 계획 문서: [docs/project-plan/README.md](docs/project-plan/README.md) — 문서의 "PacketTracer WEB"은 이 프로젝트의 옛 이름
 - 작업 단위 상세: [docs/project-plan/04-tasks/](docs/project-plan/04-tasks/)
 - 규칙 문서(AD): `_bmad-output/planning-artifacts/architecture/architecture-PacketTracer-WEB-2026-11-05/ARCHITECTURE-SPINE.md`

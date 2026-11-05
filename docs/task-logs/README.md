@@ -14,4 +14,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 
 | Task | 문서 | 영역 | 담당 | 상태 |
 |---|---|---|---|---|
-| T0.1 저장소와 배포 연결 | [T0.1-repo-and-deploy-setup.md](T0.1-repo-and-deploy-setup.md) | 배포 | SDY | 일부 완료 (Git 자동 배포, DB 남음) |
+| T0.1 저장소와 배포 연결 | [T0.1-repo-and-deploy-setup.md](T0.1-repo-and-deploy-setup.md) | 배포 | SDY | 완료 |
