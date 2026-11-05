@@ -1,0 +1,24 @@
+{
+  "name": "ping9",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=24.19.0 <25"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "build": "pnpm -r run build",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "dev": "pnpm --filter @ping9/web dev"
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:"
+  }
+}

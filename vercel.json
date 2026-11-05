@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "installCommand": "",
-  "buildCommand": "",
-  "outputDirectory": "apps/web"
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm --filter @ping9/web build",
+  "outputDirectory": "apps/web/dist"
 }

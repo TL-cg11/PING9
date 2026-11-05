@@ -1,0 +1,46 @@
+packages:
+  - apps/*
+  - packages/*
+
+# 버전은 여기 한 곳에서만 고정한다. 각 패키지의 package.json에는 "catalog:"라고 적는다.
+# 출처: ARCHITECTURE-SPINE.md의 Stack 표 (2026-11-05). 표에 없는 항목은 주석으로 표시.
+catalog:
+  # 언어와 검사
+  typescript: 6.0.3
+  eslint: 10.14.0
+  "@eslint/js": 10.0.1 # Stack 표에 없음. eslint의 추천 규칙 묶음
+  typescript-eslint: 8.72.1
+  "@types/node": 24.19.2 # Stack 표에 없음. Node 24 계열의 타입
+
+  # 테스트
+  vitest: 5.1.0
+  fast-check: 4.10.2
+  "@playwright/test": 1.64.1
+
+  # 화면
+  react: 19.3.1
+  react-dom: 19.3.1
+  "@types/react": 19.3.0 # Stack 표에 없음
+  "@types/react-dom": 19.3.0 # Stack 표에 없음
+  vite: 8.3.5
+  "@vitejs/plugin-react": 6.2.1
+  "@xyflow/react": 12.12.1
+  "@xterm/xterm": 6.0.0
+  "@xterm/addon-fit": 0.11.0
+  zustand: 5.0.16
+  react-router: 8.5.1
+  tailwindcss: 4.3.4
+  "@tailwindcss/vite": 4.3.4
+
+  # 공통
+  zod: 4.6.7
+
+  # 서버
+  hono: 4.13.16
+  "@hono/node-server": 2.1.6
+  better-auth: 1.7.17
+  "@better-auth/drizzle-adapter": 1.7.17
+  drizzle-orm: 0.45.4
+  drizzle-kit: 0.31.11
+  pg: 8.23.1
+  pino: 10.4.0
