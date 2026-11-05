@@ -79,6 +79,10 @@ export interface ErrorParamsByCode {
     readonly expected: DeviceKind;
     readonly actual: DeviceKind;
   };
+  /** 그 Switch에 없는 VLAN의 이름을 바꾸거나 지우려 함 */
+  VLAN_NOT_FOUND: { readonly deviceId: string; readonly vlanId: number };
+  /** VLAN 1은 지우거나 이름을 바꿀 수 없음 (FR-31) */
+  DEFAULT_VLAN_READONLY: { readonly deviceId: string };
 
   // CLI 해석 (FR-46). `position`은 ConsoleLine에 따로 담는다
   CLI_UNKNOWN_COMMAND: { readonly token: string };
@@ -135,6 +139,8 @@ const ERROR_CODE_SET = {
   DEVICE_NOT_FOUND: true,
   LINK_NOT_FOUND: true,
   DEVICE_KIND_MISMATCH: true,
+  VLAN_NOT_FOUND: true,
+  DEFAULT_VLAN_READONLY: true,
   CLI_UNKNOWN_COMMAND: true,
   CLI_INCOMPLETE_COMMAND: true,
   CLI_AMBIGUOUS_COMMAND: true,

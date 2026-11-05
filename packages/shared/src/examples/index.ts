@@ -5,10 +5,12 @@ import type { TopologyDocument } from "../document";
 import { thirtyDeviceDocument } from "./thirty-devices";
 import { twoPcDocument } from "./two-pc";
 import { twoPcSwitchDocument } from "./two-pc-switch";
+import { twoSwitchVlanDocument } from "./two-switch-vlan";
 
 export * from "./thirty-devices";
 export * from "./two-pc";
 export * from "./two-pc-switch";
+export * from "./two-switch-vlan";
 
 /** 모든 예시 Document. 이름은 테스트 출력에 쓴다 */
 export const EXAMPLE_DOCUMENTS: readonly {
@@ -18,4 +20,5 @@ export const EXAMPLE_DOCUMENTS: readonly {
   { name: "PC 2대 직접 연결", document: twoPcDocument },
   { name: "PC 2대와 Switch 1대", document: twoPcSwitchDocument },
   { name: "장비 30대", document: thirtyDeviceDocument },
+  { name: "Switch 2대와 VLAN 2개", document: twoSwitchVlanDocument },
 ];
