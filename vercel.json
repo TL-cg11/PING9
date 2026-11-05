@@ -3,5 +3,9 @@
   "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm --filter @ping9/web build",
-  "outputDirectory": "apps/web/dist"
+  "outputDirectory": "apps/web/dist",
+  "routes": [
+    { "src": "/", "dest": "/mockup.html" },
+    { "src": "/mockup\\.html", "status": 404 }
+  ]
 }
