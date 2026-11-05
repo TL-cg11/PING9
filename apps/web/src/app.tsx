@@ -10,6 +10,7 @@ import { Palette } from "./components/palette";
 import { TerminalWindow } from "./components/terminal-window";
 import { TopBar } from "./components/top-bar";
 import { TOPOLOGY_NAME, simulator, useSnapshot } from "./simulator";
+import { createCommandQueue } from "./terminal/command-queue";
 import { historyStep, initialTerminal, runLine } from "./terminal/terminal-state";
 import type { TerminalState } from "./terminal/terminal-state";
 import { INITIAL_UI_STATE, uiReducer } from "./ui-state";
@@ -39,8 +40,21 @@ export function App() {
     setTerminals(latest.current);
   };
 
-  // 장비마다 앞 명령의 실행이 끝난 뒤에 다음 명령을 실행한다. 줄의 순서가 입력 순서와 같게 된다
-  const queues = useRef(new Map<string, Promise<void>>());
+  // 장비마다 앞 명령의 실행이 끝난 뒤에 다음 명령을 실행한다. 줄의 순서가 입력 순서와 같게 된다.
+  // 실행이 실패해도 그 터미널이 멈추지 않게, 실패는 그 터미널에 오류 줄로 남긴다
+  const [queue] = useState(() =>
+    createCommandQueue((deviceId) => {
+      updateTerminals((current) => {
+        const state = current[deviceId];
+        if (state === undefined) return current;
+        const failed: TerminalState = {
+          ...state,
+          lines: [...state.lines, { kind: "error", text: "명령을 실행하지 못했어요. 다시 입력해 주세요" }],
+        };
+        return { ...current, [deviceId]: failed };
+      });
+    }),
+  );
 
   // 문서에서 사라진 장비를 가리키는 선택과 터미널을 비운다
   useEffect(() => {
@@ -58,16 +72,12 @@ export function App() {
   };
 
   const submit = (deviceId: string, input: string) => {
-    const previous = queues.current.get(deviceId) ?? Promise.resolve();
-    queues.current.set(
-      deviceId,
-      previous.then(async () => {
-        const state = latest.current[deviceId];
-        if (state === undefined) return;
-        const next = await runLine(simulator.console(deviceId), state, input);
-        updateTerminals((current) => ({ ...current, [deviceId]: next }));
-      }),
-    );
+    void queue.enqueue(deviceId, async () => {
+      const state = latest.current[deviceId];
+      if (state === undefined) return;
+      const next = await runLine(simulator.console(deviceId), state, input);
+      updateTerminals((current) => ({ ...current, [deviceId]: next }));
+    });
   };
 
   const stepHistory = (deviceId: string, direction: "up" | "down"): string => {

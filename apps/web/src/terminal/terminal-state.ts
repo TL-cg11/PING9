@@ -33,10 +33,15 @@ export function initialTerminal(prompt: string): TerminalState {
   return { lines: [], prompt, history: [], historyIndex: null };
 }
 
-/** 제어 문자를 지우고 한 줄의 한도로 자른다 (SEC-11, SEC-15) */
+/** 탭은 공백으로 바꾸고, 그 밖의 제어 문자는 지우고, 한 줄의 한도로 자른다 (SEC-11, SEC-15) */
 export function cleanInput(text: string): string {
   let clean = "";
   for (const character of text) {
+    // 붙여 넣은 줄의 탭은 단어 사이의 공백이다. 지우면 단어가 붙어 버린다
+    if (character === "	") {
+      clean += " ";
+      continue;
+    }
     const code = character.codePointAt(0)!;
     if (code <= 0x1f || (code >= 0x7f && code <= 0x9f)) continue;
     clean += character;

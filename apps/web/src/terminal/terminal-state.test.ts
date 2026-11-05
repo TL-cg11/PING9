@@ -72,6 +72,20 @@ describe("cleanInput", () => {
     expect(cleanInput("a\u007fb\u009fc")).toBe("abc");
   });
 
+  test("탭은 지우지 않고 공백으로 바꾼다 (붙여 넣은 줄의 단어가 붙지 않게)", () => {
+    expect(cleanInput("show\tvlan\tbrief")).toBe("show vlan brief");
+  });
+
+  test("탭으로 띄운 명령어도 실행된다", async () => {
+    const port = switchPort();
+    let state = await runLine(port, initialTerminal(port.prompt()), "enable");
+
+    state = await runLine(port, state, "show\tvlan\tbrief");
+
+    expect(state.lines.at(-1)).toMatchObject({ kind: "text" });
+    expect(state.lines.some((line) => line.kind === "error")).toBe(false);
+  });
+
   test("512자로 자른다", () => {
     expect(cleanInput("x".repeat(600))).toHaveLength(512);
   });
