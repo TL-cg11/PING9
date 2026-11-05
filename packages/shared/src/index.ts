@@ -1,2 +1,20 @@
-// 패키지 연결 확인용 자리표시. T1.2.1에서 계약 타입과 코드 열거형으로 교체한다.
-export const SHARED_PACKAGE_NAME = "@ping9/shared";
+// @ping9/shared: engine, web, api가 함께 쓰는 계약.
+// 예시 자료는 `@ping9/shared/examples`에서 가져온다.
+
+export * from "./codes";
+export * from "./command";
+export * from "./console";
+export * from "./document";
+export * from "./limits";
+export * from "./trace";
+export * from "./values";
+export * from "./view";
+
+export {
+  documentByteSize,
+  migrateDocument,
+  parseDocumentJson,
+  validateDocument,
+  validateTrace,
+} from "./validate";
+export type { DocumentResult, TraceCheckResult } from "./validate";
