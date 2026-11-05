@@ -16,3 +16,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 |---|---|---|---|---|
 | T0.1 저장소와 배포 연결 | [T0.1-repo-and-deploy-setup.md](T0.1-repo-and-deploy-setup.md) | 배포 | SDY | 완료 |
 | T1.1.1 모노레포와 패키지 뼈대 | [T1.1.1-monorepo-skeleton.md](T1.1.1-monorepo-skeleton.md) | 공통 | SDY | 완료 (검토 없이 병합) |
+| T0.2 편집기 화면 시안 페이지 배포 | [T0.2-ui-mockup-page.md](T0.2-ui-mockup-page.md) | 화면 | yysong1249 | 완료 (검토 없이 병합) |
