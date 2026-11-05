@@ -11,6 +11,7 @@ import type { Command, CommandOf, CommandType, ErrorInfo, Notice, TopologyDocume
 
 import { describeValue } from "./describe";
 import { createVlan, removeVlan, renameVlan } from "./handlers/switch-vlan";
+import { setPcIp } from "./reducer/pc-set-ip";
 
 export type ReduceResult =
   | {
@@ -27,10 +28,14 @@ export type CommandHandler<T extends CommandType> = (
 
 // 처리기의 본문은 handlers/ 폴더의 각자 파일에 두고, 여기에는 자기 Command의 줄만 더한다
 const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
+  "pc/set-ip": setPcIp,
   "vlan/create": createVlan,
   "vlan/rename": renameVlan,
   "vlan/remove": removeVlan,
 };
+
+/** 처리기가 있는 Command. 처리기가 없는 Command를 확인하는 테스트가 쓴다 */
+export const HANDLED_COMMAND_TYPES = Object.keys(handlers) as readonly CommandType[];
 
 export function reduce(document: TopologyDocument, command: Command): ReduceResult {
   // 타입으로는 Command지만 경계 밖에서 온 값일 수 있다. 예외 대신 오류 결과를 돌려준다 (AD-16)
