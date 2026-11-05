@@ -5,6 +5,7 @@ import type { DeviceKind } from "@ping9/shared";
 import { useEffect, useReducer, useRef, useState } from "react";
 
 import { Canvas } from "./components/canvas";
+import { Inspector } from "./components/inspector";
 import { Palette } from "./components/palette";
 import { TerminalWindow } from "./components/terminal-window";
 import { TopBar } from "./components/top-bar";
@@ -110,7 +111,7 @@ export function App() {
             );
           })}
         </section>
-        <aside className="inspector" />
+        <Inspector snapshot={snapshot} deviceId={ui.selectedDeviceId} onOpenTerminal={openTerminal} />
       </main>
     </div>
   );
