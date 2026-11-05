@@ -9,6 +9,8 @@
 import { errorInfo } from "@ping9/shared";
 import type { Command, CommandOf, CommandType, ErrorInfo, Notice, TopologyDocument } from "@ping9/shared";
 
+import { createVlan, removeVlan, renameVlan } from "./handlers/switch-vlan";
+
 export type ReduceResult =
   | {
       readonly ok: true;
@@ -22,8 +24,11 @@ export type CommandHandler<T extends CommandType> = (
   command: CommandOf<T>,
 ) => ReduceResult;
 
+// 처리기의 본문은 handlers/ 폴더의 각자 파일에 두고, 여기에는 자기 Command의 줄만 더한다
 const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
-  // 예: "device/add": addDevice,
+  "vlan/create": createVlan,
+  "vlan/rename": renameVlan,
+  "vlan/remove": removeVlan,
 };
 
 export function reduce(document: TopologyDocument, command: Command): ReduceResult {
