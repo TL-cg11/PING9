@@ -25,3 +25,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T3.1.1 명령 트리 확장: 모드와 세션 | [T3.1.1-cli-modes-and-session.md](T3.1.1-cli-modes-and-session.md) | 엔진 | SDY | 구현 완료. PR과 검토 남음 |
 | T3.1.2 Switch 기본 명령어 | [T3.1.2-switch-basic-commands.md](T3.1.2-switch-basic-commands.md) | 엔진 | SDY | 구현 완료. PR과 검토 남음 (`hostname`은 `device/rename` 처리기 대기) |
 | T5.1.1 VLAN 구성 | [T5.1.1-vlan-config.md](T5.1.1-vlan-config.md) | 엔진, 공통 | SDY | 구현 완료. PR과 검토 남음 (`shared` 변경은 팀 확인 필요. 직렬화는 T3.4.1에서) |
+| T5.4.1 Switch 화면 (계획에 없는 새 ID) | [T5.4.1-switch-screen.md](T5.4.1-switch-screen.md) | 화면 | SDY | 구현 완료. PR과 검토 남음 (운영 주소에서는 아직 보이지 않음) |
