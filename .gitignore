@@ -1,0 +1,32 @@
+# 의존성과 빌드 결과
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.turbo/
+
+# 환경 변수와 비밀값 (예시 파일만 커밋)
+.env
+.env.*
+!.env.example
+
+# Vercel 로컬 연결 정보 (프로젝트 ID, 내려받은 환경 변수)
+.vercel/
+
+# 개인별 도구 설정
+.claude/settings.local.json
+.claude/journal/
+_bmad/config.user.toml
+_bmad/custom/config.user.toml
+
+# 문서 폴더를 묶은 사본 (원본은 docs/project-plan/ 에 있음)
+docs/project-plan/project-plan.zip
+
+# 편집기와 OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.log

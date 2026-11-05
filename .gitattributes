@@ -1,0 +1,5 @@
+# 저장소 안의 줄 끝은 LF로 통일 (Windows, macOS 혼용 대비)
+* text=auto eol=lf
+*.zip binary
+*.png binary
+*.jpg binary
