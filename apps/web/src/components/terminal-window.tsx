@@ -146,8 +146,11 @@ export function TerminalWindow({
       <div className="term-bar" onMouseDown={startDrag}>
         <span className="t-name">{deviceName}</span>
         <span className="t-chip">{kindLabel}</span>
+        {/* Safari는 기본 설정에서 Tab이 버튼을 건너뛴다. tabIndex를 적어 Shift+Tab으로 닿게 한다 (NFR-12) */}
         <button
+          type="button"
           className="t-x"
+          tabIndex={0}
           aria-label="닫기"
           onClick={(event) => {
             event.stopPropagation();

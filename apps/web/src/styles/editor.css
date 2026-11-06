@@ -82,6 +82,8 @@ button { font: inherit; cursor: pointer; }
 .term-bar .t-chip { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: rgba(143,220,255,.18); color: var(--cyan); }
 .term-bar .t-x { margin-left: auto; border: none; background: transparent; color: rgba(255,255,255,.7); font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 6px; }
 .term-bar .t-x:hover { background: rgba(255,255,255,.12); color: #fff; }
+/* 어두운 제목 줄에서 기본 테두리가 묻혀 키보드 포커스가 안 보였다 */
+.term-bar .t-x:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; background: rgba(255,255,255,.12); color: #fff; }
 .term-body { flex: 1; overflow: auto; padding: 10px 12px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.65; color: #D6E6FF; }
 .term-body .p { color: var(--cyan); }
 .term-body .err { color: #FF9EA1; }
