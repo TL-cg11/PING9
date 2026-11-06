@@ -2,8 +2,9 @@
 // 구성 값은 스냅샷의 Document에서, 포트 상태와 테이블은 스냅샷의 views에서 읽는다 (AD-7).
 
 import { shortPortName } from "@ping9/shared";
-import type { DeviceKind, PortView, Snapshot, TopologyDocument } from "@ping9/shared";
+import type { Command, DeviceKind, DispatchResult, PortView, Snapshot, TopologyDocument } from "@ping9/shared";
 
+import { PcSettings } from "./pc-settings";
 import { SwitchMacTable, SwitchVlanList } from "./switch-inspector";
 
 const KIND_LABEL: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router" };
@@ -19,10 +20,13 @@ export function Inspector({
   snapshot,
   deviceId,
   onOpenTerminal,
+  onDispatch,
 }: {
   readonly snapshot: Snapshot;
   readonly deviceId: string | null;
   readonly onOpenTerminal: (deviceId: string) => void;
+  /** 설정 입력을 Document에 반영하는 길. Simulator의 dispatch다 (AD-3) */
+  readonly onDispatch: (command: Command) => DispatchResult;
 }) {
   const { document } = snapshot;
   const device = document.devices.find((candidate) => candidate.id === deviceId);
@@ -48,6 +52,7 @@ export function Inspector({
         포트 {view.ports.length}개 · {linked}개 연결
       </div>
 
+      {device.kind === "pc" && <PcSettings key={device.id} device={device} onDispatch={onDispatch} />}
       {device.kind === "switch" && <SwitchVlanList config={device.config} />}
 
       <h4>{device.kind === "switch" ? "포트" : "인터페이스"}</h4>
