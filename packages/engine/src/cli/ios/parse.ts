@@ -1,5 +1,5 @@
 // 입력 한 줄을 명령 정의와 인자로 해석한다. 틀리면 오류 코드와 틀린 단어의 위치를 돌려준다 (FR-46).
-// 지금은 단어가 정확히 일치할 때만 받아들인다. 줄임 입력은 T3.2.1에서 더한다.
+// 키워드는 그 자리에서 하나로 정해지는 만큼만 쳐도 된다 (줄임 입력, T3.2.1).
 
 import { checkVlanId, errorInfo } from "@ping9/shared";
 import type { DeviceKind, ErrorInfo } from "@ping9/shared";
@@ -45,6 +45,58 @@ function readParam(token: ParamToken, text: string): ParamResult {
   }
 }
 
+/**
+ * 줄임 입력 (T3.2.1). 단어를 앞에서부터 읽으며 자리마다 어느 키워드인지 정한다.
+ * 그 자리에 올 수 있는 키워드 가운데 단어와 똑같은 것이 있으면 그것이고,
+ * 없으면 단어로 시작하는 키워드가 하나뿐일 때 그것이다. 둘 이상이면 모호하다.
+ * 매개변수 자리의 글은 줄임으로 읽지 않는다.
+ */
+interface Walk {
+  /** 자리마다 정해진 키워드(소문자). 키워드로 읽지 못한 자리는 undefined */
+  readonly keywords: readonly (string | undefined)[];
+  /** 여러 키워드로 읽히는 단어 */
+  readonly ambiguous?: Word;
+}
+
+function walkWords(definitions: readonly CommandDefinition[], words: readonly Word[]): Walk {
+  const keywords: (string | undefined)[] = [];
+  // 앞의 단어가 모두 맞은 정의들
+  let alive = definitions;
+
+  for (const [index, word] of words.entries()) {
+    if (alive.length === 0) break;
+    const text = word.text.toLowerCase();
+
+    const here = new Set<string>();
+    let paramAccepts = false;
+    for (const definition of alive) {
+      const token = definition.tokens[index];
+      if (token === undefined) continue;
+      if (typeof token === "string") here.add(token.toLowerCase());
+      else if (readParam(token, word.text).ok) paramAccepts = true;
+    }
+
+    let keyword: string | undefined;
+    if (here.has(text)) {
+      keyword = text;
+    } else {
+      const prefixed = [...here].filter((candidate) => candidate.startsWith(text));
+      if (prefixed.length === 1) keyword = prefixed[0];
+      // 같은 자리의 매개변수가 이 글을 받으면 값으로 읽는다
+      else if (prefixed.length > 1 && !paramAccepts) return { keywords, ambiguous: word };
+    }
+    keywords.push(keyword);
+
+    alive = alive.filter((definition) => {
+      const token = definition.tokens[index];
+      if (token === undefined) return false;
+      return typeof token === "string" ? token.toLowerCase() === keyword : readParam(token, word.text).ok;
+    });
+  }
+
+  return { keywords };
+}
+
 /** 정의 하나와 줄을 맞춰 본 결과. `matched`는 앞에서부터 일치한 단어 수다 */
 type Attempt =
   | { readonly kind: "ok"; readonly args: CommandArgs }
@@ -55,7 +107,11 @@ type Attempt =
 
 type Failure = Exclude<Attempt, { readonly kind: "ok" }>;
 
-function attempt(definition: CommandDefinition, words: readonly Word[]): Attempt {
+function attempt(
+  definition: CommandDefinition,
+  words: readonly Word[],
+  keywords: readonly (string | undefined)[],
+): Attempt {
   const args: Record<string, string | number> = {};
 
   for (const [index, token] of definition.tokens.entries()) {
@@ -63,7 +119,9 @@ function attempt(definition: CommandDefinition, words: readonly Word[]): Attempt
     if (word === undefined) return { kind: "incomplete", matched: index };
 
     if (typeof token === "string") {
-      if (token.toLowerCase() !== word.text.toLowerCase()) return { kind: "mismatch", matched: index, word };
+      // 줄여 쓴 단어는 walkWords가 정한 키워드로 본다
+      const typed = keywords[index] ?? word.text.toLowerCase();
+      if (token.toLowerCase() !== typed) return { kind: "mismatch", matched: index, word };
       continue;
     }
 
@@ -85,9 +143,26 @@ const FAILURE_RANK: Readonly<Record<Failure["kind"], number>> = {
   mismatch: 3,
 };
 
-function firstKeywordMatches(definition: CommandDefinition, word: Word): boolean {
-  const first = definition.tokens[0];
-  return typeof first === "string" && first.toLowerCase() === word.text.toLowerCase();
+/** 이 장비에 있는 정의 */
+function definitionsFor(kind: DeviceKind, definitions: readonly CommandDefinition[]): CommandDefinition[] {
+  return definitions.filter((definition) => definition.devices === undefined || definition.devices.includes(kind));
+}
+
+/**
+ * 이 모드에서 칠 수 있는 정의. 하위 설정 모드에서는 config 모드의 명령도 칠 수 있다 (IOS와 같음).
+ * 그 모드의 정의가 앞에 오므로, 같은 줄이 둘 다에 맞으면 그 모드의 정의로 읽는다.
+ */
+function candidatesFor(mode: CliMode, forDevice: readonly CommandDefinition[]): CommandDefinition[] {
+  const own = forDevice.filter((definition) => definition.modes.includes(mode));
+  if (mode !== "config-if" && mode !== "config-vlan") return own;
+  return [...own, ...forDevice.filter((definition) => definition.modes.includes("config") && !own.includes(definition))];
+}
+
+/** 이 정의들 가운데 줄 전체가 맞는 것이 있는가 */
+function matchesAny(definitions: readonly CommandDefinition[], words: readonly Word[]): boolean {
+  const walk = walkWords(definitions, words);
+  if (walk.ambiguous !== undefined) return false;
+  return definitions.some((definition) => attempt(definition, words, walk.keywords).kind === "ok");
 }
 
 export function parseLine(
@@ -100,23 +175,21 @@ export function parseLine(
   const firstWord = words[0];
   if (firstWord === undefined) return { ok: false, error: errorInfo("CLI_INCOMPLETE_COMMAND", {}) };
 
-  const forDevice = definitions.filter(
-    (definition) => definition.devices === undefined || definition.devices.includes(kind),
-  );
-  const inMode = (target: CliMode) => forDevice.filter((definition) => definition.modes.includes(target));
+  const forDevice = definitionsFor(kind, definitions);
+  const candidates = candidatesFor(mode, forDevice);
 
-  let candidates = inMode(mode);
-  // 하위 설정 모드에서 config 모드의 명령을 치면 config 모드의 명령으로 해석한다
-  if (
-    (mode === "config-if" || mode === "config-vlan") &&
-    !candidates.some((definition) => firstKeywordMatches(definition, firstWord))
-  ) {
-    candidates = inMode("config");
+  const walk = walkWords(candidates, words);
+  if (walk.ambiguous !== undefined) {
+    return {
+      ok: false,
+      error: errorInfo("CLI_AMBIGUOUS_COMMAND", { token: clip(walk.ambiguous.text) }),
+      position: walk.ambiguous.position,
+    };
   }
 
   let best: Failure | undefined;
   for (const definition of candidates) {
-    const result = attempt(definition, words);
+    const result = attempt(definition, words, walk.keywords);
     if (result.kind === "ok") return { ok: true, definition, args: result.args };
 
     const better =
@@ -128,8 +201,9 @@ export function parseLine(
 
   // 첫 단어부터 틀렸는데 다른 모드에는 있는 명령어라면 모드가 틀린 것이다
   if (best === undefined || (best.kind === "mismatch" && best.matched === 0)) {
-    const elsewhere = forDevice.some(
-      (definition) => !candidates.includes(definition) && attempt(definition, words).kind === "ok",
+    const elsewhere = matchesAny(
+      forDevice.filter((definition) => !candidates.includes(definition)),
+      words,
     );
     const code = elsewhere ? "CLI_WRONG_MODE" : "CLI_UNKNOWN_COMMAND";
     return {
