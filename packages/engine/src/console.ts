@@ -7,7 +7,7 @@
 import { LIMITS } from "@ping9/shared";
 import type { ConsoleLine, ConsoleResult, DeviceKind, HelpEntry } from "@ping9/shared";
 
-import { iosExec, iosPrompt } from "./cli/ios";
+import { iosComplete, iosExec, iosHelp, iosPrompt } from "./cli/ios";
 import type { CommandDefinition, IosConsoleEnv } from "./cli/ios";
 import { SWITCH_COMMANDS } from "./cli/switch";
 
@@ -37,6 +37,17 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
   };
 
   const result = (...lines: ConsoleLine[]): ConsoleResult => ({ lines, prompt: prompt() });
+
+  // 완성과 도움말을 계산할 수 있는 경우만 돌려준다. 장비가 없거나, 명령 정의가 없는 종류거나,
+  // 글이 아니거나 너무 긴 줄이면 완성도 도움말도 없다 (예외를 던지지 않는다, AD-16)
+  const assistTarget = (line: unknown) => {
+    const device = findDevice();
+    if (device === undefined) return undefined;
+    const definitions = DEFINITIONS_BY_KIND[device.kind];
+    if (definitions === undefined) return undefined;
+    if (typeof line !== "string" || line.length > LIMITS.maxConsoleLineLength) return undefined;
+    return { text: line, device, definitions };
+  };
 
   return {
     prompt,
@@ -71,7 +82,14 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
       });
     },
 
-    complete: () => null,
-    help: () => [],
+    complete: (line: string): string | null => {
+      const target = assistTarget(line);
+      return target === undefined ? null : iosComplete(target.text, target.device, target.definitions, env);
+    },
+
+    help: (line: string): HelpEntry[] => {
+      const target = assistTarget(line);
+      return target === undefined ? [] : iosHelp(target.text, target.device, target.definitions, env);
+    },
   };
 }

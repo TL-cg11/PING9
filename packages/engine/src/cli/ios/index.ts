@@ -13,7 +13,8 @@ export type {
   ParamType,
   Token,
 } from "./define";
-export { iosExec, iosPrompt } from "./ios-console";
+export { completeLine, helpFor } from "./assist";
+export { iosComplete, iosExec, iosHelp, iosPrompt } from "./ios-console";
 export type { IosConsoleEnv } from "./ios-console";
 export { parseLine } from "./parse";
 export type { ParseResult } from "./parse";

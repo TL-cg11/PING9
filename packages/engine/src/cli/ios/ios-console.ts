@@ -7,9 +7,11 @@ import type {
   ConsoleResult,
   Device,
   DispatchResult,
+  HelpEntry,
   TopologyDocument,
 } from "@ping9/shared";
 
+import { completeLine, helpFor } from "./assist";
 import type { CliSession, CommandDefinition } from "./define";
 import { parseLine } from "./parse";
 import { effectiveSession, promptFor } from "./session";
@@ -26,6 +28,28 @@ export interface IosConsoleEnv {
 
 export function iosPrompt(device: Device, env: IosConsoleEnv): string {
   return promptFor(device.name, effectiveSession(env.getSession(device.id), device));
+}
+
+/** Tab 완성. 지금 세션의 모드에서 계산하고, 세션과 문서는 바꾸지 않는다 */
+export function iosComplete(
+  line: string,
+  device: Device,
+  definitions: readonly CommandDefinition[],
+  env: IosConsoleEnv,
+): string | null {
+  const session = effectiveSession(env.getSession(device.id), device);
+  return completeLine(line, session.mode, device.kind, definitions);
+}
+
+/** `?` 도움말. 지금 세션의 모드에서 계산하고, 세션과 문서는 바꾸지 않는다 */
+export function iosHelp(
+  line: string,
+  device: Device,
+  definitions: readonly CommandDefinition[],
+  env: IosConsoleEnv,
+): HelpEntry[] {
+  const session = effectiveSession(env.getSession(device.id), device);
+  return helpFor(line, session.mode, device.kind, definitions);
 }
 
 export function iosExec(
