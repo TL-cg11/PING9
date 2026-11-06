@@ -4,6 +4,7 @@
 import { shortPortName, switchPort, switchVlans, vlanAccessPorts } from "@ping9/shared";
 import type { SwitchConfig, SwitchView } from "@ping9/shared";
 
+import { formatAllowedVlans } from "../format/link-vlan";
 import { formatPortList } from "../format/port-list";
 import { vlanColor } from "../format/vlan-color";
 
@@ -15,6 +16,12 @@ export function SwitchPortTag({ config, port }: { readonly config: SwitchConfig;
   ) : (
     <span className={`vtag ${vlanColor(settings.accessVlan).className}`}>VLAN {settings.accessVlan}</span>
   );
+}
+
+/** trunk 포트의 줄에 연결된 장비 대신 보일 글 (시안: `허용 10, 20`). trunk가 아니면 undefined */
+export function trunkAllowedText(config: SwitchConfig, port: string): string | undefined {
+  const settings = switchPort(config, port);
+  return settings.mode === "trunk" ? `허용 ${formatAllowedVlans(settings.allowedVlans)}` : undefined;
 }
 
 export function SwitchVlanList({ config }: { readonly config: SwitchConfig }) {
