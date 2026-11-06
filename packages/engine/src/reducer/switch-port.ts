@@ -6,7 +6,7 @@ import { LIMITS, SWITCHPORT_MODES, checkVlanId, defaultVlanName, errorInfo, swit
 import type { ErrorInfo, Notice, SwitchDevice, VlanRange } from "@ping9/shared";
 
 import type { CommandHandler, ReduceResult } from "../reducer";
-import { checkSwitchPort, findSwitch, withSwitchPort } from "./switch-common";
+import { checkSwitchPort, checkVlanIdValue, findSwitch, withSwitchPort } from "./switch-common";
 
 const rejected = (error: ErrorInfo): ReduceResult => ({ ok: false, error });
 
@@ -38,7 +38,7 @@ export const setSwitchportAccessVlan: CommandHandler<"switchport/set-access-vlan
   const portError = checkSwitchPort(device, command.port);
   if (portError !== null) return rejected(portError);
 
-  const idError = checkVlanId(command.vlanId);
+  const idError = checkVlanIdValue(command.vlanId);
   if (idError !== null) return rejected(idError);
 
   // 없는 VLAN이면 기본 이름으로 만들고 알린다 (실제 장비와 같다)

@@ -2,7 +2,7 @@
 // switchport trunk allowed vlan (T5.3.1, FR-33).
 // 인터페이스 설정 모드에서 쓴다. 구성은 switchport/* Command를 dispatch해서만 바꾼다 (AD-3).
 
-import { ALL_VLANS, DEFAULT_VLAN_ID } from "@ping9/shared";
+import { ALL_VLANS, DEFAULT_VLAN_ID, switchPort } from "@ping9/shared";
 import type { Command, SwitchportMode, VlanRange } from "@ping9/shared";
 
 import { customParam, defineCommand, linesFromDispatch } from "../ios";
@@ -70,6 +70,21 @@ export const SWITCHPORT_COMMANDS: readonly CommandDefinition[] = [
     run: (args, context) => {
       const parsed = parseVlanList(String(args.list));
       return parsed.ok ? setAllowedVlans(context, parsed.ranges) : {};
+    },
+  }),
+  // 지금 목록에 더한다. show running-config가 긴 목록을 여러 줄로 나눠 쓸 때 이 형태를 쓴다
+  defineCommand({
+    modes: ["config-if"],
+    devices: ["switch"],
+    tokens: ["switchport", "trunk", "allowed", "vlan", "add", VLAN_LIST],
+    help: "Add VLANs to the ones this port carries",
+    run: (args, context) => {
+      const parsed = parseVlanList(String(args.list));
+      const port = context.session.targetPort;
+      if (!parsed.ok || port === undefined || context.device.kind !== "switch") return {};
+      // 합치고 정렬하는 일은 reducer가 한다
+      const current = switchPort(context.device.config, port).allowedVlans;
+      return setAllowedVlans(context, [...current, ...parsed.ranges]);
     },
   }),
   defineCommand({

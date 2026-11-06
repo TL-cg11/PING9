@@ -4,7 +4,8 @@
 import { shortPortName } from "@ping9/shared";
 import type { DeviceKind, PortView, Snapshot, TopologyDocument } from "@ping9/shared";
 
-import { SwitchMacTable, SwitchPortTag, SwitchVlanList, trunkAllowedText } from "./switch-inspector";
+import { SwitchMacTable, SwitchVlanList } from "./switch-inspector";
+import { SwitchPortTag, trunkAllowedText } from "./switch-port-tag";
 
 const KIND_LABEL: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router" };
 
