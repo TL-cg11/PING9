@@ -13,12 +13,14 @@ import type {
   TopologyDocument,
 } from "@ping9/shared";
 
+import { describeValue } from "../describe";
 import type { ReduceResult } from "../reducer";
 
 /** 오류 params에 담는 경계 밖 값의 최대 길이. reducer.ts의 UNKNOWN_COMMAND와 같다 */
 const MAX_ECHO_LENGTH = 64;
 
-const echo = (value: unknown): string => String(value).slice(0, MAX_ECHO_LENGTH);
+// String(value)는 `{ toString: 1 }` 같은 값에서 예외를 던진다. 다른 처리기와 같은 함수를 쓴다 (AD-16)
+const echo = describeValue;
 
 const fail = (error: ErrorInfo): ReduceResult => ({ ok: false, error });
 
