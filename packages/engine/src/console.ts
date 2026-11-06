@@ -9,6 +9,7 @@ import type { ConsoleLine, ConsoleResult, DeviceKind, HelpEntry } from "@ping9/s
 
 import { iosComplete, iosExec, iosHelp, iosPrompt } from "./cli/ios";
 import type { CommandDefinition, IosConsoleEnv } from "./cli/ios";
+import { PC_COMMANDS } from "./cli/pc";
 import { SWITCH_COMMANDS } from "./cli/switch";
 
 export interface ConsolePort {
@@ -24,6 +25,7 @@ export interface ConsolePort {
 
 /** 장비 종류별 명령 정의 목록. 없는 종류는 아직 CLI가 없다 */
 const DEFINITIONS_BY_KIND: Partial<Record<DeviceKind, readonly CommandDefinition[]>> = {
+  pc: PC_COMMANDS,
   switch: SWITCH_COMMANDS,
 };
 
