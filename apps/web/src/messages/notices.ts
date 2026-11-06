@@ -7,7 +7,7 @@ import { withSubject, withTopic } from "./particles";
 
 export const NOTICE_MESSAGES: { readonly [C in NoticeCode]: (params: NoticeParamsByCode[C]) => string } = {
   DUPLICATE_IP: ({ ip, others }) =>
-    `${withTopic(ip)} ${others.map((other) => other.deviceName).join(", ")}도 쓰고 있어요`,
+    `${withTopic(ip)} ${others.map((other) => other.deviceName).join(", ")}도 쓰고 있어요. 이대로 두면 통신이 제대로 안 될 수 있어요`,
   VLAN_AUTO_CREATED: ({ vlanId }) => `VLAN ${withSubject(vlanId)} 없어서 새로 만들었어요`,
 };
 

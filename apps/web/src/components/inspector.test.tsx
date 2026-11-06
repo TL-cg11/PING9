@@ -7,6 +7,9 @@ import { describe, expect, test } from "vitest";
 
 import { Inspector } from "./inspector";
 
+/** 이 파일은 그리기만 본다. 적용은 pc-settings.test.tsx에서 본다 */
+const ignoreDispatch = () => ({ ok: true, notices: [] }) as const;
+
 function snapshotOf(document: TopologyDocument): Snapshot {
   const simulator = createSimulator();
   expect(simulator.load(document)).toEqual({ ok: true });
@@ -17,7 +20,7 @@ function snapshotOf(document: TopologyDocument): Snapshot {
 const text = (node: ReactElement) => renderToString(node).replaceAll("<!-- -->", "");
 
 const render = (deviceId: string | null, document: TopologyDocument = twoSwitchVlanDocument) =>
-  text(<Inspector snapshot={snapshotOf(document)} deviceId={deviceId} onOpenTerminal={() => {}} />);
+  text(<Inspector snapshot={snapshotOf(document)} deviceId={deviceId} onOpenTerminal={() => {}} onDispatch={ignoreDispatch} />);
 
 describe("Switch", () => {
   test("이름, 종류, 포트 수와 연결 수", () => {
@@ -61,7 +64,7 @@ describe("Switch", () => {
     simulator.dispatch({ type: "vlan/create", deviceId: TWO_SWITCH_VLAN.sw1.id, vlanId: 30, name: "LAB" });
 
     const html = text(
-      <Inspector snapshot={simulator.getSnapshot()} deviceId={TWO_SWITCH_VLAN.sw1.id} onOpenTerminal={() => {}} />,
+      <Inspector snapshot={simulator.getSnapshot()} deviceId={TWO_SWITCH_VLAN.sw1.id} onOpenTerminal={() => {}} onDispatch={ignoreDispatch} />,
     );
 
     expect(html).toMatch(/class="vtag vx2">VLAN 30<\/span>LAB<span class="ip">-<\/span>/);
