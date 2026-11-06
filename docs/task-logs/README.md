@@ -17,13 +17,14 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T0.1 저장소와 배포 연결 | [T0.1-repo-and-deploy-setup.md](T0.1-repo-and-deploy-setup.md) | 배포 | SDY | 완료 |
 | T0.4 저장소 공개 전환과 Vercel Git 연동 배포 | [T0.4-public-repo-and-git-deploy.md](T0.4-public-repo-and-git-deploy.md) | 배포 | SDY | 진행 중. 저장소 이전, 공개, Vercel 연결은 끝남 (팀원이 직접 병합했을 때의 배포 확인 남음) |
 | T0.5 운영 첫 화면을 편집기 화면으로 바꾸기 (계획에 없는 새 ID) | [T0.5-app-at-root.md](T0.5-app-at-root.md) | 배포 | SDY | 병합됨 (PR #8, 팀원 검토 없이). T0.3 담당자 확인 필요. 시안은 `/mockup.html`에 남김 |
-| T0.6 장비 아이콘과 선택 표시 (계획에 없는 새 ID) | [T0.6-device-icons.md](T0.6-device-icons.md) | 화면 | yysong1249 | 검토 대기 |
+| T0.6 장비 아이콘과 선택 표시 (계획에 없는 새 ID) | [T0.6-device-icons.md](T0.6-device-icons.md) | 화면 | yysong1249 | 병합됨 (PR #25, 팀원 검토 없이) |
 | T1.1.1 모노레포와 패키지 뼈대 | [T1.1.1-monorepo-skeleton.md](T1.1.1-monorepo-skeleton.md) | 공통 | SDY | 완료 (검토 없이 병합) |
 | T1.1.3 CI 검사와 운영 배포 | [T1.1.3-ci-and-deploy.md](T1.1.3-ci-and-deploy.md) | 배포 | SDY | 일부 완료. CI 동작 중. Actions 배포는 T0.4에서 없앰 (브랜치 보호 남음) |
 | T1.2.1 `shared` 타입과 코드 열거형 | [T1.2.1-shared-types.md](T1.2.1-shared-types.md) | 공통 | SDY | 병합됨 (검토 없이). 팀 합의 필요 |
 | T1.2.2 Document 스키마와 검증 | [T1.2.2-document-validation.md](T1.2.2-document-validation.md) | 공통 | SDY | 완료 (검토 없이 병합) |
 | T1.2.3 예시 자료와 계약 테스트 | [T1.2.3-example-data.md](T1.2.3-example-data.md) | 공통 | SDY | 완료 (검토 없이 병합) |
 | T1.2.4 `Simulator` 뼈대 | [T1.2.4-simulator-skeleton.md](T1.2.4-simulator-skeleton.md) | 엔진 | SDY | 완료 (검토 없이 병합) |
+| T1.7.1 가상 시계와 사건 큐 커널 | [T1.7.1-kernel.md](T1.7.1-kernel.md) | 엔진 | ssunyoung2 | 구현·검증 완료, [PR #27](https://github.com/TL-cg11/PING9/pull/27) 팀원 검토 대기 |
 | T1.5.1 reducer `pc/set-ip` | [T1.5.1-pc-set-ip.md](T1.5.1-pc-set-ip.md) | 엔진 | yysong1249 | 완료 (PR #3, SDY가 병합). 오류에 값을 담는 함수는 T5.1.1에서 `describeValue`로 맞춤 (담당자 확인함) |
 | T1.5.2 PC 설정 패널 | [T1.5.2-pc-panel.md](T1.5.2-pc-panel.md) | 화면 | yysong1249 | 병합됨 (PR #13, SDY가 검토하고 병합) |
 | T1.6.1 PC 명령어 (`ipconfig`) | [T1.6.1-pc-commands.md](T1.6.1-pc-commands.md) | 엔진 | yysong1249 | 병합됨 (PR #9, SDY가 검토하고 병합) |
