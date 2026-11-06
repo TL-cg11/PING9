@@ -40,6 +40,7 @@ export function TerminalWindow({
   onHistory,
   onComplete,
   onHelp,
+  onLeave,
   onClose,
   onFocus,
   onMove,
@@ -56,6 +57,8 @@ export function TerminalWindow({
   readonly onComplete: (input: string) => string;
   /** `?`. 도움말을 화면 기록에 더한다 */
   readonly onHelp: (input: string) => void;
+  /** Esc. 입력란을 떠나 캔버스의 그 장비로 포커스를 옮긴다. 창은 닫지 않는다 */
+  readonly onLeave: () => void;
   readonly onClose: () => void;
   readonly onFocus: () => void;
   readonly onMove: (x: number, y: number) => void;
@@ -98,6 +101,10 @@ export function TerminalWindow({
         // 입력 중인 줄은 그대로 둔다
         onHelp(input);
         break;
+      case "leave":
+        // 입력 중인 줄은 그대로 둔다. 다시 돌아오면 이어서 쓸 수 있다
+        onLeave();
+        break;
     }
   };
 
@@ -130,6 +137,9 @@ export function TerminalWindow({
     <div
       ref={windowRef}
       className={placement.hidden ? "term hidden" : "term"}
+      data-device-id={placement.deviceId}
+      role="region"
+      aria-label={`${deviceName} 콘솔`}
       style={{ left: placement.x, top: placement.y, zIndex }}
       onMouseDown={onFocus}
     >
@@ -148,9 +158,12 @@ export function TerminalWindow({
         </button>
       </div>
       <div ref={bodyRef} className="term-body" onClick={() => inputRef.current?.focus()}>
-        {state.lines.map((line, index) => (
-          <Line key={index} line={line} />
-        ))}
+        {/* 새 줄이 생기면 화면 낭독기가 읽어 준다 */}
+        <div role="log" aria-live="polite" aria-label={`${deviceName} 출력`}>
+          {state.lines.map((line, index) => (
+            <Line key={index} line={line} />
+          ))}
+        </div>
         <div className="term-in">
           <span className="p">{state.prompt}</span>
           <input

@@ -28,11 +28,12 @@ describe("keyAction", () => {
     ["ArrowDown", "history-down"],
     ["Tab", "complete"],
     ["?", "help"],
+    ["Escape", "leave"],
   ])("%s → %s", (key, action) => {
     expect(keyAction(key, plain)).toBe(action);
   });
 
-  test.each(["a", " ", "/", "Backspace", "Escape", "ArrowLeft"])("%j는 입력란이 그대로 처리한다", (key) => {
+  test.each(["a", " ", "/", "Backspace", "ArrowLeft"])("%j는 입력란이 그대로 처리한다", (key) => {
     expect(keyAction(key, plain)).toBeNull();
   });
 
@@ -44,8 +45,8 @@ describe("keyAction", () => {
     expect(keyAction("?", { shift: true, composing: false })).toBe("help");
   });
 
-  test("한글을 조합하는 중에는 Enter, Tab, ?를 가로채지 않는다", () => {
-    for (const key of ["Enter", "Tab", "?"]) {
+  test("한글을 조합하는 중에는 Enter, Tab, ?, Esc를 가로채지 않는다", () => {
+    for (const key of ["Enter", "Tab", "?", "Escape"]) {
       expect(keyAction(key, { shift: false, composing: true })).toBeNull();
     }
   });

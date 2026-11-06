@@ -101,3 +101,13 @@ test("trunk 링크는 굵은 선과 trunk 표시, 끝마다 그 끝의 허용 �
   expect(html).toMatch(/<text class="net"[^>]*text-anchor="start"[^>]*>허용 10, 20<\/text>/);
   expect(html).toMatch(/<text class="net"[^>]*text-anchor="end"[^>]*>허용 20<\/text>/);
 });
+
+test("노드는 키보드로 고를 수 있는 버튼이다 (T1.6.2)", () => {
+  const html = render(twoSwitchVlanDocument, TWO_SWITCH_VLAN.sw1.id);
+
+  expect(html.match(/<g class="node[^"]*"[^>]* tabindex="0" role="button"/g)).toHaveLength(6);
+  expect(html).toContain('aria-label="SW1, Switch, 콘솔 열기" aria-pressed="true"');
+  expect(html).toContain('aria-label="PC1, PC, 콘솔 열기" aria-pressed="false"');
+  expect(html).toContain(`data-device-id="${TWO_SWITCH_VLAN.sw1.id}"`);
+  expect(html.match(/class="focus-ring"/g)).toHaveLength(6);
+});
