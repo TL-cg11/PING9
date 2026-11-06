@@ -161,7 +161,7 @@ export function Canvas({
               {/* 선택했을 때만 보이는 파란 빛. 아이콘 뒤에 그린다 */}
               <circle className="halo" cx="40" cy="36" r="46" />
               {/* 키보드 포커스 표시: 아이콘 둘레의 점선 원. 선택 빛(퍼짐)과 모양이 달라 겹쳐도 구별된다 */}
-              <circle className="focus-ring" cx="40" cy="26" r="34" />
+              <circle className="focus-ring" cx="40" cy="32" r="34" />
               <DeviceIcon kind={device.kind} x={12} y={-2} width={56} height={56} />
               <text className="lbl" x="40" y="68" textAnchor="middle">
                 {device.name}
