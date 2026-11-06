@@ -30,5 +30,6 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T3.2.2 Tab 완성과 `?` 도움말 (engine) | [T3.2.2-complete-and-help.md](T3.2.2-complete-and-help.md) | 엔진 | SDY | 병합됨 (PR #11, 팀원 검토 없이) |
 | T3.2.3 터미널 창의 Tab과 `?` | [T3.2.3-terminal-tab-and-help.md](T3.2.3-terminal-tab-and-help.md) | 화면 | SDY | 병합됨 (PR #12, 팀원 검토 없이) |
 | T3.3.1 인터페이스 모드 | [T3.3.1-interface-mode.md](T3.3.1-interface-mode.md) | 엔진 | SDY | 병합됨 (팀원 검토 없이) |
+| T3.3.2 포트 끄기와 켜기 | [T3.3.2-shutdown.md](T3.3.2-shutdown.md) | 엔진 | SDY | 병합됨 (팀원 검토 없이). ping으로 확인하는 부분은 kernel 뒤 |
 | T5.1.1 VLAN 구성 | [T5.1.1-vlan-config.md](T5.1.1-vlan-config.md) | 엔진, 공통 | SDY | 병합됨 (PR #6, 팀원 검토 없이). `shared` 변경은 팀 확인 필요. 직렬화는 T3.4.1에서 |
 | T5.4.1 Switch 화면 (계획에 없는 새 ID) | [T5.4.1-switch-screen.md](T5.4.1-switch-screen.md) | 화면 | SDY | 병합됨 (PR #7, 팀원 검토 없이). 운영 첫 화면은 T0.5에서 바꿈 |

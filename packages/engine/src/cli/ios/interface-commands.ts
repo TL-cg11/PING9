@@ -1,11 +1,12 @@
-// `interface <이름>`: 인터페이스 설정 모드로 들어간다 (T3.3.1).
+// `interface <이름>`: 인터페이스 설정 모드로 들어간다 (T3.3.1). `shutdown`: 포트를 끈다 (T3.3.2).
 // 장비 종류를 가리지 않는다. 포트 이름은 그 장비 종류의 것으로 읽는다.
 
 import { errorInfo } from "@ping9/shared";
 
 import { customParam, defineCommand } from "./define";
-import type { CommandDefinition, ParamValue } from "./define";
+import type { CommandContext, CommandDefinition, CommandOutcome, ParamValue } from "./define";
 import { isPortType, resolvePortName } from "./port-name";
+import { linesFromDispatch } from "./session";
 
 /** 오류에 담을 글을 자른다. 해석기의 한도와 같다 */
 const clip = (text: string): string => text.slice(0, 64);
@@ -29,6 +30,16 @@ const PORT_NUMBER = customParam("number", "Interface number (for example 0/1)", 
   /^\d+(\/\d+)*$/.test(text) ? { ok: true, value: text } : invalid(text),
 );
 
+function setAdmin(context: CommandContext, adminUp: boolean): CommandOutcome {
+  const port = context.session.targetPort;
+  if (port === undefined) return {};
+  return {
+    lines: linesFromDispatch(
+      context.dispatch({ type: "interface/set-admin", deviceId: context.device.id, port, adminUp }),
+    ),
+  };
+}
+
 export const INTERFACE_COMMANDS: readonly CommandDefinition[] = [
   defineCommand({
     modes: ["config"],
@@ -47,5 +58,18 @@ export const INTERFACE_COMMANDS: readonly CommandDefinition[] = [
       if (port === undefined) return { lines: [{ kind: "error", ...errorInfo("CLI_INVALID_VALUE", { token: clip(typed) }) }] };
       return { session: { mode: "config-if", targetPort: port } };
     },
+  }),
+  // 포트를 끄고 켠다 (T3.3.2). Document는 interface/set-admin으로만 바꾼다 (AD-3)
+  defineCommand({
+    modes: ["config-if"],
+    tokens: ["shutdown"],
+    help: "Disable this interface",
+    run: (_args, context) => setAdmin(context, false),
+  }),
+  defineCommand({
+    modes: ["config-if"],
+    tokens: ["no", "shutdown"],
+    help: "Enable this interface",
+    run: (_args, context) => setAdmin(context, true),
   }),
 ];
