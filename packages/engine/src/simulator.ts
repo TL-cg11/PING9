@@ -12,6 +12,8 @@ import type {
   TraceSummary,
 } from "@ping9/shared";
 
+import { INITIAL_SESSION } from "./cli/ios";
+import type { CliSession, IosConsoleEnv } from "./cli/ios";
 import { createConsolePort } from "./console";
 import type { ConsolePort } from "./console";
 import { deepFreeze } from "./freeze";
@@ -56,10 +58,32 @@ export function createSimulator(): Simulator {
 
   const listeners = new Set<() => void>();
   const consoles = new Map<string, ConsolePort>();
+  // 장비별 CLI 세션 (현재 모드, 설정 중인 대상). 스냅샷에 담지 않으며 바뀌어도 구독자를 부르지 않는다
+  const sessions = new Map<string, CliSession>();
 
   const changed = (): void => {
     snapshot = null;
     for (const listener of [...listeners]) listener();
+  };
+
+  const dispatch = (command: Command): DispatchResult => {
+    const result = reduce(document, command);
+    if (!result.ok) return result;
+
+    document = deepFreeze(result.document);
+    docVersion += 1;
+    changed();
+    return { ok: true, notices: result.notices };
+  };
+
+  // 콘솔이 Simulator에서 받아 쓰는 것. CLI의 설정 명령어도 공개 dispatch와 같은 경로로 Document를 바꾼다 (AD-3)
+  const consoleEnv: IosConsoleEnv = {
+    getDocument: () => document,
+    dispatch,
+    getSession: (deviceId) => sessions.get(deviceId) ?? INITIAL_SESSION,
+    setSession: (deviceId, session) => {
+      sessions.set(deviceId, session);
+    },
   };
 
   return {
@@ -72,24 +96,17 @@ export function createSimulator(): Simulator {
       docVersion += 1;
       runtimeVersion += 1;
       traces = [];
+      sessions.clear();
       changed();
       return { ok: true };
     },
 
-    dispatch(command) {
-      const result = reduce(document, command);
-      if (!result.ok) return result;
-
-      document = deepFreeze(result.document);
-      docVersion += 1;
-      changed();
-      return { ok: true, notices: result.notices };
-    },
+    dispatch,
 
     console(deviceId) {
       let port = consoles.get(deviceId);
       if (port === undefined) {
-        port = createConsolePort(deviceId, () => document);
+        port = createConsolePort(deviceId, consoleEnv);
         consoles.set(deviceId, port);
       }
       return port;

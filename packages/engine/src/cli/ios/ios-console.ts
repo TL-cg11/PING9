@@ -1,0 +1,65 @@
+// 명령 정의 목록으로 콘솔의 한 줄 실행과 프롬프트를 만든다 (AD-8).
+// 장비 종류를 모른다. 어떤 정의 목록을 쓸지는 부르는 쪽(console.ts)이 정한다.
+
+import type {
+  Command,
+  ConsoleLine,
+  ConsoleResult,
+  Device,
+  DispatchResult,
+  TopologyDocument,
+} from "@ping9/shared";
+
+import type { CliSession, CommandDefinition } from "./define";
+import { parseLine } from "./parse";
+import { effectiveSession, promptFor } from "./session";
+
+/** IOS 콘솔이 Simulator에서 받아 쓰는 것 */
+export interface IosConsoleEnv {
+  getDocument(): TopologyDocument;
+  /** Simulator의 공개 dispatch와 같은 경로다 */
+  dispatch(command: Command): DispatchResult;
+  /** 보관된 세션. 없으면 처음 세션 */
+  getSession(deviceId: string): CliSession;
+  setSession(deviceId: string, session: CliSession): void;
+}
+
+export function iosPrompt(device: Device, env: IosConsoleEnv): string {
+  return promptFor(device.name, effectiveSession(env.getSession(device.id), device));
+}
+
+export function iosExec(
+  line: string,
+  device: Device,
+  definitions: readonly CommandDefinition[],
+  env: IosConsoleEnv,
+): ConsoleResult {
+  // 명령이 장비 이름이나 구성을 바꿀 수 있으므로 프롬프트는 실행 뒤의 문서에서 다시 계산한다
+  const result = (lines: readonly ConsoleLine[]): ConsoleResult => {
+    const current = env.getDocument().devices.find((candidate) => candidate.id === device.id) ?? device;
+    return { lines, prompt: iosPrompt(current, env) };
+  };
+
+  // `!`로 시작하는 줄은 설명이다. show running-config의 출력을 그대로 붙여 넣을 수 있게 한다
+  const trimmed = line.trim();
+  if (trimmed === "" || trimmed.startsWith("!")) return result([]);
+
+  const session = effectiveSession(env.getSession(device.id), device);
+  const parsed = parseLine(line, session.mode, device.kind, definitions);
+  if (!parsed.ok) {
+    const error: ConsoleLine =
+      parsed.position === undefined
+        ? { kind: "error", ...parsed.error }
+        : { kind: "error", ...parsed.error, position: parsed.position };
+    return result([error]);
+  }
+
+  const outcome = parsed.definition.run(parsed.args, {
+    device,
+    document: env.getDocument(),
+    session,
+    dispatch: (command) => env.dispatch(command),
+  });
+  if (outcome.session !== undefined) env.setSession(device.id, outcome.session);
+  return result(outcome.lines ?? []);
+}

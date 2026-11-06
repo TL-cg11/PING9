@@ -350,6 +350,16 @@ describe("console", () => {
 
     expect(port.prompt()).toBe(">");
   });
+
+  test("문서를 다시 불러와도 Switch의 프롬프트는 user 모드에서 시작한다", () => {
+    const simulator = createSimulator();
+    simulator.load(twoPcSwitchDocument);
+    expect(simulator.console(TWO_PC_SWITCH.sw1.id).prompt()).toBe("SW1>");
+
+    simulator.load(twoPcSwitchDocument);
+
+    expect(simulator.console(TWO_PC_SWITCH.sw1.id).prompt()).toBe("SW1>");
+  });
 });
 
 describe("getTrace", () => {

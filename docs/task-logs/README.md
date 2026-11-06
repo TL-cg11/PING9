@@ -23,3 +23,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T1.2.3 예시 자료와 계약 테스트 | [T1.2.3-example-data.md](T1.2.3-example-data.md) | 공통 | SDY | 완료 (검토 없이 병합) |
 | T1.2.4 `Simulator` 뼈대 | [T1.2.4-simulator-skeleton.md](T1.2.4-simulator-skeleton.md) | 엔진 | SDY | 완료 (검토 없이 병합) |
 | T1.5.1 reducer `pc/set-ip` | [T1.5.1-pc-set-ip.md](T1.5.1-pc-set-ip.md) | 엔진 | yysong1249 | 검토 대기 |
+| T3.1.1 명령 트리 확장: 모드와 세션 | [T3.1.1-cli-modes-and-session.md](T3.1.1-cli-modes-and-session.md) | 엔진 | SDY | 구현 완료. PR과 검토 남음 |
