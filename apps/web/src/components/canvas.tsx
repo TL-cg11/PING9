@@ -189,10 +189,11 @@ export function Canvas({
               <DeviceIcon
                 kind={device.kind}
                 {...(device.kind === "pc" ? { os: osOf(device.config) } : {})}
-                x={12}
-                y={-2}
-                width={56}
-                height={56}
+                // 56에서 50으로 줄였다. 바닥선(그림의 25.8/32 높이)은 제자리라 이름과의 간격이 그대로다
+                x={15}
+                y={3}
+                width={50}
+                height={50}
               />
               <text className="lbl" x="40" y="68" textAnchor="middle">
                 {device.name}

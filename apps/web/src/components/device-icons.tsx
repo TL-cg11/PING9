@@ -9,7 +9,13 @@ type Box = Pick<SVGProps<SVGSVGElement>, "x" | "y" | "width" | "height">;
 
 const LINE = { strokeLinecap: "round", strokeLinejoin: "round" } as const;
 
-function Igloo() {
+/**
+ * 이글루. OS마다 창과 문이 다르다 (T0.7). 작게 그려도 구분되도록 모양으로 나눈다.
+ * - Linux: 둥근 문과 그 위의 검은 터미널 간판(`>_`)
+ * - Windows: 큰 유리창(제목 줄이 있는 앱 창 모양)과 넓은 네모 문
+ * - OS 없음: T0.6의 원래 그림(둥근 문과 노란 작은 창). OS를 고르기 전인 장비 목록이 쓴다
+ */
+function Igloo({ os }: { readonly os: OsKind | undefined }) {
   const blue = "#1A5FA8";
   // 이글루는 납작해서 다른 그림보다 작아 보인다. 바닥선을 기준으로 1.2배 키운다
   return (
@@ -22,8 +28,27 @@ function Igloo() {
         strokeWidth="0.8"
         {...LINE}
       />
-      <path d="M13 25.5v-3.5a3 3 0 0 1 6 0v3.5Z" fill={blue} />
-      <rect x="20" y="18.2" width="3.2" height="2.5" rx="0.7" fill="#F5C36B" stroke={blue} strokeWidth="0.7" />
+      {os === undefined ? (
+        <>
+          <path d="M13 25.5v-3.5a3 3 0 0 1 6 0v3.5Z" fill={blue} />
+          <rect x="20" y="18.2" width="3.2" height="2.5" rx="0.7" fill="#F5C36B" stroke={blue} strokeWidth="0.7" />
+        </>
+      ) : os === "linux" ? (
+        <g className="igloo-linux">
+          <path d="M13 25.5v-2.9a3 3 0 0 1 6 0v2.9Z" fill={blue} />
+          <rect x="11.8" y="16.9" width="8.4" height="3.3" rx="0.9" fill="#0E1A38" />
+          <path d="M14.2 17.8l1 0.75-1 0.75M15.9 19.3h1.8" fill="none" stroke="#7FD3F7" strokeWidth="0.55" {...LINE} />
+        </g>
+      ) : (
+        <g className="igloo-windows">
+          <rect x="10.8" y="17.1" width="10.4" height="5.1" rx="0.8" fill="#B9D6F3" stroke={blue} strokeWidth="0.7" />
+          <path d="M10.8 18.5v-0.6a0.8 0.8 0 0 1 0.8-0.8h8.8a0.8 0.8 0 0 1 0.8 0.8v0.6Z" fill={blue} />
+          <circle cx="11.8" cy="17.85" r="0.28" fill="#fff" />
+          <circle cx="12.7" cy="17.85" r="0.28" fill="#fff" />
+          <path d="M12.8 21.2l1.7-1.7M14.1 21.4l2.1-2.1" fill="none" stroke="#fff" strokeWidth="0.45" {...LINE} />
+          <path d="M12.6 25.5v-1.9a0.9 0.9 0 0 1 0.9-0.9h5a0.9 0.9 0 0 1 0.9 0.9v1.9Z" fill={blue} />
+        </g>
+      )}
       <path d="M3.5 25.8h25" fill="none" stroke={blue} strokeWidth="1.1" {...LINE} />
     </g>
   );
@@ -88,14 +113,14 @@ export function GateClosedIcon(box: Box) {
 }
 
 /**
- * `os`는 PC에만 쓴다 (T0.7). 없으면 Windows다.
- * OS별 이글루 그림(창 모양)은 아직 같다. 그림이 정해지면 Igloo가 `os`를 받는다
+ * `os`는 PC에만 쓴다 (T0.7). 캔버스는 `osOf`로 늘 넘긴다.
+ * 넘기지 않으면 OS가 없는 원래 이글루다 (장비 목록)
  */
 export function DeviceIcon({ kind, os, ...box }: { readonly kind: DeviceKind; readonly os?: OsKind } & Box) {
-  const osClass = kind === "pc" ? ` icon-os-${os ?? "windows"}` : "";
+  const osClass = kind === "pc" && os !== undefined ? ` icon-os-${os}` : "";
   return (
     <svg className={`icon icon-${kind}${osClass}`} viewBox="0 0 32 32" aria-hidden="true" {...box}>
-      {kind === "pc" ? <Igloo /> : kind === "switch" ? <Signpost /> : <GateOpen />}
+      {kind === "pc" ? <Igloo os={os} /> : kind === "switch" ? <Signpost /> : <GateOpen />}
     </svg>
   );
 }
