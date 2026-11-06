@@ -1,7 +1,7 @@
 // 편집기 화면. 배치는 화면 시안을 따른다: 상단 막대, 왼쪽 장비 목록, 가운데 캔버스, 오른쪽 속성 패널.
 // 화면이 가진 상태는 선택, 열린 터미널, 터미널의 화면 기록뿐이다. 나머지는 engine의 스냅샷에서 읽는다 (AD-4).
 
-import type { DeviceKind } from "@ping9/shared";
+import type { DeviceKind, ErrorInfo } from "@ping9/shared";
 import { useEffect, useReducer, useRef, useState } from "react";
 
 import { Canvas } from "./components/canvas";
@@ -9,6 +9,7 @@ import { Inspector } from "./components/inspector";
 import { Palette } from "./components/palette";
 import { TerminalWindow } from "./components/terminal-window";
 import { TopBar } from "./components/top-bar";
+import { formatError } from "./messages/errors";
 import { TOPOLOGY_NAME, simulator, useSnapshot } from "./simulator";
 import { createCommandQueue } from "./terminal/command-queue";
 import { completed, historyStep, initialTerminal, runLine, showHelp } from "./terminal/terminal-state";
@@ -30,6 +31,23 @@ export function App() {
   const snapshot = useSnapshot();
   const { document } = snapshot;
   const [ui, dispatch] = useReducer(uiReducer, INITIAL_UI_STATE);
+  const [addError, setAddError] = useState<ErrorInfo | null>(null);
+
+  const addDevice = (kind: DeviceKind) => {
+    const current = simulator.getSnapshot().document;
+    // 기존 장비와 겹치지 않는 첫 격자 칸을 고른다. 장비 이동은 T1.3.2에서 구현한다.
+    let slot = 0;
+    let position = { x: 160, y: 120 };
+    while (current.devices.some(device =>
+      Math.abs(device.position.x - position.x) < 110 && Math.abs(device.position.y - position.y) < 110)) {
+      slot += 1;
+      position = { x: 160 + (slot % 5) * 140, y: 120 + Math.floor(slot / 5) * 130 };
+    }
+    const id = crypto.randomUUID();
+    const result = simulator.dispatch({ type: "device/add", id, kind, position });
+    setAddError(result.ok ? null : result.error);
+    if (result.ok) dispatch({ type: "select", deviceId: id });
+  };
 
   // 장비별 터미널의 화면 기록. 창을 닫았다 열어도 남는다 (FR-19).
   // 실행이 비동기라 가장 최근 값을 ref에 두고, 바꿀 때는 항상 updateTerminals를 거친다
@@ -105,8 +123,9 @@ export function App() {
     <div className="app">
       <TopBar name={TOPOLOGY_NAME} />
       <main className="work">
-        <Palette deviceCount={document.devices.length} />
+        <Palette deviceCount={document.devices.length} onAdd={addDevice} />
         <section className="canvas">
+          {addError !== null && <div className="canvas-error" role="alert">{formatError(addError)}</div>}
           <Canvas
             document={document}
             selectedDeviceId={ui.selectedDeviceId}

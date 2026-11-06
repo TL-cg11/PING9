@@ -41,6 +41,12 @@ button { font: inherit; cursor: pointer; }
 .palette h4 { font-size: 12px; color: var(--navy-60); font-weight: 600; margin-top: 4px; }
 .tool { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; border-radius: 12px; border: 1px solid var(--line); background: var(--ice-50); font-size: 13px; font-weight: 600; cursor: grab; }
 .tool svg { width: 30px; height: 30px; }
+.tool:is(button) { cursor: pointer; color: inherit; }
+.tool:is(button):hover:not(:disabled) { border-color: var(--sky-500); background: var(--ice-100); }
+.tool:is(button):focus-visible { outline: 2px solid var(--sky-700); outline-offset: 2px; }
+.tool:disabled { cursor: default; opacity: .5; }
+.port-state { font-size: 10px; color: var(--navy-60); }
+.canvas-error { position: absolute; top: 12px; left: 12px; z-index: 1; max-width: 80%; padding: 8px 12px; border-radius: 8px; background: var(--danger-bg); color: var(--danger); }
 .quota { margin-top: auto; font-size: 12px; color: var(--navy-60); }
 .quota .bar { height: 6px; border-radius: 3px; background: var(--ice-200); margin-top: 6px; overflow: hidden; }
 .quota .bar i { display: block; height: 100%; width: 20%; background: var(--sky-500); }
