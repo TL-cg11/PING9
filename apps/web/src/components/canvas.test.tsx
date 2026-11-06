@@ -1,5 +1,5 @@
 import type { TopologyDocument } from "@ping9/shared";
-import { TWO_SWITCH_VLAN, twoPcDocument, twoSwitchVlanDocument } from "@ping9/shared/examples";
+import { TWO_SWITCH_VLAN, twoPcDocument, twoPcSwitchDocument, twoSwitchVlanDocument } from "@ping9/shared/examples";
 import { renderToString } from "react-dom/server";
 import { expect, test } from "vitest";
 
@@ -54,4 +54,18 @@ test("빈 문서도 그린다", () => {
 
   expect(html).toContain('viewBox="0 0 860 330"');
   expect(html).not.toContain('class="node');
+});
+
+test("Switch의 access 포트에 연결된 링크에 VLAN 표시가 붙는다", () => {
+  const html = render(twoSwitchVlanDocument);
+
+  // PC1-SW1, SW2-PC3은 VLAN 10, PC2-SW1, SW2-PC4는 VLAN 20
+  expect(html.match(/>VLAN 10</g)).toHaveLength(2);
+  expect(html.match(/>VLAN 20</g)).toHaveLength(2);
+  expect(html).toContain('fill="#DDF4F1"');
+  expect(html).toContain('fill="#FFF2D6"');
+});
+
+test("VLAN 1뿐인 문서에는 VLAN 표시가 없다", () => {
+  expect(render(twoPcSwitchDocument)).not.toContain("vlabel");
 });

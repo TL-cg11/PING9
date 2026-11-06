@@ -24,7 +24,8 @@ describe("코드 목록", () => {
     expect(new Set(codes).size).toBe(codes.length);
   });
 
-  test("폐기 사유는 02 문서 FR-47의 표와 같다", () => {
+  // VLAN_INACTIVE는 FR-47의 표에 없다. 포트의 VLAN이 지워진 경우를 따로 나타내려고 T5.2.1에서 더했다
+  test("폐기 사유는 02 문서 FR-47의 표에 VLAN_INACTIVE를 더한 것이다", () => {
     expect([...DROP_REASONS].sort()).toEqual(
       [
         "ARP_TIMEOUT",
@@ -38,6 +39,7 @@ describe("코드 목록", () => {
         "TRUNK_NOT_ALLOWED",
         "TTL_EXPIRED",
         "VLAN_BLOCKED",
+        "VLAN_INACTIVE",
       ].sort(),
     );
   });

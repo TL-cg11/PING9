@@ -3,7 +3,7 @@
 // 결과를 프레임 보내기와 Trace 이벤트로 옮긴다 (설계 6.4절).
 // 출처: docs/superpowers/specs/2026-11-05-switch-vlan-design.md 6절.
 
-import { BROADCAST_MAC, DEFAULT_VLAN_ID, PORT_NAMES } from "@ping9/shared";
+import { BROADCAST_MAC, DEFAULT_VLAN_ID, PORT_NAMES, switchPort, switchVlans } from "@ping9/shared";
 import type { DropParamsByReason, MacTableEntryView, SwitchConfig } from "@ping9/shared";
 
 /** MAC 주소 테이블의 한 줄. `(vlan, mac)`마다 하나다 */
@@ -24,9 +24,10 @@ export const EMPTY_MAC_TABLE: MacTable = [];
 export const MAC_AGING_US = 300_000_000;
 
 /** Switch가 내는 폐기. `params`는 그 폐기 사유의 params에서 `device`만 뺀 것이다 */
+type SwitchDropReason = "IF_DOWN" | "VLAN_BLOCKED" | "VLAN_INACTIVE";
 export type SwitchDrop = {
-  [R in "IF_DOWN"]: { readonly reason: R; readonly params: Omit<DropParamsByReason[R], "device"> };
-}["IF_DOWN"];
+  [R in SwitchDropReason]: { readonly reason: R; readonly params: Omit<DropParamsByReason[R], "device"> };
+}[SwitchDropReason];
 
 export interface ForwardFrame {
   readonly sourceMac: string;
@@ -75,20 +76,53 @@ const compareEntries = (left: MacEntry, right: MacEntry): number =>
 
 const isFresh = (entry: MacEntry, now: number): boolean => now - entry.lastSeen < MAC_AGING_US;
 
-/** 받은 포트에서 이 프레임이 속할 VLAN을 정한다 */
-function classify(): { readonly vlan: number } | { readonly drop: SwitchDrop } {
-  // VLAN을 나누는 규칙은 T5.2.1(access)과 T5.3.1(trunk)에서 넣는다. 그전까지는 모두 VLAN 1이다
-  return { vlan: DEFAULT_VLAN_ID };
+/** 이 Switch에 그 VLAN이 있는가. VLAN 1은 구성의 목록에 없어도 있는 것으로 친다 (switchVlans) */
+const vlanExists = (config: SwitchConfig, vlan: number): boolean =>
+  switchVlans(config).some((candidate) => candidate.id === vlan);
+
+/** 받은 포트에서 이 프레임이 속할 VLAN을 정한다 (설계 6.2절의 표) */
+function classify(input: ForwardInput): { readonly vlan: number } | { readonly drop: SwitchDrop } {
+  const { config, inPort, frame } = input;
+  const port = switchPort(config, inPort);
+
+  let vlan: number;
+  if (port.mode === "access") {
+    // access 포트는 자기 VLAN의 프레임만 받는다. 태그가 없으면 자기 VLAN의 것으로 본다
+    if (frame.vlanTag !== undefined && frame.vlanTag !== port.accessVlan) {
+      return {
+        drop: { reason: "VLAN_BLOCKED", params: { frameVlan: frame.vlanTag, port: inPort, portVlan: port.accessVlan } },
+      };
+    }
+    vlan = port.accessVlan;
+  } else {
+    // trunk의 허용 목록은 T5.3.1에서 넣는다
+    vlan = frame.vlanTag ?? DEFAULT_VLAN_ID;
+  }
+
+  // 포트가 가리키는 VLAN이 지워졌으면 그 포트는 통신할 수 없다
+  if (!vlanExists(config, vlan)) return { drop: { reason: "VLAN_INACTIVE", params: { port: inPort, vlan } } };
+  return { vlan };
 }
 
-/** 이 포트가 그 VLAN의 프레임을 내보내는가. 내보내면 붙일 태그를 함께 돌려준다 */
-function egress(): { readonly vlanTag?: number } | { readonly drop: SwitchDrop } {
-  // 그전까지는 모든 포트가 VLAN 1의 프레임을 태그 없이 내보낸다
+/** 이 포트가 그 VLAN의 프레임을 내보내는가. 내보내면 붙일 태그를, 아니면 빠진 사유를 돌려준다 */
+function egress(
+  config: SwitchConfig,
+  portName: string,
+  vlan: number,
+): { readonly vlanTag?: number } | { readonly drop: SwitchDrop } {
+  const port = switchPort(config, portName);
+  if (port.mode === "access") {
+    // access 포트는 태그 없이 내보낸다
+    return port.accessVlan === vlan
+      ? {}
+      : { drop: { reason: "VLAN_BLOCKED", params: { frameVlan: vlan, port: portName, portVlan: port.accessVlan } } };
+  }
+  // trunk의 태그와 허용 목록은 T5.3.1에서 넣는다
   return {};
 }
 
 export function switchForward(input: ForwardInput): ForwardResult {
-  const { isPortUp, now, inPort, frame } = input;
+  const { config, isPortUp, now, inPort, frame } = input;
 
   if (!isPortUp(inPort)) {
     return {
@@ -99,7 +133,7 @@ export function switchForward(input: ForwardInput): ForwardResult {
     };
   }
 
-  const classified = classify();
+  const classified = classify(input);
   if ("drop" in classified) {
     return { macTable: input.macTable, ingressDrop: classified.drop, outputs: [], blocked: [] };
   }
@@ -128,7 +162,7 @@ export function switchForward(input: ForwardInput): ForwardResult {
       : table.find((entry) => entry.vlan === vlan && entry.mac === frame.destinationMac && isPortUp(entry.port));
   if (target !== undefined) {
     if (target.port === inPort) return { ...base, samePort: true, outputs: [], blocked: [] };
-    const out = egress();
+    const out = egress(config, target.port, vlan);
     if (!("drop" in out)) return { ...base, outputs: [{ port: target.port, ...out, flooded: false }], blocked: [] };
     // 배운 뒤에 그 포트의 VLAN이 바뀐 경우다. 아래의 flooding으로 간다
   }
@@ -138,7 +172,7 @@ export function switchForward(input: ForwardInput): ForwardResult {
   const blocked: SwitchDrop[] = [];
   for (const port of PORT_NAMES.switch) {
     if (port === inPort || !isPortUp(port)) continue;
-    const out = egress();
+    const out = egress(config, port, vlan);
     if ("drop" in out) blocked.push(out.drop);
     else outputs.push({ port, ...out, flooded: true });
   }
@@ -153,7 +187,9 @@ export function pruneMacTable(
   table: MacTable,
   state: { readonly config: SwitchConfig; readonly isPortUp: (port: string) => boolean },
 ): MacTable {
-  const kept = table.filter((entry) => state.isPortUp(entry.port) && !("drop" in egress()));
+  const kept = table.filter((entry) => state.isPortUp(entry.port) &&
+      vlanExists(state.config, entry.vlan) &&
+      !("drop" in egress(state.config, entry.port, entry.vlan)));
   return kept.length === table.length ? table : kept;
 }
 
