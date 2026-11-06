@@ -10,6 +10,7 @@ import { Inspector } from "./components/inspector";
 import { LinkInspector } from "./components/link-inspector";
 import { Palette } from "./components/palette";
 import { TerminalWindow } from "./components/terminal-window";
+import { focusCanvasNode, focusTerminalInput } from "./focus";
 import { TopBar } from "./components/top-bar";
 import { formatError } from "./messages/errors";
 import { TOPOLOGY_NAME, simulator, useSnapshot } from "./simulator";
@@ -116,6 +117,8 @@ export function App() {
     );
     dispatch({ type: "select", deviceId });
     dispatch({ type: "open-terminal", deviceId });
+    // 이미 열려 있던 창이어도 입력란으로 간다. 키보드로 콘솔을 오가는 길이다 (T1.6.2)
+    focusTerminalInput(deviceId);
   };
 
   const submit = (deviceId: string, input: string) => {
@@ -182,6 +185,7 @@ export function App() {
                 onHistory={(direction) => stepHistory(placement.deviceId, direction)}
                 onComplete={(input) => complete(placement.deviceId, input)}
                 onHelp={(input) => help(placement.deviceId, input)}
+                onLeave={() => focusCanvasNode(placement.deviceId)}
                 onClose={() => dispatch({ type: "close-terminal", deviceId: placement.deviceId })}
                 onFocus={() => dispatch({ type: "focus-terminal", deviceId: placement.deviceId })}
                 onMove={(x, y) => dispatch({ type: "move-terminal", deviceId: placement.deviceId, x, y })}

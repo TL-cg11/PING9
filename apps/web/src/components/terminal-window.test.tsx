@@ -28,6 +28,7 @@ const render = (hidden = false) =>
       onHistory={() => ""}
       onComplete={(input) => input}
       onHelp={() => {}}
+      onLeave={() => {}}
       onClose={() => {}}
       onFocus={() => {}}
       onMove={() => {}}
@@ -59,7 +60,19 @@ test("제목 막대에 장비 이름과 종류, 닫기 버튼이 있고 입력�
   expect(html).toMatch(/class="term-in"><span class="p">SW1#<\/span><input/);
 });
 
+test("닫기 버튼은 Tab으로 닿는다. Safari도 건너뛰지 않게 tabindex를 적는다 (T1.6.2)", () => {
+  expect(render()).toContain('<button type="button" class="t-x" tabindex="0" aria-label="닫기">');
+});
+
 test("위치와 쌓이는 순서를 스타일로 넣고, 닫은 창은 hidden 클래스를 단다", () => {
-  expect(render()).toMatch(/class="term" style="left:10px;top:20px;z-index:21"/);
+  expect(render()).toMatch(/class="term"[^>]* style="left:10px;top:20px;z-index:21"/);
   expect(render(true)).toContain('class="term hidden"');
+});
+
+test("창은 장비 이름의 콘솔 영역이고, 출력은 화면 낭독기가 읽는 기록이다 (T1.6.2)", () => {
+  const html = render();
+
+  expect(html).toContain('<div class="term" data-device-id="x" role="region" aria-label="SW1 콘솔"');
+  // 입력란은 기록 밖에 있다. 입력하는 글자를 기록으로 읽지 않는다
+  expect(html).toMatch(/<div role="log" aria-live="polite" aria-label="SW1 출력">.*<\/div><div class="term-in">/);
 });
