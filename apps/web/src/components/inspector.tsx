@@ -61,6 +61,7 @@ export function Inspector({
         <div key={port.name} className="if-row">
           <span className={port.status === "up" ? "dot" : "dot off"} />
           {shortPortName(port.name)}
+          {device.kind === "router" && <span className="port-state">{port.status}</span>}
           {device.kind === "switch" && <SwitchPortTag config={device.config} port={port.name} />}
           <span className="ip">
             {(device.kind === "switch" ? trunkAllowedText(device.config, port.name) : undefined) ??
