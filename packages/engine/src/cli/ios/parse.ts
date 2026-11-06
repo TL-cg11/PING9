@@ -170,11 +170,13 @@ export function candidatesFor(mode: CliMode, forDevice: readonly CommandDefiniti
   return [...own, ...forDevice.filter((definition) => definition.modes.includes("config") && !own.includes(definition))];
 }
 
-/** 이 정의들 가운데 줄 전체가 맞는 것이 있는가 */
-function matchesAny(definitions: readonly CommandDefinition[], words: readonly Word[], kind: DeviceKind): boolean {
-  const walk = walkWords(definitions, words, kind);
-  if (walk.ambiguous !== undefined) return false;
-  return definitions.some((definition) => attempt(definition, words, walk.keywords, kind).kind === "ok");
+/** 이 정의들 가운데 첫 단어가 이 글로 시작하는 것이 있는가. 줄여 쓴 글도 같은 명령어로 본다 */
+function startsAny(definitions: readonly CommandDefinition[], word: Word): boolean {
+  const typed = word.text.toLowerCase();
+  return definitions.some((definition) => {
+    const first = definition.tokens[0];
+    return typeof first === "string" && first.toLowerCase().startsWith(typed);
+  });
 }
 
 export function parseLine(
@@ -213,10 +215,10 @@ export function parseLine(
 
   // 첫 단어부터 틀렸는데 다른 모드에는 있는 명령어라면 모드가 틀린 것이다
   if (best === undefined || (best.kind === "mismatch" && best.matched === 0)) {
-    const elsewhere = matchesAny(
+    // 뒤의 단어가 맞는지는 보지 않는다. 다른 모드의 명령어를 쳤으면 값이 틀렸어도 모드부터 알린다 (T3.5.1)
+    const elsewhere = startsAny(
       forDevice.filter((definition) => !candidates.includes(definition)),
-      words,
-      kind,
+      firstWord,
     );
     const code = elsewhere ? "CLI_WRONG_MODE" : "CLI_UNKNOWN_COMMAND";
     return {
