@@ -50,15 +50,15 @@ describe("Router 배치와 표시", () => {
     expect(html.match(/class="port-state">admin-down/g)).toHaveLength(3);
   });
 
-  test("장비 목록은 추가할 수 있는 버튼 3개를 제공한다", () => {
-    const html = renderToString(<Palette deviceCount={0} onAdd={noop} />);
+  test("장비 목록은 장비 추가 버튼과 케이블 연결 버튼을 제공한다", () => {
+    const html = renderToString(<Palette deviceCount={2} onAdd={noop} onConnect={noop} />);
     for (const label of ["PC 추가", "Switch 추가", "Router 추가"]) expect(html).toContain(`aria-label="${label}"`);
-    expect(html.match(/<button/g)).toHaveLength(3);
+    expect(html.match(/<button/g)).toHaveLength(4);
     expect(html).not.toContain("disabled");
   });
 
   test("한도에 도달하면 장비 추가 버튼을 비활성화한다", () => {
-    const html = renderToString(<Palette deviceCount={LIMITS.maxDevices} onAdd={noop} />);
+    const html = renderToString(<Palette deviceCount={LIMITS.maxDevices} onAdd={noop} onConnect={noop} />);
     expect(html.match(/disabled=""/g)).toHaveLength(3);
     expect(html.replaceAll("<!-- -->", "")).toContain("장비 50 / 50");
   });

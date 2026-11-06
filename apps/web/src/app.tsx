@@ -1,11 +1,13 @@
 // 편집기 화면. 배치는 화면 시안을 따른다: 상단 막대, 왼쪽 장비 목록, 가운데 캔버스, 오른쪽 속성 패널.
 // 화면이 가진 상태는 선택, 열린 터미널, 터미널의 화면 기록뿐이다. 나머지는 engine의 스냅샷에서 읽는다 (AD-4).
 
-import type { DeviceKind, ErrorInfo } from "@ping9/shared";
+import type { DeviceKind, ErrorInfo, PortRef } from "@ping9/shared";
 import { useEffect, useReducer, useRef, useState } from "react";
 
 import { Canvas } from "./components/canvas";
+import { ConnectionDialog } from "./components/connection-dialog";
 import { Inspector } from "./components/inspector";
+import { LinkInspector } from "./components/link-inspector";
 import { Palette } from "./components/palette";
 import { TerminalWindow } from "./components/terminal-window";
 import { TopBar } from "./components/top-bar";
@@ -31,7 +33,10 @@ export function App() {
   const snapshot = useSnapshot();
   const { document } = snapshot;
   const [ui, dispatch] = useReducer(uiReducer, INITIAL_UI_STATE);
-  const [addError, setAddError] = useState<ErrorInfo | null>(null);
+  const [actionError, setActionError] = useState<ErrorInfo | null>(null);
+  const [connecting, setConnecting] = useState(false);
+  const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
+  const selectedLink = document.links.find(link => link.id === selectedLinkId);
 
   const addDevice = (kind: DeviceKind) => {
     const current = simulator.getSnapshot().document;
@@ -45,8 +50,30 @@ export function App() {
     }
     const id = crypto.randomUUID();
     const result = simulator.dispatch({ type: "device/add", id, kind, position });
-    setAddError(result.ok ? null : result.error);
-    if (result.ok) dispatch({ type: "select", deviceId: id });
+    setActionError(result.ok ? null : result.error);
+    if (result.ok) {
+      setSelectedLinkId(null);
+      dispatch({ type: "select", deviceId: id });
+    }
+  };
+
+  const connect = (ends: readonly [PortRef, PortRef]) => {
+    const id = crypto.randomUUID();
+    const result = simulator.dispatch({ type: "link/add", id, ends });
+    if (result.ok) {
+      setConnecting(false);
+      setSelectedLinkId(id);
+      setActionError(null);
+      dispatch({ type: "select", deviceId: null });
+    }
+    return result;
+  };
+
+  const removeSelectedLink = () => {
+    if (selectedLink === undefined) return;
+    const result = simulator.dispatch({ type: "link/remove", linkId: selectedLink.id });
+    setActionError(result.ok ? null : result.error);
+    if (result.ok) setSelectedLinkId(null);
   };
 
   // 장비별 터미널의 화면 기록. 창을 닫았다 열어도 남는다 (FR-19).
@@ -77,9 +104,11 @@ export function App() {
   // 문서에서 사라진 장비를 가리키는 선택과 터미널을 비운다
   useEffect(() => {
     dispatch({ type: "sync", deviceIds: document.devices.map((device) => device.id) });
+    setSelectedLinkId(current => document.links.some(link => link.id === current) ? current : null);
   }, [document]);
 
   const openTerminal = (deviceId: string) => {
+    setSelectedLinkId(null);
     updateTerminals((current) =>
       current[deviceId] === undefined
         ? { ...current, [deviceId]: initialTerminal(simulator.console(deviceId).prompt()) }
@@ -123,15 +152,20 @@ export function App() {
     <div className="app">
       <TopBar name={TOPOLOGY_NAME} />
       <main className="work">
-        <Palette deviceCount={document.devices.length} onAdd={addDevice} />
+        <Palette deviceCount={document.devices.length} onAdd={addDevice} linkCount={document.links.length}
+          onConnect={() => setConnecting(true)} />
         <section className="canvas">
-          {addError !== null && <div className="canvas-error" role="alert">{formatError(addError)}</div>}
+          {actionError !== null && <div className="canvas-error" role="alert">{formatError(actionError)}</div>}
           <Canvas
             document={document}
             selectedDeviceId={ui.selectedDeviceId}
-            onSelect={(deviceId) => dispatch({ type: "select", deviceId })}
+            onSelect={(deviceId) => { setSelectedLinkId(null); dispatch({ type: "select", deviceId }); }}
             onOpenTerminal={openTerminal}
+            selectedLinkId={selectedLinkId}
+            onSelectLink={(linkId) => { setSelectedLinkId(linkId); dispatch({ type: "select", deviceId: null }); }}
           />
+          {connecting && <ConnectionDialog document={document} initialDeviceId={ui.selectedDeviceId}
+            onConnect={connect} onClose={() => setConnecting(false)} />}
           {ui.terminals.map((placement, index) => {
             const device = document.devices.find((candidate) => candidate.id === placement.deviceId);
             const state = terminals[placement.deviceId];
@@ -155,12 +189,12 @@ export function App() {
             );
           })}
         </section>
-        <Inspector
+        {selectedLink !== undefined ? <LinkInspector document={document} link={selectedLink} onRemove={removeSelectedLink} /> : <Inspector
           snapshot={snapshot}
           deviceId={ui.selectedDeviceId}
           onOpenTerminal={openTerminal}
           onDispatch={simulator.dispatch}
-        />
+        />}
       </main>
     </div>
   );

@@ -1,6 +1,7 @@
 // 가운데 캔버스. Document의 장비와 링크를 그린다 (읽기 전용).
 // 노드의 모양은 시안의 그리기 코드를 옮긴 것이다. 캔버스는 자체 상태로 장비 목록을 들고 있지 않다 (AD-4).
 
+import { shortPortName } from "@ping9/shared";
 import type { Device, DeviceKind, Position, TopologyDocument } from "@ping9/shared";
 
 import { linkVlan } from "../format/link-vlan";
@@ -104,11 +105,15 @@ export function Canvas({
   selectedDeviceId,
   onSelect,
   onOpenTerminal,
+  selectedLinkId,
+  onSelectLink,
 }: {
   readonly document: TopologyDocument;
   readonly selectedDeviceId: string | null;
   readonly onSelect: (deviceId: string) => void;
   readonly onOpenTerminal: (deviceId: string) => void;
+  readonly selectedLinkId?: string | null;
+  readonly onSelectLink?: (linkId: string) => void;
 }) {
   const positions = new Map(document.devices.map((device) => [device.id, device.position]));
 
@@ -123,7 +128,19 @@ export function Canvas({
             const mark = linkVlan(document, link);
             const middle = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
             return (
-              <g key={link.id}>
+              <g key={link.id} className={link.id === selectedLinkId ? "link selected" : "link"}
+                role={onSelectLink === undefined ? undefined : "button"}
+                tabIndex={onSelectLink === undefined ? undefined : 0}
+                aria-label={onSelectLink === undefined ? undefined : `케이블 ${link.ends.map(end =>
+                  `${document.devices.find(device => device.id === end.deviceId)?.name} ${shortPortName(end.port)}`).join(" ↔ ")}`}
+                onClick={() => onSelectLink?.(link.id)}
+                onKeyDown={event => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelectLink?.(link.id);
+                  }
+                }}>
+                {onSelectLink !== undefined && <line className="wire-hit" x1={from.x} y1={from.y} x2={to.x} y2={to.y} />}
                 <line
                   className={mark?.kind === "trunk" ? "wire trunk" : "wire"}
                   x1={from.x}
@@ -131,6 +148,10 @@ export function Canvas({
                   x2={to.x}
                   y2={to.y}
                 />
+                <text className="wire-port" x={from.x * 0.72 + to.x * 0.28} y={from.y * 0.72 + to.y * 0.28 - 8}
+                  textAnchor="middle">{shortPortName(link.ends[0].port)}</text>
+                <text className="wire-port" x={from.x * 0.28 + to.x * 0.72} y={from.y * 0.28 + to.y * 0.72 - 8}
+                  textAnchor="middle">{shortPortName(link.ends[1].port)}</text>
                 {mark?.kind === "access" && (
                   <LinkLabel x={middle.x} y={middle.y} text={`VLAN ${mark.vlan}`} vlan={mark.vlan} />
                 )}

@@ -5,12 +5,11 @@ import { LIMITS } from "@ping9/shared";
 import type { DeviceKind } from "@ping9/shared";
 
 const STROKE = { fill: "none", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" } as const;
-/** 끌 수 없으므로 시안의 grab 커서를 쓰지 않는다 */
-const STILL = { cursor: "default" } as const;
-
-export function Palette({ deviceCount, onAdd }: {
+export function Palette({ deviceCount, onAdd, linkCount = 0, onConnect }: {
   readonly deviceCount: number;
   readonly onAdd: (kind: DeviceKind) => void;
+  readonly linkCount?: number;
+  readonly onConnect: () => void;
 }) {
   const used = Math.min(100, (deviceCount / LIMITS.maxDevices) * 100);
   const full = deviceCount >= LIMITS.maxDevices;
@@ -40,14 +39,15 @@ export function Palette({ deviceCount, onAdd }: {
         Router
       </button>
       <h4>연결</h4>
-      <div className="tool" style={STILL}>
+      <button type="button" className="tool" aria-label="케이블 연결" onClick={onConnect}
+        disabled={deviceCount < 2 || linkCount >= LIMITS.maxLinks}>
         <svg viewBox="0 0 32 32" fill="none" stroke="#1565D8" strokeWidth="2" strokeLinecap="round">
           <path d="M6 24c6 0 6-16 20-16" />
           <circle cx="6" cy="24" r="2.5" fill="#1565D8" />
           <circle cx="26" cy="8" r="2.5" fill="#1565D8" />
         </svg>
         케이블
-      </div>
+      </button>
       <div className="quota">
         장비 {deviceCount} / {LIMITS.maxDevices}
         <div className="bar">
