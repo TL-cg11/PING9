@@ -79,7 +79,7 @@ describe("iosExec", () => {
     env.setSession(sw.id, { mode: "privileged" });
 
     expect(iosExec("boom", sw, DEFS, env)).toEqual({
-      lines: [{ kind: "error", code: "UNKNOWN_COMMAND", params: { type: "device/remove" } }],
+      lines: [{ kind: "error", code: "DEVICE_NOT_FOUND", params: { deviceId: "x" } }],
       prompt: "SW1#",
     });
   });

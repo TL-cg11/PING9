@@ -21,7 +21,7 @@ function isAdminUp(device: Device, port: string): boolean {
       // 구성에 없는 포트는 기본값(켜짐)이다
       return device.config.ports[port]?.adminUp ?? true;
     case "router":
-      // 🟡 설정된 적 없는 Router 인터페이스는 꺼진 것으로 본다. E4(T4.1.x)에서 확정한다
+      // Router 인터페이스는 기본적으로 꺼져 있다 (T4.1.1, FR-17).
       return device.config.interfaces[port]?.adminUp ?? false;
   }
 }

@@ -10,6 +10,7 @@ import type { ConsoleLine, ConsoleResult, Device, DeviceKind, HelpEntry } from "
 import { iosComplete, iosExec, iosHelp, iosPrompt } from "./cli/ios";
 import type { CommandDefinition, IosConsoleEnv } from "./cli/ios";
 import { pcCommandsFor, pcPrompt } from "./cli/pc";
+import { ROUTER_COMMANDS } from "./cli/router";
 import { SWITCH_COMMANDS } from "./cli/switch";
 
 export interface ConsolePort {
@@ -25,6 +26,7 @@ export interface ConsolePort {
 
 /** 장비 종류별 명령 정의 목록. 없는 종류는 아직 CLI가 없다. PC는 OS에 따라 고른다 (T0.7) */
 const DEFINITIONS_BY_KIND: Partial<Record<Exclude<DeviceKind, "pc">, readonly CommandDefinition[]>> = {
+  router: ROUTER_COMMANDS,
   switch: SWITCH_COMMANDS,
 };
 

@@ -10,7 +10,9 @@ import { errorInfo } from "@ping9/shared";
 import type { Command, CommandOf, CommandType, ErrorInfo, Notice, TopologyDocument } from "@ping9/shared";
 
 import { describeValue } from "./describe";
+import { addDevice } from "./reducer/device-add";
 import { setInterfaceAdmin } from "./reducer/interface-admin";
+import { addLink, removeDevice, removeLink } from "./reducer/link";
 import { setPcIp } from "./reducer/pc-set-ip";
 import { setPcOs } from "./reducer/pc-set-os";
 import {
@@ -35,6 +37,10 @@ export type CommandHandler<T extends CommandType> = (
 
 // 처리기의 본문은 reducer/ 폴더의 각자 파일에 두고, 여기에는 자기 Command의 줄만 더한다
 const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
+  "device/add": addDevice,
+  "device/remove": removeDevice,
+  "link/add": addLink,
+  "link/remove": removeLink,
   "pc/set-ip": setPcIp,
   "pc/set-os": setPcOs,
   "interface/set-admin": setInterfaceAdmin,
