@@ -25,6 +25,8 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T1.2.3 예시 자료와 계약 테스트 | [T1.2.3-example-data.md](T1.2.3-example-data.md) | 공통 | SDY | 완료 (검토 없이 병합) |
 | T1.2.4 `Simulator` 뼈대 | [T1.2.4-simulator-skeleton.md](T1.2.4-simulator-skeleton.md) | 엔진 | SDY | 완료 (검토 없이 병합) |
 | T1.7.1 가상 시계와 사건 큐 커널 | [T1.7.1-kernel.md](T1.7.1-kernel.md) | 엔진 | ssunyoung2 | 구현·검증 완료, [PR #27](https://github.com/TL-cg11/PING9/pull/27) 팀원 검토 대기 |
+| T1.3.2 장비 드래그 배치·이동과 포트 선택 연결 | [T1.3.2-drag-editor.md](T1.3.2-drag-editor.md) | 화면, 엔진 | ssunyoung2 | 로컬 구현·검증 완료, PR/팀원 검토 대기 |
+| T1.3.2 후속: 실습 확대·축소 버튼 | [T1.3.2-canvas-zoom.md](T1.3.2-canvas-zoom.md) | 화면 | ssunyoung2 | 로컬 구현·검증 완료, PR/팀원 검토 대기 |
 | T1.4.1 링크 생성·삭제 명령 | [T1.4.1-link-commands.md](T1.4.1-link-commands.md) | 엔진 | ssunyoung2 | 문서 명령 로컬 검증 완료. 런타임 훅과 PR 검토 남음 |
 | T1.4.2 케이블 연결·선택·삭제 화면 | [T1.4.2-link-editor.md](T1.4.2-link-editor.md) | 화면 | ssunyoung2 | 선택 창 연결/삭제 로컬 검증 완료. 드래그 연결과 PR 검토 남음 |
 | T1.5.1 reducer `pc/set-ip` | [T1.5.1-pc-set-ip.md](T1.5.1-pc-set-ip.md) | 엔진 | yysong1249 | 완료 (PR #3, SDY가 병합). 오류에 값을 담는 함수는 T5.1.1에서 `describeValue`로 맞춤 (담당자 확인함) |
