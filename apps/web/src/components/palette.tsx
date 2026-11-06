@@ -1,14 +1,17 @@
 // 왼쪽 장비 목록. 시안의 <aside class="palette">와 같은 마크업이고, 아이콘은 T0.6의 장비 아이콘이다.
 // 장비 버튼을 누르면 공통 device/add 경로로 장비를 추가한다. 끌어 놓기는 T1.3.2에서 추가한다.
+// PC는 OS마다 버튼이 따로 있다 (T0.7).
 
-import { LIMITS } from "@ping9/shared";
-import type { DeviceKind } from "@ping9/shared";
+import { LIMITS, OS_KINDS } from "@ping9/shared";
+import type { DeviceKind, OsKind } from "@ping9/shared";
 
+import { OS_NAMES } from "../format/pc-address";
 import { DeviceIcon } from "./device-icons";
 
 export function Palette({ deviceCount, onAdd, linkCount = 0, onConnect }: {
   readonly deviceCount: number;
-  readonly onAdd: (kind: DeviceKind) => void;
+  /** `os`는 PC 버튼만 넘긴다 */
+  readonly onAdd: (kind: DeviceKind, os?: OsKind) => void;
   readonly linkCount?: number;
   readonly onConnect: () => void;
 }) {
@@ -18,10 +21,13 @@ export function Palette({ deviceCount, onAdd, linkCount = 0, onConnect }: {
   return (
     <aside className="palette">
       <h4>장비</h4>
-      <button type="button" className="tool" aria-label="PC 추가" disabled={full} onClick={() => onAdd("pc")}>
-        <DeviceIcon kind="pc" />
-        PC
-      </button>
+      {OS_KINDS.map((os) => (
+        <button key={os} type="button" className="tool" aria-label={`${OS_NAMES[os]} PC 추가`} disabled={full}
+          onClick={() => onAdd("pc", os)}>
+          <DeviceIcon kind="pc" os={os} />
+          {OS_NAMES[os]} PC
+        </button>
+      ))}
       <button type="button" className="tool" aria-label="Switch 추가" disabled={full} onClick={() => onAdd("switch")}>
         <DeviceIcon kind="switch" />
         Switch

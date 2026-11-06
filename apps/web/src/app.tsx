@@ -1,7 +1,7 @@
 // 편집기 화면. 배치는 화면 시안을 따른다: 상단 막대, 왼쪽 장비 목록, 가운데 캔버스, 오른쪽 속성 패널.
 // 화면이 가진 상태는 선택, 열린 터미널, 터미널의 화면 기록뿐이다. 나머지는 engine의 스냅샷에서 읽는다 (AD-4).
 
-import type { DeviceKind, ErrorInfo, PortRef } from "@ping9/shared";
+import type { DeviceKind, ErrorInfo, OsKind, PortRef } from "@ping9/shared";
 import { useEffect, useReducer, useRef, useState } from "react";
 
 import { Canvas } from "./components/canvas";
@@ -39,7 +39,7 @@ export function App() {
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const selectedLink = document.links.find(link => link.id === selectedLinkId);
 
-  const addDevice = (kind: DeviceKind) => {
+  const addDevice = (kind: DeviceKind, os?: OsKind) => {
     const current = simulator.getSnapshot().document;
     // 기존 장비와 겹치지 않는 첫 격자 칸을 고른다. 장비 이동은 T1.3.2에서 구현한다.
     let slot = 0;
@@ -50,7 +50,9 @@ export function App() {
       position = { x: 160 + (slot % 5) * 140, y: 120 + Math.floor(slot / 5) * 130 };
     }
     const id = crypto.randomUUID();
-    const result = simulator.dispatch({ type: "device/add", id, kind, position });
+    const result = simulator.dispatch(os === undefined
+      ? { type: "device/add", id, kind, position }
+      : { type: "device/add", id, kind, position, os });
     setActionError(result.ok ? null : result.error);
     if (result.ok) {
       setSelectedLinkId(null);
