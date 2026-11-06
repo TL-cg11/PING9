@@ -193,6 +193,18 @@ describe("trunk 명령어", () => {
     expect(last.lines).toEqual([{ kind: "error", ...error, position: 30 }]);
   });
 
+  test("switchport trunk allowed vlan add는 지금 목록에 더한다", async () => {
+    const added = await run("switchport mode trunk", "switchport trunk allowed vlan 10", "switchport trunk allowed vlan add 20-21,11");
+    expect(configOf(added.simulator).ports[FA8]?.allowedVlans).toEqual([[10, 11], [20, 21]]);
+
+    const fromNone = await run("switchport trunk allowed vlan none", "sw tr al vl add 30");
+    expect(configOf(fromNone.simulator).ports[FA8]?.allowedVlans).toEqual([[30, 30]]);
+
+    // 전부 허용인 목록에 더해도 전부 허용이다
+    const fromAll = await run("switchport trunk allowed vlan add 30");
+    expect(configOf(fromAll.simulator).ports).toEqual({});
+  });
+
   test("목록이 빠지면 끝나지 않은 명령어다", async () => {
     const { last } = await run("switchport trunk allowed vlan");
 

@@ -6,6 +6,7 @@ import {
   LIMITS,
   VLAN_ID_MAX,
   VLAN_ID_MIN,
+  checkVlanId,
   errorInfo,
   isPortName,
   portIndex,
@@ -102,6 +103,14 @@ export function withSwitchConfig(
         : device,
     ),
   };
+}
+
+/**
+ * Command의 VLAN 번호를 확인한다. 경계 밖에서 온 값이 수가 아니면 그 값을 오류에 담지 않는다.
+ * 객체나 Symbol이 params에 들어가면 화면이 문구를 만들다 예외를 던진다 (AD-16).
+ */
+export function checkVlanIdValue(value: unknown): ErrorInfo | null {
+  return typeof value === "number" ? checkVlanId(value) : errorInfo("INVALID_VLAN_ID", { value: Number.NaN });
 }
 
 /** Command가 가리키는 Switch 포트의 이름이 맞는지. 전체 이름만 받는다 (줄임은 CLI가 푼다) */

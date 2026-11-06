@@ -140,6 +140,21 @@ describe("switchport/set-access-vlan", () => {
     expect(simulator.getSnapshot()).toBe(before);
   });
 
+  test("수가 아닌 번호는 오류에 그대로 담지 않는다 (화면이 문구를 만들다 실패하지 않게)", () => {
+    for (const vlanId of [{ toString: 1, valueOf: 1 }, "x".repeat(5000), Symbol("v"), 10n]) {
+      expect(send(open(), { type: "switchport/set-access-vlan", vlanId })).toEqual({
+        ok: false,
+        error: { code: "INVALID_VLAN_ID", params: { value: Number.NaN } },
+      });
+    }
+    for (const type of ["vlan/create", "vlan/rename", "vlan/remove"]) {
+      expect(send(open(), { type, vlanId: { toString: 1, valueOf: 1 }, name: "LAB" })).toEqual({
+        ok: false,
+        error: { code: "INVALID_VLAN_ID", params: { value: Number.NaN } },
+      });
+    }
+  });
+
   test("자동으로 만들면 한도를 넘는 경우에는 거부한다", () => {
     const vlans = Array.from({ length: LIMITS.maxVlansPerSwitch }, (_unused, index) => ({
       id: index + 1,

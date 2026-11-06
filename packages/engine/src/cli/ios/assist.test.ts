@@ -158,7 +158,7 @@ describe("도움말·완성과 해석기의 일치 (AD-8): Switch의 실제 명�
   };
   const sampleOf = (token: { readonly param: string; readonly type: string }): string =>
     SAMPLE_BY_NAME[token.param] ?? SAMPLE[token.type] ?? "x";
-  const MODES: readonly CliMode[] = ["user", "privileged", "config", "config-vlan"];
+  const MODES: readonly CliMode[] = ["user", "privileged", "config", "config-if", "config-vlan"];
 
   const sampleWords = (definition: CommandDefinition): string[] =>
     definition.tokens.map((token) => (typeof token === "string" ? token : (sampleOf(token))));

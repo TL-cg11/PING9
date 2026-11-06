@@ -132,7 +132,13 @@ function egress(
 }
 
 export function switchForward(input: ForwardInput): ForwardResult {
-  const { config, isPortUp, now, inPort, frame } = input;
+  const { config, isPortUp, now, inPort } = input;
+  // MAC 주소는 소문자로 다룬다. 대소문자만 다른 주소는 같은 주소다
+  const frame: ForwardFrame = {
+    ...input.frame,
+    sourceMac: input.frame.sourceMac.toLowerCase(),
+    destinationMac: input.frame.destinationMac.toLowerCase(),
+  };
 
   if (!isPortUp(inPort)) {
     return {
@@ -195,9 +201,21 @@ export function switchForward(input: ForwardInput): ForwardResult {
  */
 export function pruneMacTable(
   table: MacTable,
-  state: { readonly config: SwitchConfig; readonly isPortUp: (port: string) => boolean },
+  state: {
+    readonly config: SwitchConfig;
+    readonly isPortUp: (port: string) => boolean;
+    /** 바뀌기 전의 구성. 주면 모드나 access VLAN이 바뀐 포트의 항목도 지운다 */
+    readonly previousConfig?: SwitchConfig;
+  },
 ): MacTable {
-  const kept = table.filter((entry) => state.isPortUp(entry.port) &&
+  const changed = (portName: string): boolean => {
+    if (state.previousConfig === undefined) return false;
+    const before = switchPort(state.previousConfig, portName);
+    const after = switchPort(state.config, portName);
+    return before.mode !== after.mode || before.accessVlan !== after.accessVlan;
+  };
+  const kept = table.filter((entry) =>
+      !changed(entry.port) && state.isPortUp(entry.port) &&
       vlanExists(state.config, entry.vlan) &&
       !("drop" in egress(state.config, entry.port, entry.vlan)));
   return kept.length === table.length ? table : kept;

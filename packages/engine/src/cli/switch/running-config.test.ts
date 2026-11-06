@@ -151,7 +151,32 @@ describe("왕복: 출력을 새 Switch에 입력하면 같은 구성이 된다",
     fc.record({ type: fc.constant("switchport/set-mode"), port, mode: fc.constantFrom("access", "trunk") }),
     fc.record({ type: fc.constant("switchport/set-access-vlan"), port, vlanId }),
     fc.record({ type: fc.constant("switchport/set-allowed-vlans"), port, allowedVlans: fc.array(range, { maxLength: 4 }) }),
+    // 서로 떨어진 번호가 많은 목록. 한 줄에 다 쓰면 콘솔의 줄 길이 한도를 넘는다
+    fc.record({
+      type: fc.constant("switchport/set-allowed-vlans"),
+      port,
+      allowedVlans: fc.array(
+        fc.integer({ min: 1000, max: 4094 }).map((id): VlanRange => [id, id]),
+        { minLength: 30, maxLength: 64 },
+      ),
+    }),
   );
+
+  test("허용 목록이 길면 여러 줄로 나눠 쓰고, 다시 넣으면 같은 구성이 된다", async () => {
+    const id = TWO_PC_SWITCH.sw1.id;
+    // 1001-1002, 1004-1005, ... 서로 떨어진 범위 64개 (한도). 한 줄로 쓰면 600자가 넘는다
+    const allowedVlans: VlanRange[] = Array.from({ length: 64 }, (_unused, index) => [1001 + index * 3, 1002 + index * 3]);
+    const source = open(twoPcSwitchDocument);
+    source.dispatch({ type: "switchport/set-allowed-vlans", deviceId: id, port: "FastEthernet0/8", allowedVlans });
+
+    const lines = await runningConfig(source, id);
+    const fresh = open(twoPcSwitchDocument);
+
+    expect(Math.max(...lines.map((line) => line.length))).toBeLessThanOrEqual(200);
+    expect(lines.filter((line) => line.startsWith(" switchport trunk allowed vlan add "))).not.toHaveLength(0);
+    expect(await paste(fresh, id, lines)).toEqual([]);
+    expect(configOf(fresh, id)).toEqual(configOf(source, id));
+  });
 
   test("reducer로 만들 수 있는 임의의 구성 (속성 기반)", async () => {
     const id = TWO_PC_SWITCH.sw1.id;

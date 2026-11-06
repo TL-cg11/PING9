@@ -165,6 +165,26 @@ describe("switchForward: access 포트의 VLAN", () => {
   });
 });
 
+describe("switchForward: MAC 주소의 대소문자", () => {
+  test("대문자로 적힌 브로드캐스트 주소도 브로드캐스트다", () => {
+    const upper = "FF:FF:FF:FF:FF:FF";
+
+    const result = forward({ inPort: FA(1), from: upper, to: upper });
+
+    expect(result.learned).toBeUndefined();
+    expect(result.outputs).toEqual([{ port: FA(3), flooded: true }]);
+  });
+
+  test("대소문자만 다른 주소는 같은 주소로 배우고 찾는다", () => {
+    const known = forward({ inPort: FA(3), from: "02:00:00:00:0A:BC", to: BROADCAST_MAC }).macTable;
+
+    const result = forward({ inPort: FA(1), from: MAC_A, to: "02:00:00:00:0a:bc", macTable: known });
+
+    expect(known).toEqual([{ vlan: 10, mac: "02:00:00:00:0a:bc", port: FA(3), lastSeen: 0 }]);
+    expect(result.outputs).toEqual([{ port: FA(3), flooded: false }]);
+  });
+});
+
 describe("pruneMacTable: VLAN이 바뀐 뒤", () => {
   const table: MacTable = [
     { vlan: 10, mac: MAC_A, port: FA(1), lastSeen: 0 },
@@ -179,6 +199,19 @@ describe("pruneMacTable: VLAN이 바뀐 뒤", () => {
     };
 
     expect(pruneMacTable(table, { config: moved, isPortUp: allUp }).map((entry) => entry.mac)).toEqual([MAC_A, MAC_B]);
+  });
+
+  test("포트의 모드가 바뀌면, 그 VLAN을 여전히 나르더라도 그 포트의 항목을 지운다", () => {
+    const toTrunk: SwitchConfig = {
+      ...ACCESS_CONFIG,
+      ports: { ...ACCESS_CONFIG.ports, [FA(1)]: { adminUp: true, mode: "trunk", accessVlan: 10 } },
+    };
+
+    // 바뀌기 전의 구성을 주지 않으면 무엇이 바뀌었는지 알 수 없어 남는다
+    expect(pruneMacTable(table, { config: toTrunk, isPortUp: allUp })).toHaveLength(3);
+    expect(
+      pruneMacTable(table, { config: toTrunk, isPortUp: allUp, previousConfig: ACCESS_CONFIG }).map((entry) => entry.mac),
+    ).toEqual([MAC_C, MAC_B]);
   });
 
   test("지워진 VLAN의 항목을 지운다", () => {
