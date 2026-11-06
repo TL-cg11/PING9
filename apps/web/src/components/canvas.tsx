@@ -1,42 +1,24 @@
 // 가운데 캔버스. Document의 장비와 링크를 그린다 (읽기 전용).
-// 노드의 모양은 시안의 그리기 코드를 옮긴 것이다. 캔버스는 자체 상태로 장비 목록을 들고 있지 않다 (AD-4).
+// 노드는 장비 아이콘과 이름이다 (T0.6). 흰 카드는 보이지 않고 클릭 영역으로만 남는다. 캔버스는 자체 상태로 장비 목록을 들고 있지 않다 (AD-4).
 
 import { shortPortName } from "@ping9/shared";
-import type { Device, DeviceKind, Position, TopologyDocument } from "@ping9/shared";
+import type { Device, Position, TopologyDocument } from "@ping9/shared";
 
+import { linkEnds } from "../format/link-ends";
 import { linkVlan } from "../format/link-vlan";
 import { vlanColor } from "../format/vlan-color";
+import { DeviceIcon } from "./device-icons";
 
 /** 시안의 기본 그림 영역 */
 const BASE_WIDTH = 860;
 const BASE_HEIGHT = 330;
-/** 노드 카드의 크기. 장비의 위치는 카드의 가운데다 */
+/** 노드(클릭 영역)의 크기. 장비의 위치는 클릭 영역의 가운데다 */
 const HALF_WIDTH = 40;
 const ABOVE = 36;
 /** 카드 아래쪽 끝(36)과 그 밑의 IP 글자까지 */
 const BELOW = 64;
 /** 기본 영역을 벗어난 쪽에 두는 여백 */
 const MARGIN = 60;
-
-const BADGE: Readonly<Record<DeviceKind, string>> = { pc: "badge-p", switch: "badge-s", router: "badge-r" };
-
-const ICON_STROKE = { fill: "none", strokeLinecap: "round" } as const;
-
-function Icon({ kind }: { readonly kind: DeviceKind }) {
-  switch (kind) {
-    case "pc":
-      return <path d="M31 17h18v11H31zM37 32h6" stroke="#1565D8" strokeWidth="2" {...ICON_STROKE} />;
-    case "switch":
-      return (
-        <>
-          <path d="M30 23h20" stroke="#5B4BD1" strokeWidth="2.5" {...ICON_STROKE} />
-          <path d="M33 19v8M47 19v8" stroke="#5B4BD1" strokeWidth="2" {...ICON_STROKE} />
-        </>
-      );
-    case "router":
-      return <path d="M34 17l12 12M46 17L34 29" stroke="#1E7A6E" strokeWidth="2" {...ICON_STROKE} />;
-  }
-}
 
 /** 링크 가운데에 붙는 알약 모양 표시. 시안의 vlabel과 같은 크기 계산이다 */
 function LinkLabel({
@@ -120,6 +102,14 @@ export function Canvas({
   return (
     <>
       <svg className="topo" viewBox={viewBoxFor(document.devices)} preserveAspectRatio="xMidYMin meet">
+        <defs>
+          {/* 선택 표시: 가운데가 진하고 바깥으로 갈수록 사라지는 파란 빛 */}
+          <radialGradient id="sel-glow">
+            <stop offset="0%" stopColor="#3B8EF0" stopOpacity="0.55" />
+            <stop offset="45%" stopColor="#3B8EF0" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#3B8EF0" stopOpacity="0" />
+          </radialGradient>
+        </defs>
         <g>
           {document.links.map((link) => {
             const from = positions.get(link.ends[0].deviceId);
@@ -140,14 +130,9 @@ export function Canvas({
                     onSelectLink?.(link.id);
                   }
                 }}>
-                {onSelectLink !== undefined && <line className="wire-hit" x1={from.x} y1={from.y} x2={to.x} y2={to.y} />}
-                <line
-                  className={mark?.kind === "trunk" ? "wire trunk" : "wire"}
-                  x1={from.x}
-                  y1={from.y}
-                  x2={to.x}
-                  y2={to.y}
-                />
+                {/* 선은 아이콘과 이름 위를 지나지 않게 장비 둘레에서 끊는다 (T0.6). 누르는 영역도 같은 선이다 */}
+                {onSelectLink !== undefined && <line className="wire-hit" {...linkEnds(from, to)} />}
+                <line className={mark?.kind === "trunk" ? "wire trunk" : "wire"} {...linkEnds(from, to)} />
                 <text className="wire-port" x={from.x * 0.72 + to.x * 0.28} y={from.y * 0.72 + to.y * 0.28 - 8}
                   textAnchor="middle">{shortPortName(link.ends[0].port)}</text>
                 <text className="wire-port" x={from.x * 0.28 + to.x * 0.72} y={from.y * 0.28 + to.y * 0.72 - 8}
@@ -176,13 +161,14 @@ export function Canvas({
               onDoubleClick={() => onOpenTerminal(device.id)}
             >
               <rect className="card" width="80" height="72" rx="16" />
-              <rect className={BADGE[device.kind]} x="24" y="10" width="32" height="26" rx="8" />
-              <Icon kind={device.kind} />
-              <text className="lbl" x="40" y="56" textAnchor="middle">
+              {/* 선택했을 때만 보이는 파란 빛. 아이콘 뒤에 그린다 */}
+              <circle className="halo" cx="40" cy="36" r="46" />
+              <DeviceIcon kind={device.kind} x={12} y={-2} width={56} height={56} />
+              <text className="lbl" x="40" y="68" textAnchor="middle">
                 {device.name}
               </text>
               {device.kind === "pc" && device.config.ip !== undefined && (
-                <text className="ip" x="40" y="100" textAnchor="middle">
+                <text className="ip" x="40" y="86" textAnchor="middle">
                   {device.config.ip}
                 </text>
               )}

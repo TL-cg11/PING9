@@ -27,11 +27,31 @@ test("예시 문서의 장비 6대와 링크 5개를 그리고 선택한 장비�
   expect(html).toContain("10.0.10.1");
 });
 
-test("장비 종류마다 시안의 배지 클래스를 쓴다", () => {
+test("장비 종류마다 그 종류의 아이콘을 쓴다 (T0.6)", () => {
   const html = render(twoSwitchVlanDocument);
 
-  expect(html.match(/class="badge-p"/g)).toHaveLength(4);
-  expect(html.match(/class="badge-s"/g)).toHaveLength(2);
+  expect(html.match(/class="icon icon-pc"/g)).toHaveLength(4);
+  expect(html.match(/class="icon icon-switch"/g)).toHaveLength(2);
+  expect(html).not.toContain("icon-router");
+});
+
+test("선택 빛: 그라디언트는 하나, 빛의 원은 장비마다 하나 (T0.6)", () => {
+  const html = render(twoSwitchVlanDocument, TWO_SWITCH_VLAN.sw1.id);
+
+  expect(html.match(/<radialGradient id="sel-glow"/g)).toHaveLength(1);
+  expect(html.match(/class="halo"/g)).toHaveLength(6);
+});
+
+test("링크 선은 장비 위치가 아니라 장비 둘레에서 끝난다 (T0.6)", () => {
+  const html = render(twoSwitchVlanDocument);
+  const centers = new Set(twoSwitchVlanDocument.devices.map((device) => `${device.position.x},${device.position.y}`));
+  const lines = [...html.matchAll(/<line class="wire[^"]*" x1="([^"]+)" y1="([^"]+)" x2="([^"]+)" y2="([^"]+)"/g)];
+
+  expect(lines).toHaveLength(5);
+  for (const [, x1, y1, x2, y2] of lines) {
+    expect(centers.has(`${x1},${y1}`)).toBe(false);
+    expect(centers.has(`${x2},${y2}`)).toBe(false);
+  }
 });
 
 test("시안과 같은 크기의 문서는 viewBox가 시안과 같다", () => {

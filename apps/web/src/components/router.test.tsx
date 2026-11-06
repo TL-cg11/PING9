@@ -22,7 +22,8 @@ describe("Router 배치와 표시", () => {
     const html = renderToString(<Canvas document={simulator.getSnapshot().document} selectedDeviceId={ID}
       onSelect={noop} onOpenTerminal={noop} />);
     expect(html).toContain(">R1<");
-    expect(html).toContain('class="badge-r"');
+    // 장비 아이콘은 T0.6에서 바뀌었다 (전의 badge-r 대신 icon-router)
+    expect(html).toContain('class="icon icon-router"');
     expect(html).toContain('class="node sel"');
   });
 

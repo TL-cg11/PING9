@@ -1,10 +1,11 @@
-// 왼쪽 장비 목록. 시안의 <aside class="palette">와 같은 마크업과 아이콘이다.
+// 왼쪽 장비 목록. 시안의 <aside class="palette">와 같은 마크업이고, 아이콘은 T0.6의 장비 아이콘이다.
 // 장비 버튼을 누르면 공통 device/add 경로로 장비를 추가한다. 끌어 놓기는 T1.3.2에서 추가한다.
 
 import { LIMITS } from "@ping9/shared";
 import type { DeviceKind } from "@ping9/shared";
 
-const STROKE = { fill: "none", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+import { DeviceIcon } from "./device-icons";
+
 export function Palette({ deviceCount, onAdd, linkCount = 0, onConnect }: {
   readonly deviceCount: number;
   readonly onAdd: (kind: DeviceKind) => void;
@@ -18,24 +19,15 @@ export function Palette({ deviceCount, onAdd, linkCount = 0, onConnect }: {
     <aside className="palette">
       <h4>장비</h4>
       <button type="button" className="tool" aria-label="PC 추가" disabled={full} onClick={() => onAdd("pc")}>
-        <svg viewBox="0 0 32 32" stroke="#1565D8" {...STROKE}>
-          <rect x="4" y="6" width="24" height="15" rx="3" />
-          <path d="M12 26h8M16 21v5" />
-        </svg>
+        <DeviceIcon kind="pc" />
         PC
       </button>
       <button type="button" className="tool" aria-label="Switch 추가" disabled={full} onClick={() => onAdd("switch")}>
-        <svg viewBox="0 0 32 32" stroke="#5B4BD1" {...STROKE}>
-          <rect x="3" y="10" width="26" height="12" rx="3" />
-          <path d="M8 16h2M13 16h2M18 16h2M23 16h2" />
-        </svg>
+        <DeviceIcon kind="switch" />
         Switch
       </button>
       <button type="button" className="tool" aria-label="Router 추가" disabled={full} onClick={() => onAdd("router")}>
-        <svg viewBox="0 0 32 32" stroke="#1E7A6E" {...STROKE}>
-          <circle cx="16" cy="16" r="11" />
-          <path d="M11 11l10 10M21 11L11 21" />
-        </svg>
+        <DeviceIcon kind="router" />
         Router
       </button>
       <h4>연결</h4>
