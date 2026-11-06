@@ -13,8 +13,12 @@ import type {
 
 export type CliMode = "user" | "privileged" | "config" | "config-if" | "config-vlan";
 
-/** 매개변수의 종류. `word`는 빈칸 없는 글, `vlan-id`는 1~4094의 수 */
-export type ParamType = "word" | "vlan-id";
+/**
+ * 매개변수의 종류. `word`는 빈칸 없는 글, `vlan-id`는 1~4094의 수,
+ * `ipv4`는 점으로 구분한 IPv4 주소, `mask`는 1이 이어지는 서브넷 마스크다.
+ * `ipv4`와 `mask`는 형식만 본다. 특수 주소나 네트워크 주소 같은 규칙은 reducer가 판정한다 (AD-3)
+ */
+export type ParamType = "word" | "vlan-id" | "ipv4" | "mask";
 
 export interface ParamToken {
   /** 인자 이름. `run`이 받는 `args`의 키다 */

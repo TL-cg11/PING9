@@ -1,7 +1,7 @@
 // 입력 한 줄을 명령 정의와 인자로 해석한다. 틀리면 오류 코드와 틀린 단어의 위치를 돌려준다 (FR-46).
 // 지금은 단어가 정확히 일치할 때만 받아들인다. 줄임 입력은 T3.2.1에서 더한다.
 
-import { checkVlanId, errorInfo } from "@ping9/shared";
+import { checkIpv4, checkMask, checkVlanId, errorInfo } from "@ping9/shared";
 import type { DeviceKind, ErrorInfo } from "@ping9/shared";
 
 import type { CliMode, CommandArgs, CommandDefinition, ParamToken } from "./define";
@@ -42,6 +42,15 @@ function readParam(token: ParamToken, text: string): ParamResult {
       const error = checkVlanId(value);
       return error === null ? { ok: true, value } : { ok: false, error };
     }
+    // 검사 함수는 받은 글을 오류에 그대로 담으므로, 오류는 자른 글로 다시 만든다
+    case "ipv4":
+      return checkIpv4(text) === null
+        ? { ok: true, value: text }
+        : { ok: false, error: errorInfo("INVALID_IPV4", { value: clip(text) }) };
+    case "mask":
+      return checkMask(text) === null
+        ? { ok: true, value: text }
+        : { ok: false, error: errorInfo("INVALID_MASK", { value: clip(text) }) };
   }
 }
 
