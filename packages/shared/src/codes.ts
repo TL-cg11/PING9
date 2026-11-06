@@ -79,6 +79,11 @@ export interface ErrorParamsByCode {
     readonly expected: DeviceKind;
     readonly actual: DeviceKind;
   };
+  /**
+   * PC의 IP 구성에서 함께 있어야 할 값이 빠짐 (`pc/set-ip`).
+   * IP 없이 마스크나 게이트웨이만 있으면 `ip`, IP는 있는데 마스크가 없으면 `mask`
+   */
+  PC_ADDRESS_INCOMPLETE: { readonly deviceId: string; readonly missing: "ip" | "mask" };
 
   // CLI 해석 (FR-46). `position`은 ConsoleLine에 따로 담는다
   CLI_UNKNOWN_COMMAND: { readonly token: string };
@@ -135,6 +140,7 @@ const ERROR_CODE_SET = {
   DEVICE_NOT_FOUND: true,
   LINK_NOT_FOUND: true,
   DEVICE_KIND_MISMATCH: true,
+  PC_ADDRESS_INCOMPLETE: true,
   CLI_UNKNOWN_COMMAND: true,
   CLI_INCOMPLETE_COMMAND: true,
   CLI_AMBIGUOUS_COMMAND: true,
