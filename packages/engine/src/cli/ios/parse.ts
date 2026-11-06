@@ -10,7 +10,7 @@ export type ParseResult =
   | { readonly ok: true; readonly definition: CommandDefinition; readonly args: CommandArgs }
   | { readonly ok: false; readonly error: ErrorInfo; readonly position?: number };
 
-interface Word {
+export interface Word {
   readonly text: string;
   /** 줄에서 이 단어가 시작하는 위치 (0부터) */
   readonly position: number;
@@ -21,7 +21,7 @@ function clip(text: string): string {
   return text.length > 64 ? text.slice(0, 64) : text;
 }
 
-function splitWords(line: string): Word[] {
+export function splitWords(line: string): Word[] {
   return [...line.matchAll(/\S+/g)].map((match) => ({ text: match[0], position: match.index }));
 }
 
@@ -51,14 +51,16 @@ function readParam(token: ParamToken, text: string): ParamResult {
  * 없으면 단어로 시작하는 키워드가 하나뿐일 때 그것이다. 둘 이상이면 모호하다.
  * 매개변수 자리의 글은 줄임으로 읽지 않는다.
  */
-interface Walk {
+export interface Walk {
   /** 자리마다 정해진 키워드(소문자). 키워드로 읽지 못한 자리는 undefined */
   readonly keywords: readonly (string | undefined)[];
   /** 여러 키워드로 읽히는 단어 */
   readonly ambiguous?: Word;
+  /** 모든 단어가 맞은 정의들. 뒤에 토큰이 더 남은 정의도 들어 있다. 완성과 도움말이 쓴다 (T3.2.2) */
+  readonly alive: readonly CommandDefinition[];
 }
 
-function walkWords(definitions: readonly CommandDefinition[], words: readonly Word[]): Walk {
+export function walkWords(definitions: readonly CommandDefinition[], words: readonly Word[]): Walk {
   const keywords: (string | undefined)[] = [];
   // 앞의 단어가 모두 맞은 정의들
   let alive = definitions;
@@ -83,7 +85,7 @@ function walkWords(definitions: readonly CommandDefinition[], words: readonly Wo
       const prefixed = [...here].filter((candidate) => candidate.startsWith(text));
       if (prefixed.length === 1) keyword = prefixed[0];
       // 같은 자리의 매개변수가 이 글을 받으면 값으로 읽는다
-      else if (prefixed.length > 1 && !paramAccepts) return { keywords, ambiguous: word };
+      else if (prefixed.length > 1 && !paramAccepts) return { keywords, ambiguous: word, alive: [] };
     }
     keywords.push(keyword);
 
@@ -94,7 +96,7 @@ function walkWords(definitions: readonly CommandDefinition[], words: readonly Wo
     });
   }
 
-  return { keywords };
+  return { keywords, alive };
 }
 
 /** 정의 하나와 줄을 맞춰 본 결과. `matched`는 앞에서부터 일치한 단어 수다 */
@@ -144,7 +146,7 @@ const FAILURE_RANK: Readonly<Record<Failure["kind"], number>> = {
 };
 
 /** 이 장비에 있는 정의 */
-function definitionsFor(kind: DeviceKind, definitions: readonly CommandDefinition[]): CommandDefinition[] {
+export function definitionsFor(kind: DeviceKind, definitions: readonly CommandDefinition[]): CommandDefinition[] {
   return definitions.filter((definition) => definition.devices === undefined || definition.devices.includes(kind));
 }
 
@@ -152,7 +154,7 @@ function definitionsFor(kind: DeviceKind, definitions: readonly CommandDefinitio
  * 이 모드에서 칠 수 있는 정의. 하위 설정 모드에서는 config 모드의 명령도 칠 수 있다 (IOS와 같음).
  * 그 모드의 정의가 앞에 오므로, 같은 줄이 둘 다에 맞으면 그 모드의 정의로 읽는다.
  */
-function candidatesFor(mode: CliMode, forDevice: readonly CommandDefinition[]): CommandDefinition[] {
+export function candidatesFor(mode: CliMode, forDevice: readonly CommandDefinition[]): CommandDefinition[] {
   const own = forDevice.filter((definition) => definition.modes.includes(mode));
   if (mode !== "config-if" && mode !== "config-vlan") return own;
   return [...own, ...forDevice.filter((definition) => definition.modes.includes("config") && !own.includes(definition))];
