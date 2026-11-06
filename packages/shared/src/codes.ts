@@ -79,6 +79,11 @@ export interface ErrorParamsByCode {
     readonly expected: DeviceKind;
     readonly actual: DeviceKind;
   };
+  /**
+   * PC의 IP 구성에서 함께 있어야 할 값이 빠짐 (`pc/set-ip`).
+   * IP 없이 마스크나 게이트웨이만 있으면 `ip`, IP는 있는데 마스크가 없으면 `mask`
+   */
+  PC_ADDRESS_INCOMPLETE: { readonly deviceId: string; readonly missing: "ip" | "mask" };
   /** 그 Switch에 없는 VLAN의 이름을 바꾸거나 지우려 함 */
   VLAN_NOT_FOUND: { readonly deviceId: string; readonly vlanId: number };
   /** VLAN 1은 지우거나 이름을 바꿀 수 없음 (FR-31) */
@@ -139,6 +144,7 @@ const ERROR_CODE_SET = {
   DEVICE_NOT_FOUND: true,
   LINK_NOT_FOUND: true,
   DEVICE_KIND_MISMATCH: true,
+  PC_ADDRESS_INCOMPLETE: true,
   VLAN_NOT_FOUND: true,
   DEFAULT_VLAN_READONLY: true,
   CLI_UNKNOWN_COMMAND: true,
