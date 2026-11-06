@@ -75,3 +75,42 @@ describe("parseLine: 오류", () => {
     expect(parse("   ", "user")).toEqual({ ok: false, error: { code: "CLI_INCOMPLETE_COMMAND", params: {} } });
   });
 });
+
+describe("parseLine: ipv4와 mask 매개변수 (T1.6.1)", () => {
+  const ADDRESS_DEFS = [
+    defineCommand({
+      modes: ["user"],
+      tokens: ["addr", param("ip", "ipv4", "IPv4 address"), param("mask", "mask", "Subnet mask")],
+      help: "h",
+      run,
+    }),
+  ];
+  const parseAddress = (line: string) => parseLine(line, "user", "pc", ADDRESS_DEFS);
+
+  test.each([
+    ["addr 10.0.0.1 255.255.255.0", { ip: "10.0.0.1", mask: "255.255.255.0" }],
+    // 형식만 본다. 특수 주소와 네트워크 주소는 reducer가 거부한다
+    ["addr 127.0.0.1 255.0.0.0", { ip: "127.0.0.1", mask: "255.0.0.0" }],
+    ["addr 10.0.0.0 255.255.255.0", { ip: "10.0.0.0", mask: "255.255.255.0" }],
+  ])("%j: 값을 글 그대로 넘긴다", (line, args) => {
+    const result = parseAddress(line);
+
+    expect(result.ok && result.args).toEqual(args);
+  });
+
+  test.each([
+    ["addr 10.0.0 255.255.255.0", { code: "INVALID_IPV4", params: { value: "10.0.0" } }, 5],
+    ["addr 10.0.0.256 255.255.255.0", { code: "INVALID_IPV4", params: { value: "10.0.0.256" } }, 5],
+    ["addr 10.0.0.1 255.0.255.0", { code: "INVALID_MASK", params: { value: "255.0.255.0" } }, 14],
+    ["addr 10.0.0.1 mask", { code: "INVALID_MASK", params: { value: "mask" } }, 14],
+  ])("%j: 형식이 틀리면 shared의 오류 코드와 위치", (line, error, position) => {
+    expect(parseAddress(line)).toEqual({ ok: false, error, position });
+  });
+
+  test("오류에 담는 값은 64자로 자른다", () => {
+    const long = "1".repeat(300);
+    const result = parseAddress(`addr ${long} 255.255.255.0`);
+
+    expect(result).toEqual({ ok: false, error: { code: "INVALID_IPV4", params: { value: long.slice(0, 64) } }, position: 5 });
+  });
+});

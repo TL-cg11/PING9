@@ -23,7 +23,8 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T1.2.2 Document 스키마와 검증 | [T1.2.2-document-validation.md](T1.2.2-document-validation.md) | 공통 | SDY | 완료 (검토 없이 병합) |
 | T1.2.3 예시 자료와 계약 테스트 | [T1.2.3-example-data.md](T1.2.3-example-data.md) | 공통 | SDY | 완료 (검토 없이 병합) |
 | T1.2.4 `Simulator` 뼈대 | [T1.2.4-simulator-skeleton.md](T1.2.4-simulator-skeleton.md) | 엔진 | SDY | 완료 (검토 없이 병합) |
-| T1.5.1 reducer `pc/set-ip` | [T1.5.1-pc-set-ip.md](T1.5.1-pc-set-ip.md) | 엔진 | yysong1249 | 병합됨 (PR #3, SDY가 병합). 오류에 값을 담는 함수는 T5.1.1에서 `describeValue`로 맞춤. 담당자 확인 필요 |
+| T1.5.1 reducer `pc/set-ip` | [T1.5.1-pc-set-ip.md](T1.5.1-pc-set-ip.md) | 엔진 | yysong1249 | 완료 (PR #3, SDY가 병합). 오류에 값을 담는 함수는 T5.1.1에서 `describeValue`로 맞춤 (담당자 확인함) |
+| T1.6.1 PC 명령어 (`ipconfig`) | [T1.6.1-pc-commands.md](T1.6.1-pc-commands.md) | 엔진 | yysong1249 | 검토 대기 |
 | T3.1.1 명령 트리 확장: 모드와 세션 | [T3.1.1-cli-modes-and-session.md](T3.1.1-cli-modes-and-session.md) | 엔진 | SDY | 병합됨 (PR #4, 팀원 검토 없이) |
 | T3.1.2 Switch 기본 명령어 | [T3.1.2-switch-basic-commands.md](T3.1.2-switch-basic-commands.md) | 엔진 | SDY | 병합됨 (PR #5, 팀원 검토 없이). `hostname`은 `device/rename` 처리기 대기 |
 | T3.2.1 줄임 입력 | [T3.2.1-abbreviations.md](T3.2.1-abbreviations.md) | 엔진 | SDY | 병합됨 (PR #10, 팀원 검토 없이) |
