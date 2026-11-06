@@ -35,4 +35,5 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T5.1.1 VLAN 구성 | [T5.1.1-vlan-config.md](T5.1.1-vlan-config.md) | 엔진, 공통 | SDY | 병합됨 (PR #6, 팀원 검토 없이). `shared` 변경은 팀 확인 필요. 직렬화는 T3.4.1에서 |
 | T5.2.1 access 포트와 VLAN 분리 | [T5.2.1-access-ports.md](T5.2.1-access-ports.md) | 엔진, 공통, 화면 | SDY | 병합됨 (팀원 검토 없이). `shared` 변경은 팀 확인 필요. ping으로 확인하는 부분은 kernel 뒤 |
 | T5.3.1 trunk 포트와 허용 목록 | [T5.3.1-trunk-ports.md](T5.3.1-trunk-ports.md) | 엔진, 화면 | SDY | 병합됨 (팀원 검토 없이). ping으로 확인하는 부분은 kernel 뒤 |
+| T5.3.2 `show interfaces trunk` | [T5.3.2-show-interfaces-trunk.md](T5.3.2-show-interfaces-trunk.md) | 엔진 | SDY | 병합됨 (팀원 검토 없이) |
 | T5.4.1 Switch 화면 (계획에 없는 새 ID) | [T5.4.1-switch-screen.md](T5.4.1-switch-screen.md) | 화면 | SDY | 병합됨 (PR #7, 팀원 검토 없이). 운영 첫 화면은 T0.5에서 바꿈 |
