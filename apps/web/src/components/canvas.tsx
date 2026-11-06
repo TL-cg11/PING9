@@ -160,8 +160,9 @@ export function Canvas({
               <rect className="card" width="80" height="72" rx="16" />
               {/* 선택했을 때만 보이는 파란 빛. 아이콘 뒤에 그린다 */}
               <circle className="halo" cx="40" cy="36" r="46" />
-              {/* 키보드 포커스 표시: 아이콘 둘레의 점선 원. 선택 빛(퍼짐)과 모양이 달라 겹쳐도 구별된다 */}
-              <circle className="focus-ring" cx="40" cy="32" r="34" />
+              {/* 키보드 포커스 표시: 아이콘 둘레의 점선 타원. 선택 빛(퍼짐)과 모양이 달라 겹쳐도 구별된다.
+                  아래 끝(y 55)이 이름 글자(기준선 68, 14px)에 닿지 않는다 */}
+              <ellipse className="focus-ring" cx="40" cy="30" rx="33" ry="25" />
               <DeviceIcon kind={device.kind} x={12} y={-2} width={56} height={56} />
               <text className="lbl" x="40" y="68" textAnchor="middle">
                 {device.name}
