@@ -49,10 +49,13 @@ export const BASE_COMMANDS: readonly CommandDefinition[] = [
     modes: ["config"],
     tokens: ["hostname", param("name", "word", "Device name")],
     help: "Set the device name",
-    run: (args, context) => ({
-      lines: linesFromDispatch(
-        context.dispatch({ type: "device/rename", deviceId: context.device.id, name: String(args.name) }),
-      ),
-    }),
+    run: (args, context) => {
+      const name = String(args.name);
+      // 지금 이름과 같으면 바꿀 것이 없다. show running-config의 출력(`hostname SW1`)을 다시 넣을 수 있다
+      if (name === context.device.name) return {};
+      return {
+        lines: linesFromDispatch(context.dispatch({ type: "device/rename", deviceId: context.device.id, name })),
+      };
+    },
   }),
 ];

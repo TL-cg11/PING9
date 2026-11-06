@@ -1,4 +1,4 @@
-// Switch의 조회 명령어: show interfaces trunk (T5.3.2).
+// Switch의 조회 명령어: show interfaces trunk (T5.3.2), show running-config (T3.4.1).
 // 출력의 열 구성과 글은 직접 설계한 것이다 (설계 7.5절). 구성은 shared의 읽기 함수로,
 // 포트 상태는 화면과 같은 계산(computeViews)으로 읽는다 (AD-7).
 
@@ -9,6 +9,7 @@ import { computeViews } from "../../views";
 import { defineCommand } from "../ios";
 import type { CommandContext, CommandDefinition, CommandOutcome } from "../ios";
 import { tableLines } from "../ios/table";
+import { runningConfigLines } from "./running-config";
 import { formatVlanList } from "./vlan-list";
 
 const asText = (lines: readonly string[]): ConsoleLine[] => lines.map((text) => ({ kind: "text", text }));
@@ -39,5 +40,12 @@ export const SHOW_COMMANDS: readonly CommandDefinition[] = [
     tokens: ["show", "interfaces", "trunk"],
     help: "Show trunk ports and the VLANs they carry",
     run: (_args, context) => showInterfacesTrunk(context),
+  }),
+  defineCommand({
+    modes: ["privileged"],
+    devices: ["switch"],
+    tokens: ["show", "running-config"],
+    help: "Show the configuration as commands",
+    run: (_args, context) => onSwitch(context, runningConfigLines),
   }),
 ];
