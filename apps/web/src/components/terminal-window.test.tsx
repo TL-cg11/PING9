@@ -26,6 +26,8 @@ const render = (hidden = false) =>
       zIndex={21}
       onSubmit={() => {}}
       onHistory={() => ""}
+      onComplete={(input) => input}
+      onHelp={() => {}}
       onClose={() => {}}
       onFocus={() => {}}
       onMove={() => {}}
