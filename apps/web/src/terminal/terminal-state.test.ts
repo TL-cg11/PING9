@@ -2,7 +2,16 @@ import { createSimulator } from "@ping9/engine";
 import { TWO_SWITCH_VLAN, twoSwitchVlanDocument } from "@ping9/shared/examples";
 import { describe, expect, test } from "vitest";
 
-import { cleanInput, historyStep, initialTerminal, received, runLine, submitted } from "./terminal-state";
+import {
+  cleanInput,
+  completed,
+  historyStep,
+  initialTerminal,
+  received,
+  runLine,
+  showHelp,
+  submitted,
+} from "./terminal-state";
 
 function switchPort() {
   const simulator = createSimulator();
@@ -136,6 +145,86 @@ describe("이전 명령어", () => {
 
     expect(state.historyIndex).toBeNull();
     expect(historyStep(state, "up").input).toBe("c");
+  });
+});
+
+describe("Tab 완성", () => {
+  test("키워드 하나로 정해지면 완성한 줄을 돌려준다", async () => {
+    const port = switchPort();
+
+    expect(completed(port, "en")).toBe("enable ");
+
+    await port.exec("enable");
+
+    expect(completed(port, "conf")).toBe("configure ");
+    expect(completed(port, "sh vl")).toBe("sh vlan ");
+  });
+
+  test("완성할 것이 없으면 입력 중인 줄을 그대로 둔다", () => {
+    const port = switchPort();
+
+    expect(completed(port, "e")).toBe("e");
+    expect(completed(port, "")).toBe("");
+    expect(completed(port, "enable ")).toBe("enable ");
+    expect(completed(port, "zzz")).toBe("zzz");
+  });
+});
+
+describe("? 도움말", () => {
+  test("입력 중인 줄에 ?를 붙여 남기고, 단어와 설명을 열을 맞춰 보인다", () => {
+    const port = switchPort();
+
+    const state = showHelp(port, initialTerminal(port.prompt()), "e");
+
+    expect(state.lines).toEqual([
+      { kind: "input", prompt: "SW1>", text: "e?" },
+      { kind: "text", text: "  enable  Enter privileged mode" },
+      { kind: "text", text: "  exit    Leave the current mode" },
+    ]);
+    expect(state.prompt).toBe("SW1>");
+  });
+
+  test("도움말을 본 줄은 이전 명령어에 넣지 않는다", () => {
+    const port = switchPort();
+    let state = submitted(initialTerminal(port.prompt()), "enable");
+    state = historyStep(state, "up").state;
+
+    state = showHelp(port, state, "en");
+
+    expect(state.history).toEqual(["enable"]);
+    expect(state.historyIndex).toBe(0);
+  });
+
+  test("올 수 있는 단어가 없으면 알림 한 줄", () => {
+    const port = switchPort();
+
+    const state = showHelp(port, initialTerminal(port.prompt()), "zzz ");
+
+    expect(state.lines).toEqual([
+      { kind: "input", prompt: "SW1>", text: "zzz ?" },
+      { kind: "notice", text: "여기에 올 수 있는 명령어가 없어요" },
+    ]);
+  });
+
+  test("지금 모드의 도움말이다", async () => {
+    const port = switchPort();
+    let state = initialTerminal(port.prompt());
+    for (const line of ["enable", "configure terminal"]) state = await runLine(port, state, line);
+
+    state = showHelp(port, state, "vlan ");
+
+    expect(state.lines.slice(-2)).toEqual([
+      { kind: "input", prompt: "SW1(config)#", text: "vlan ?" },
+      { kind: "text", text: "  <id>  VLAN ID (1-4094)" },
+    ]);
+  });
+
+  test("HTML처럼 생긴 입력도 글자 그대로 남긴다", () => {
+    const port = switchPort();
+
+    const state = showHelp(port, initialTerminal(port.prompt()), "<b>");
+
+    expect(state.lines[0]).toEqual({ kind: "input", prompt: "SW1>", text: "<b>?" });
   });
 });
 

@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 
+import { helpRequest, keyAction } from "../terminal/keys";
 import type { TerminalLine, TerminalState } from "../terminal/terminal-state";
 import type { TerminalPlacement } from "../ui-state";
 
@@ -34,6 +35,8 @@ export function TerminalWindow({
   zIndex,
   onSubmit,
   onHistory,
+  onComplete,
+  onHelp,
   onClose,
   onFocus,
   onMove,
@@ -46,6 +49,10 @@ export function TerminalWindow({
   readonly onSubmit: (input: string) => void;
   /** 위·아래 화살표. 입력란에 넣을 글을 돌려준다 */
   readonly onHistory: (direction: "up" | "down") => string;
+  /** Tab. 입력란에 넣을 글을 돌려준다 (완성할 것이 없으면 받은 글 그대로) */
+  readonly onComplete: (input: string) => string;
+  /** `?`. 도움말을 화면 기록에 더한다 */
+  readonly onHelp: (input: string) => void;
   readonly onClose: () => void;
   readonly onFocus: () => void;
   readonly onMove: (x: number, y: number) => void;
@@ -67,12 +74,27 @@ export function TerminalWindow({
   }, [placement.hidden]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
-      onSubmit(input);
-      setInput("");
-    } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-      event.preventDefault();
-      setInput(onHistory(event.key === "ArrowUp" ? "up" : "down"));
+    const action = keyAction(event.key, { shift: event.shiftKey, composing: event.nativeEvent.isComposing });
+    if (action === null) return;
+    // Tab이 포커스를 옮기거나 `?`가 입력란에 들어가지 않게 한다
+    event.preventDefault();
+
+    switch (action) {
+      case "submit":
+        onSubmit(input);
+        setInput("");
+        break;
+      case "history-up":
+      case "history-down":
+        setInput(onHistory(action === "history-up" ? "up" : "down"));
+        break;
+      case "complete":
+        setInput(onComplete(input));
+        break;
+      case "help":
+        // 입력 중인 줄은 그대로 둔다
+        onHelp(input);
+        break;
     }
   };
 
@@ -134,7 +156,16 @@ export function TerminalWindow({
             autoComplete="off"
             aria-label={`${deviceName} 명령어 입력`}
             value={input}
-            onChange={(event) => setInput(event.target.value)}
+            onChange={(event) => {
+              // 키 입력 없이 들어온 `?`(붙여 넣기, 화면 자판)도 도움말로 처리한다
+              const line = helpRequest(event.target.value);
+              if (line === null) {
+                setInput(event.target.value);
+              } else {
+                setInput(line);
+                onHelp(line);
+              }
+            }}
             onKeyDown={onKeyDown}
           />
         </div>

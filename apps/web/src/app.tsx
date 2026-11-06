@@ -11,7 +11,7 @@ import { TerminalWindow } from "./components/terminal-window";
 import { TopBar } from "./components/top-bar";
 import { TOPOLOGY_NAME, simulator, useSnapshot } from "./simulator";
 import { createCommandQueue } from "./terminal/command-queue";
-import { historyStep, initialTerminal, runLine } from "./terminal/terminal-state";
+import { completed, historyStep, initialTerminal, runLine, showHelp } from "./terminal/terminal-state";
 import type { TerminalState } from "./terminal/terminal-state";
 import { INITIAL_UI_STATE, uiReducer } from "./ui-state";
 
@@ -88,6 +88,19 @@ export function App() {
     return step.input;
   };
 
+  // Tab: 지금 모드에서 완성한 줄을 바로 돌려준다. 화면 기록은 바뀌지 않는다
+  const complete = (deviceId: string, input: string): string => completed(simulator.console(deviceId), input);
+
+  // `?`: 실행과 같은 대기열에 넣는다. 앞 명령의 결과보다 먼저 끼어들거나 그 결과에 덮이지 않는다
+  const help = (deviceId: string, input: string) => {
+    void queue.enqueue(deviceId, async () => {
+      const state = latest.current[deviceId];
+      if (state === undefined) return;
+      const next = showHelp(simulator.console(deviceId), state, input);
+      updateTerminals((current) => ({ ...current, [deviceId]: next }));
+    });
+  };
+
   return (
     <div className="app">
       <TopBar name={TOPOLOGY_NAME} />
@@ -114,6 +127,8 @@ export function App() {
                 zIndex={TERMINAL_Z + index}
                 onSubmit={(input) => submit(placement.deviceId, input)}
                 onHistory={(direction) => stepHistory(placement.deviceId, direction)}
+                onComplete={(input) => complete(placement.deviceId, input)}
+                onHelp={(input) => help(placement.deviceId, input)}
                 onClose={() => dispatch({ type: "close-terminal", deviceId: placement.deviceId })}
                 onFocus={() => dispatch({ type: "focus-terminal", deviceId: placement.deviceId })}
                 onMove={(x, y) => dispatch({ type: "move-terminal", deviceId: placement.deviceId, x, y })}

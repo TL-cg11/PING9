@@ -101,6 +101,34 @@ export function historyStep(
   return { state: { ...state, historyIndex: index }, input: state.history[index]! };
 }
 
+/** Tab: 완성한 줄을 돌려준다. 완성할 것이 없으면 입력 중인 줄 그대로다 (T3.2.3) */
+export function completed(port: ConsolePort, input: string): string {
+  return port.complete(cleanInput(input)) ?? input;
+}
+
+/**
+ * `?`: 입력 중인 줄에 `?`를 붙여 남기고, 그 자리에 올 수 있는 단어와 설명을 열을 맞춰 보인다 (T3.2.3).
+ * 실행한 줄이 아니므로 이전 명령어에는 넣지 않는다. 입력란의 글은 부르는 쪽이 그대로 둔다.
+ */
+export function showHelp(port: ConsolePort, state: TerminalState, input: string): TerminalState {
+  const line = cleanInput(input);
+  const entries = port.help(line);
+  const width = Math.max(0, ...entries.map((entry) => entry.token.length));
+
+  const lines: TerminalLine[] =
+    entries.length === 0
+      ? [{ kind: "notice", text: "여기에 올 수 있는 명령어가 없어요" }]
+      : entries.map((entry) => ({
+          kind: "text",
+          text: `  ${entry.token.padEnd(width)}  ${entry.description}`,
+        }));
+
+  return {
+    ...state,
+    lines: keepRecent([...state.lines, { kind: "input", prompt: state.prompt, text: `${line}?` }, ...lines]),
+  };
+}
+
 /** 한 줄을 실행한다: 입력을 기록하고, engine에 넘기고, 결과를 기록한다 */
 export async function runLine(port: ConsolePort, state: TerminalState, input: string): Promise<TerminalState> {
   const line = cleanInput(input);
