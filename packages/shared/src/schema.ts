@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { DROP_REASONS, REASON_CODES } from "./codes";
 import type { TopologyDocument } from "./document";
-import { SWITCHPORT_MODES } from "./document";
+import { OS_KINDS, SWITCHPORT_MODES } from "./document";
 import { LIMITS } from "./limits";
 import type { Trace } from "./trace";
 import { ICMP_TYPES, TRACE_ACTIONS, TRACE_LAYERS, TRACE_STATUSES } from "./trace";
@@ -26,6 +26,7 @@ const pcConfigSchema = z.object({
   ip: shortString.optional(),
   mask: shortString.optional(),
   gateway: shortString.optional(),
+  os: z.enum(OS_KINDS).optional(),
 });
 
 const vlanSchema = z.object({ id: integer, name: shortString });

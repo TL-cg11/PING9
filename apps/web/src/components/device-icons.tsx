@@ -3,7 +3,7 @@
 // 캔버스와 왼쪽 장비 목록이 같은 그림을 쓴다. 모두 32×32 기준이다.
 
 import type { SVGProps } from "react";
-import type { DeviceKind } from "@ping9/shared";
+import type { DeviceKind, OsKind } from "@ping9/shared";
 
 type Box = Pick<SVGProps<SVGSVGElement>, "x" | "y" | "width" | "height">;
 
@@ -87,9 +87,14 @@ export function GateClosedIcon(box: Box) {
   );
 }
 
-export function DeviceIcon({ kind, ...box }: { readonly kind: DeviceKind } & Box) {
+/**
+ * `os`는 PC에만 쓴다 (T0.7). 없으면 Windows다.
+ * OS별 이글루 그림(창 모양)은 아직 같다. 그림이 정해지면 Igloo가 `os`를 받는다
+ */
+export function DeviceIcon({ kind, os, ...box }: { readonly kind: DeviceKind; readonly os?: OsKind } & Box) {
+  const osClass = kind === "pc" ? ` icon-os-${os ?? "windows"}` : "";
   return (
-    <svg className={`icon icon-${kind}`} viewBox="0 0 32 32" aria-hidden="true" {...box}>
+    <svg className={`icon icon-${kind}${osClass}`} viewBox="0 0 32 32" aria-hidden="true" {...box}>
       {kind === "pc" ? <Igloo /> : kind === "switch" ? <Signpost /> : <GateOpen />}
     </svg>
   );

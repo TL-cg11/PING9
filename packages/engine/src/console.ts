@@ -5,11 +5,11 @@
 // `complete`와 `help`는 E3(T3.2.x)에서 같은 명령 정의로 계산한다.
 
 import { LIMITS } from "@ping9/shared";
-import type { ConsoleLine, ConsoleResult, DeviceKind, HelpEntry } from "@ping9/shared";
+import type { ConsoleLine, ConsoleResult, Device, DeviceKind, HelpEntry } from "@ping9/shared";
 
 import { iosComplete, iosExec, iosHelp, iosPrompt } from "./cli/ios";
 import type { CommandDefinition, IosConsoleEnv } from "./cli/ios";
-import { PC_COMMANDS } from "./cli/pc";
+import { pcCommandsFor, pcPrompt } from "./cli/pc";
 import { SWITCH_COMMANDS } from "./cli/switch";
 
 export interface ConsolePort {
@@ -23,11 +23,14 @@ export interface ConsolePort {
   help(line: string): HelpEntry[];
 }
 
-/** 장비 종류별 명령 정의 목록. 없는 종류는 아직 CLI가 없다 */
-const DEFINITIONS_BY_KIND: Partial<Record<DeviceKind, readonly CommandDefinition[]>> = {
-  pc: PC_COMMANDS,
+/** 장비 종류별 명령 정의 목록. 없는 종류는 아직 CLI가 없다. PC는 OS에 따라 고른다 (T0.7) */
+const DEFINITIONS_BY_KIND: Partial<Record<Exclude<DeviceKind, "pc">, readonly CommandDefinition[]>> = {
   switch: SWITCH_COMMANDS,
 };
+
+function definitionsFor(device: Device): readonly CommandDefinition[] | undefined {
+  return device.kind === "pc" ? pcCommandsFor(device) : DEFINITIONS_BY_KIND[device.kind];
+}
 
 export function createConsolePort(deviceId: string, env: IosConsoleEnv): ConsolePort {
   const findDevice = () => env.getDocument().devices.find((device) => device.id === deviceId);
@@ -35,7 +38,9 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
   const prompt = (): string => {
     const device = findDevice();
     if (device === undefined) return ">";
-    return DEFINITIONS_BY_KIND[device.kind] === undefined ? `${device.name}>` : iosPrompt(device, env);
+    // PC에는 모드가 없고 OS마다 프롬프트가 다르다 (Windows `PC1>`, Linux `PC2$`)
+    if (device.kind === "pc") return pcPrompt(device);
+    return definitionsFor(device) === undefined ? `${device.name}>` : iosPrompt(device, env);
   };
 
   const result = (...lines: ConsoleLine[]): ConsoleResult => ({ lines, prompt: prompt() });
@@ -45,7 +50,7 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
   const assistTarget = (line: unknown) => {
     const device = findDevice();
     if (device === undefined) return undefined;
-    const definitions = DEFINITIONS_BY_KIND[device.kind];
+    const definitions = definitionsFor(device);
     if (definitions === undefined) return undefined;
     if (typeof line !== "string" || line.length > LIMITS.maxConsoleLineLength) return undefined;
     return { text: line, device, definitions };
@@ -69,8 +74,12 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
         });
       }
 
-      const definitions = DEFINITIONS_BY_KIND[device.kind];
-      if (definitions !== undefined) return iosExec(text, device, definitions, env);
+      const definitions = definitionsFor(device);
+      if (definitions !== undefined) {
+        const executed = iosExec(text, device, definitions, env);
+        // iosExec의 프롬프트는 IOS 모드의 것이다. PC는 실행 뒤의 문서로 OS별 프롬프트를 다시 만든다
+        return device.kind === "pc" ? { ...executed, prompt: prompt() } : executed;
+      }
 
       const token = text.trim().split(/\s+/)[0] ?? "";
       if (token === "") return result();

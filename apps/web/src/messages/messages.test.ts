@@ -36,6 +36,9 @@ describe("오류 문구", () => {
     expect(formatError({ code: "PC_ADDRESS_INCOMPLETE", params: { deviceId: "d", missing: "mask" } })).toBe(
       "서브넷 마스크가 빠졌어요",
     );
+    expect(formatError({ code: "PC_ADDRESS_NOT_FOUND", params: { deviceId: "d", ip: "10.0.0.2/16" } })).toBe(
+      "이 PC에는 10.0.0.2/16 주소가 없어요",
+    );
   });
 
   test("한도의 종류마다 문구가 다르다", () => {

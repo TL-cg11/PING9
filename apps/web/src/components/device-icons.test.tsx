@@ -6,7 +6,13 @@ import { DeviceIcon, GateClosedIcon } from "./device-icons";
 test.each(["pc", "switch", "router"] as const)("%s 아이콘: 32×32 그림이고 종류 클래스가 붙는다", (kind) => {
   const html = renderToString(<DeviceIcon kind={kind} />);
 
-  expect(html).toMatch(new RegExp(`^<svg class="icon icon-${kind}" viewBox="0 0 32 32" aria-hidden="true">`));
+  expect(html).toMatch(new RegExp(`^<svg class="icon icon-${kind}( icon-os-windows)?" viewBox="0 0 32 32" aria-hidden="true">`));
+});
+
+test("PC에는 OS 클래스가 붙고, 없으면 Windows다 (T0.7)", () => {
+  expect(renderToString(<DeviceIcon kind="pc" />)).toContain('class="icon icon-pc icon-os-windows"');
+  expect(renderToString(<DeviceIcon kind="pc" os="linux" />)).toContain('class="icon icon-pc icon-os-linux"');
+  expect(renderToString(<DeviceIcon kind="switch" os="linux" />)).toContain('class="icon icon-switch"');
 });
 
 test("종류마다 다른 그림이다", () => {

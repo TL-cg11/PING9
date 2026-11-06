@@ -130,6 +130,12 @@ button { font: inherit; cursor: pointer; }
 
 /* PC 설정 (T1.5.2) */
 .pc-form .field { margin-bottom: 10px; }
+.pc-form .prefix { display: block; margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--navy-60); }
+/* PC의 OS 고르기 (T0.7). IP 설정 위 */
+.os-choice { border: none; margin: 0 0 14px; padding: 0; display: flex; gap: 14px; align-items: center; }
+.os-choice legend { float: left; margin-right: 4px; padding: 0; font-size: 12px; color: var(--navy-60); }
+.os-choice label { display: inline-flex; gap: 5px; align-items: center; font-size: 13px; color: var(--navy); cursor: pointer; }
+.os-choice input { margin: 0; accent-color: var(--sky-700); }
 .pc-form label { display: block; font-size: 12px; color: var(--navy-60); margin-bottom: 4px; }
 .pc-form input { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--navy); background: #fff; }
 .pc-form input:focus { outline: none; border-color: var(--sky-500); box-shadow: 0 0 0 3px var(--ice-100); }
