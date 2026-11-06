@@ -55,6 +55,7 @@ export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsBy
   LINK_NOT_FOUND: () => "링크를 찾을 수 없어요",
   DEVICE_KIND_MISMATCH: ({ expected, actual }) =>
     `${KIND_NAMES[expected]}에서만 할 수 있는 동작이에요 (이 장비는 ${KIND_NAMES[actual]})`,
+  PC_ADDRESS_INCOMPLETE: ({ missing }) => (missing === "ip" ? "IP 주소가 빠졌어요" : "서브넷 마스크가 빠졌어요"),
   VLAN_NOT_FOUND: ({ vlanId }) => `VLAN ${withSubject(vlanId)} 없어요`,
   DEFAULT_VLAN_READONLY: () => "VLAN 1은 지우거나 이름을 바꿀 수 없어요",
 

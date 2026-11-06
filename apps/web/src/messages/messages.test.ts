@@ -29,6 +29,15 @@ describe("오류 문구", () => {
     expect(formatError({ code: "CLI_INCOMPLETE_COMMAND", params: {} })).toBe("명령어가 끝나지 않았어요");
   });
 
+  test("PC의 IP 구성에서 빠진 값에 따라 문구가 다르다", () => {
+    expect(formatError({ code: "PC_ADDRESS_INCOMPLETE", params: { deviceId: "d", missing: "ip" } })).toBe(
+      "IP 주소가 빠졌어요",
+    );
+    expect(formatError({ code: "PC_ADDRESS_INCOMPLETE", params: { deviceId: "d", missing: "mask" } })).toBe(
+      "서브넷 마스크가 빠졌어요",
+    );
+  });
+
   test("한도의 종류마다 문구가 다르다", () => {
     const limits = ["devices", "links", "staticRoutes", "vlans", "allowedVlanRanges"] as const;
 
