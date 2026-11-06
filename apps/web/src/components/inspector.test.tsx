@@ -37,12 +37,13 @@ describe("Switch", () => {
     expect(html).toMatch(/class="vtag v1">VLAN 1<\/span>default<span class="ip">Fa0\/3~7<\/span>/);
   });
 
-  test("포트 목록: 상태 점, 줄인 이름, 연결된 장비", () => {
+  test("포트 목록: 상태 점, 줄인 이름, VLAN 또는 trunk 표시, 연결된 장비", () => {
     const html = render(TWO_SWITCH_VLAN.sw1.id);
 
-    expect(html).toMatch(/class="dot"><\/span>Fa0\/1<span class="ip">PC1<\/span>/);
-    expect(html).toMatch(/class="dot"><\/span>Fa0\/8<span class="ip">SW2<\/span>/);
-    expect(html).toMatch(/class="dot off"><\/span>Fa0\/3<span class="ip">연결 없음<\/span>/);
+    expect(html).toMatch(/class="dot"><\/span>Fa0\/1<span class="vtag v10">VLAN 10<\/span><span class="ip">PC1<\/span>/);
+    expect(html).toMatch(/class="dot"><\/span>Fa0\/2<span class="vtag v20">VLAN 20<\/span><span class="ip">PC2<\/span>/);
+    expect(html).toMatch(/class="dot"><\/span>Fa0\/8<span class="vtag vt">trunk<\/span><span class="ip">SW2<\/span>/);
+    expect(html).toMatch(/class="dot off"><\/span>Fa0\/3<span class="vtag v1">VLAN 1<\/span><span class="ip">연결 없음<\/span>/);
     expect(html.match(/class="if-row"/g)).toHaveLength(3 + 8);
   });
 
@@ -53,7 +54,7 @@ describe("Switch", () => {
     expect(html).toContain("아직 학습한 주소가 없어요");
   });
 
-  test("포트가 없는 VLAN은 -로 표시하고, 색이 정해지지 않은 번호는 회색이다", () => {
+  test("포트가 없는 VLAN은 -로 표시하고, 시안에 없는 번호는 번호로 고른 색이다", () => {
     const simulator = createSimulator();
     simulator.load(twoSwitchVlanDocument);
     simulator.dispatch({ type: "vlan/create", deviceId: TWO_SWITCH_VLAN.sw1.id, vlanId: 30, name: "LAB" });
@@ -62,7 +63,7 @@ describe("Switch", () => {
       <Inspector snapshot={simulator.getSnapshot()} deviceId={TWO_SWITCH_VLAN.sw1.id} onOpenTerminal={() => {}} />,
     );
 
-    expect(html).toMatch(/class="vtag v1">VLAN 30<\/span>LAB<span class="ip">-<\/span>/);
+    expect(html).toMatch(/class="vtag vx2">VLAN 30<\/span>LAB<span class="ip">-<\/span>/);
   });
 
   test("VLAN 1이 없는 문서에도 VLAN 1이 보인다", () => {

@@ -1,13 +1,21 @@
 // 속성 패널에서 Switch에만 있는 구역: VLAN 목록과 MAC 주소 테이블.
 // VLAN 목록과 소속 포트는 shared의 구성 읽기 함수로 읽는다. 화면이 기본값 규칙이나 소속을 직접 계산하지 않는다 (AD-7).
 
-import { shortPortName, switchVlans, vlanAccessPorts } from "@ping9/shared";
+import { shortPortName, switchPort, switchVlans, vlanAccessPorts } from "@ping9/shared";
 import type { SwitchConfig, SwitchView } from "@ping9/shared";
 
 import { formatPortList } from "../format/port-list";
+import { vlanColor } from "../format/vlan-color";
 
-/** 시안에 색이 정해진 VLAN. 그 밖의 번호는 VLAN 1과 같은 회색으로 그린다 (나머지 색은 T5.2.1에서 정한다) */
-const VLAN_COLOR: Readonly<Record<number, string>> = { 1: "v1", 10: "v10", 20: "v20" };
+/** 포트 줄에 붙는 표시: access 포트는 그 VLAN, trunk 포트는 trunk (시안의 vtag) */
+export function SwitchPortTag({ config, port }: { readonly config: SwitchConfig; readonly port: string }) {
+  const settings = switchPort(config, port);
+  return settings.mode === "trunk" ? (
+    <span className={`vtag ${vlanColor("trunk").className}`}>trunk</span>
+  ) : (
+    <span className={`vtag ${vlanColor(settings.accessVlan).className}`}>VLAN {settings.accessVlan}</span>
+  );
+}
 
 export function SwitchVlanList({ config }: { readonly config: SwitchConfig }) {
   return (
@@ -15,7 +23,7 @@ export function SwitchVlanList({ config }: { readonly config: SwitchConfig }) {
       <h4>VLAN</h4>
       {switchVlans(config).map((vlan) => (
         <div key={vlan.id} className="if-row">
-          <span className={`vtag ${VLAN_COLOR[vlan.id] ?? "v1"}`}>VLAN {vlan.id}</span>
+          <span className={`vtag ${vlanColor(vlan.id).className}`}>VLAN {vlan.id}</span>
           {vlan.name}
           <span className="ip">{formatPortList(vlanAccessPorts(config, vlan.id))}</span>
         </div>

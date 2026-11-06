@@ -4,7 +4,7 @@
 import { shortPortName } from "@ping9/shared";
 import type { DeviceKind, PortView, Snapshot, TopologyDocument } from "@ping9/shared";
 
-import { SwitchMacTable, SwitchVlanList } from "./switch-inspector";
+import { SwitchMacTable, SwitchPortTag, SwitchVlanList } from "./switch-inspector";
 
 const KIND_LABEL: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router" };
 
@@ -55,6 +55,7 @@ export function Inspector({
         <div key={port.name} className="if-row">
           <span className={port.status === "up" ? "dot" : "dot off"} />
           {shortPortName(port.name)}
+          {device.kind === "switch" && <SwitchPortTag config={device.config} port={port.name} />}
           <span className="ip">{peerName(document, device.id, port) ?? "연결 없음"}</span>
         </div>
       ))}

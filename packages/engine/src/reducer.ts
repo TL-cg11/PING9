@@ -12,6 +12,7 @@ import type { Command, CommandOf, CommandType, ErrorInfo, Notice, TopologyDocume
 import { describeValue } from "./describe";
 import { setInterfaceAdmin } from "./reducer/interface-admin";
 import { setPcIp } from "./reducer/pc-set-ip";
+import { setSwitchportAccessVlan, setSwitchportMode } from "./reducer/switch-port";
 import { createVlan, removeVlan, renameVlan } from "./reducer/switch-vlan";
 
 export type ReduceResult =
@@ -34,6 +35,8 @@ const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
   "vlan/create": createVlan,
   "vlan/rename": renameVlan,
   "vlan/remove": removeVlan,
+  "switchport/set-mode": setSwitchportMode,
+  "switchport/set-access-vlan": setSwitchportAccessVlan,
 };
 
 /** 처리기가 있는 Command. 처리기가 없는 Command를 확인하는 테스트가 쓴다 */

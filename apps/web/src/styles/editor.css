@@ -94,6 +94,13 @@ button { font: inherit; cursor: pointer; }
 .open-term { margin-top: 18px; width: 100%; padding: 9px; border-radius: 10px; border: 1px solid var(--line); background: var(--ice-50); color: var(--sky-700); font-weight: 600; font-size: 13px; }
 
 /* VLAN 추가분 */
+.vlabel rect { stroke: #fff; stroke-width: 2; }
+.vlabel text { font-family: Pretendard, sans-serif; font-size: 11px; font-weight: 700; }
+/* 시안에 없는 VLAN 번호의 색 (apps/web/src/format/vlan-color.ts와 같은 값) */
+.vx0 { background: #E3EEFF; color: #1565D8; }
+.vx1 { background: #FDE8F0; color: #B4326B; }
+.vx2 { background: #E6F4DE; color: #3D7A1F; }
+.vx3 { background: #E9ECF5; color: #4A5578; }
 
 .vtag { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; flex: none; }
 .v1 { background: var(--ice-100); color: var(--navy-60); }
