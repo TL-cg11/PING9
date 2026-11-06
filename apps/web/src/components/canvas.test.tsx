@@ -19,7 +19,9 @@ test("예시 문서의 장비 6대와 링크 5개를 그리고 선택한 장비�
   const html = render(twoSwitchVlanDocument, TWO_SWITCH_VLAN.sw1.id);
 
   for (const name of ["PC1", "PC2", "PC3", "PC4", "SW1", "SW2"]) expect(html).toContain(`>${name}<`);
-  expect(html.match(/class="wire"/g)).toHaveLength(5);
+  // 링크 5개 가운데 SW1-SW2는 trunk다
+  expect(html.match(/class="wire"/g)).toHaveLength(4);
+  expect(html.match(/class="wire trunk"/g)).toHaveLength(1);
   expect(html.match(/class="node sel"/g)).toHaveLength(1);
   expect(html.match(/class="node"/g)).toHaveLength(5);
   expect(html).toContain("10.0.10.1");
@@ -68,4 +70,14 @@ test("Switch의 access 포트에 연결된 링크에 VLAN 표시가 붙는다", 
 
 test("VLAN 1뿐인 문서에는 VLAN 표시가 없다", () => {
   expect(render(twoPcSwitchDocument)).not.toContain("vlabel");
+});
+
+test("trunk 링크는 굵은 선과 trunk 표시, 끝마다 그 끝의 허용 목록", () => {
+  const html = render(twoSwitchVlanDocument).replaceAll("<!-- -->", "");
+
+  expect(html).toContain(">trunk<");
+  expect(html).toContain('fill="#ECE9FE"');
+  // SW1(왼쪽)의 글은 오른쪽으로, SW2(오른쪽)의 글은 왼쪽으로 뻗는다
+  expect(html).toMatch(/<text class="net"[^>]*text-anchor="start"[^>]*>허용 10, 20<\/text>/);
+  expect(html).toMatch(/<text class="net"[^>]*text-anchor="end"[^>]*>허용 20<\/text>/);
 });

@@ -42,7 +42,8 @@ describe("Switch", () => {
 
     expect(html).toMatch(/class="dot"><\/span>Fa0\/1<span class="vtag v10">VLAN 10<\/span><span class="ip">PC1<\/span>/);
     expect(html).toMatch(/class="dot"><\/span>Fa0\/2<span class="vtag v20">VLAN 20<\/span><span class="ip">PC2<\/span>/);
-    expect(html).toMatch(/class="dot"><\/span>Fa0\/8<span class="vtag vt">trunk<\/span><span class="ip">SW2<\/span>/);
+    // trunk 포트의 줄에는 연결된 장비 대신 허용 목록이 나온다 (시안)
+    expect(html).toMatch(/class="dot"><\/span>Fa0\/8<span class="vtag vt">trunk<\/span><span class="ip">허용 10, 20<\/span>/);
     expect(html).toMatch(/class="dot off"><\/span>Fa0\/3<span class="vtag v1">VLAN 1<\/span><span class="ip">연결 없음<\/span>/);
     expect(html.match(/class="if-row"/g)).toHaveLength(3 + 8);
   });

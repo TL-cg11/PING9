@@ -4,7 +4,7 @@
 // 출처: docs/superpowers/specs/2026-11-05-switch-vlan-design.md 6절.
 
 import { BROADCAST_MAC, DEFAULT_VLAN_ID, PORT_NAMES, switchPort, switchVlans } from "@ping9/shared";
-import type { DropParamsByReason, MacTableEntryView, SwitchConfig } from "@ping9/shared";
+import type { DropParamsByReason, MacTableEntryView, SwitchConfig, VlanRange } from "@ping9/shared";
 
 /** MAC 주소 테이블의 한 줄. `(vlan, mac)`마다 하나다 */
 export interface MacEntry {
@@ -24,7 +24,7 @@ export const EMPTY_MAC_TABLE: MacTable = [];
 export const MAC_AGING_US = 300_000_000;
 
 /** Switch가 내는 폐기. `params`는 그 폐기 사유의 params에서 `device`만 뺀 것이다 */
-type SwitchDropReason = "IF_DOWN" | "VLAN_BLOCKED" | "VLAN_INACTIVE";
+type SwitchDropReason = "IF_DOWN" | "VLAN_BLOCKED" | "TRUNK_NOT_ALLOWED" | "VLAN_INACTIVE";
 export type SwitchDrop = {
   [R in SwitchDropReason]: { readonly reason: R; readonly params: Omit<DropParamsByReason[R], "device"> };
 }[SwitchDropReason];
@@ -80,6 +80,10 @@ const isFresh = (entry: MacEntry, now: number): boolean => now - entry.lastSeen 
 const vlanExists = (config: SwitchConfig, vlan: number): boolean =>
   switchVlans(config).some((candidate) => candidate.id === vlan);
 
+/** 허용 목록에 그 VLAN이 있는가 */
+const allows = (ranges: readonly VlanRange[], vlan: number): boolean =>
+  ranges.some(([start, end]) => start <= vlan && vlan <= end);
+
 /** 받은 포트에서 이 프레임이 속할 VLAN을 정한다 (설계 6.2절의 표) */
 function classify(input: ForwardInput): { readonly vlan: number } | { readonly drop: SwitchDrop } {
   const { config, inPort, frame } = input;
@@ -95,8 +99,11 @@ function classify(input: ForwardInput): { readonly vlan: number } | { readonly d
     }
     vlan = port.accessVlan;
   } else {
-    // trunk의 허용 목록은 T5.3.1에서 넣는다
+    // trunk 포트: 태그가 있으면 그 VLAN, 없으면 VLAN 1. 허용 목록에 없으면 받지 않는다
     vlan = frame.vlanTag ?? DEFAULT_VLAN_ID;
+    if (!allows(port.allowedVlans, vlan)) {
+      return { drop: { reason: "TRUNK_NOT_ALLOWED", params: { port: inPort, vlan } } };
+    }
   }
 
   // 포트가 가리키는 VLAN이 지워졌으면 그 포트는 통신할 수 없다
@@ -117,8 +124,11 @@ function egress(
       ? {}
       : { drop: { reason: "VLAN_BLOCKED", params: { frameVlan: vlan, port: portName, portVlan: port.accessVlan } } };
   }
-  // trunk의 태그와 허용 목록은 T5.3.1에서 넣는다
-  return {};
+  // trunk 포트: 허용 목록에 있는 VLAN만 내보낸다. VLAN 1은 태그 없이, 그 밖은 그 VLAN의 태그를 단다
+  if (!allows(port.allowedVlans, vlan)) {
+    return { drop: { reason: "TRUNK_NOT_ALLOWED", params: { port: portName, vlan } } };
+  }
+  return vlan === DEFAULT_VLAN_ID ? {} : { vlanTag: vlan };
 }
 
 export function switchForward(input: ForwardInput): ForwardResult {
