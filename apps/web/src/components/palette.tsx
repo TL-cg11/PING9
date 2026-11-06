@@ -3,7 +3,8 @@
 
 import { LIMITS } from "@ping9/shared";
 
-const STROKE = { fill: "none", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+import { DeviceIcon } from "./device-icons";
+
 /** 끌 수 없으므로 시안의 grab 커서를 쓰지 않는다 */
 const STILL = { cursor: "default" } as const;
 
@@ -14,24 +15,15 @@ export function Palette({ deviceCount }: { readonly deviceCount: number }) {
     <aside className="palette">
       <h4>장비</h4>
       <div className="tool" style={STILL}>
-        <svg viewBox="0 0 32 32" stroke="#1565D8" {...STROKE}>
-          <rect x="4" y="6" width="24" height="15" rx="3" />
-          <path d="M12 26h8M16 21v5" />
-        </svg>
+        <DeviceIcon kind="pc" />
         PC
       </div>
       <div className="tool" style={STILL}>
-        <svg viewBox="0 0 32 32" stroke="#5B4BD1" {...STROKE}>
-          <rect x="3" y="10" width="26" height="12" rx="3" />
-          <path d="M8 16h2M13 16h2M18 16h2M23 16h2" />
-        </svg>
+        <DeviceIcon kind="switch" />
         Switch
       </div>
       <div className="tool" style={STILL}>
-        <svg viewBox="0 0 32 32" stroke="#1E7A6E" {...STROKE}>
-          <circle cx="16" cy="16" r="11" />
-          <path d="M11 11l10 10M21 11L11 21" />
-        </svg>
+        <DeviceIcon kind="router" />
         Router
       </div>
       <h4>연결</h4>
