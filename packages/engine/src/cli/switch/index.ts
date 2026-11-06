@@ -2,6 +2,7 @@
 
 import { BASE_COMMANDS, INTERFACE_COMMANDS } from "../ios";
 import type { CommandDefinition } from "../ios";
+import { SHOW_COMMANDS } from "./show-commands";
 import { SWITCHPORT_COMMANDS } from "./switchport-commands";
 import { VLAN_COMMANDS } from "./vlan-commands";
 
@@ -10,4 +11,5 @@ export const SWITCH_COMMANDS: readonly CommandDefinition[] = [
   ...INTERFACE_COMMANDS,
   ...VLAN_COMMANDS,
   ...SWITCHPORT_COMMANDS,
+  ...SHOW_COMMANDS,
 ];
