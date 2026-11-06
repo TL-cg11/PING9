@@ -50,7 +50,7 @@ describe("코드 목록", () => {
   });
 
   test("Command는 03 문서 3.4절의 MVP 목록과 같다", () => {
-    expect(COMMAND_TYPES).toHaveLength(18);
+    expect(COMMAND_TYPES).toHaveLength(19);
     expect(COMMAND_TYPES).toContain("pc/set-ip");
     expect(COMMAND_TYPES).toContain("link/add");
   });

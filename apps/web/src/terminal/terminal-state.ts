@@ -34,6 +34,29 @@ export function initialTerminal(prompt: string): TerminalState {
   return { lines: [], prompt, history: [], historyIndex: null };
 }
 
+/**
+ * 열려 있는 터미널의 프롬프트를 지금 문서의 것으로 맞춘다 (T0.7).
+ * 명령을 치지 않아도 PC의 OS나 장비 이름이 바뀌면 프롬프트가 바뀌어야 한다.
+ * 이미 찍힌 입력 줄의 프롬프트는 그때의 것으로 둔다. 바뀐 것이 없으면 같은 객체를 돌려준다
+ */
+export function refreshPrompts(
+  terminals: Readonly<Record<string, TerminalState>>,
+  promptOf: (deviceId: string) => string,
+): Readonly<Record<string, TerminalState>> {
+  let changed = false;
+  const next: Record<string, TerminalState> = {};
+  for (const [deviceId, state] of Object.entries(terminals)) {
+    const prompt = promptOf(deviceId);
+    if (prompt === state.prompt) {
+      next[deviceId] = state;
+    } else {
+      next[deviceId] = { ...state, prompt };
+      changed = true;
+    }
+  }
+  return changed ? next : terminals;
+}
+
 /** 탭은 공백으로 바꾸고, 그 밖의 제어 문자는 지우고, 한 줄의 한도로 자른다 (SEC-11, SEC-15) */
 export function cleanInput(text: string): string {
   let clean = "";

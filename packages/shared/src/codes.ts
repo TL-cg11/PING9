@@ -84,6 +84,8 @@ export interface ErrorParamsByCode {
    * IP 없이 마스크나 게이트웨이만 있으면 `ip`, IP는 있는데 마스크가 없으면 `mask`
    */
   PC_ADDRESS_INCOMPLETE: { readonly deviceId: string; readonly missing: "ip" | "mask" };
+  /** PC에 없는 주소를 지우려 함 (Linux `ip addr del`, T0.7). `ip`는 입력한 주소와 길이 */
+  PC_ADDRESS_NOT_FOUND: { readonly deviceId: string; readonly ip: string };
   /** 그 Switch에 없는 VLAN의 이름을 바꾸거나 지우려 함 */
   VLAN_NOT_FOUND: { readonly deviceId: string; readonly vlanId: number };
   /** VLAN 1은 지우거나 이름을 바꿀 수 없음 (FR-31) */
@@ -145,6 +147,7 @@ const ERROR_CODE_SET = {
   LINK_NOT_FOUND: true,
   DEVICE_KIND_MISMATCH: true,
   PC_ADDRESS_INCOMPLETE: true,
+  PC_ADDRESS_NOT_FOUND: true,
   VLAN_NOT_FOUND: true,
   DEFAULT_VLAN_READONLY: true,
   CLI_UNKNOWN_COMMAND: true,

@@ -113,6 +113,31 @@ describe("pc/set-ip: 성공", () => {
   });
 });
 
+describe("pc/set-ip: OS는 그대로 (T0.7)", () => {
+  const linuxPc1: TopologyDocument = {
+    ...twoPcDocument,
+    devices: twoPcDocument.devices.map((device) =>
+      device.id === pc1.id && device.kind === "pc" ? { ...device, config: { ...device.config, os: "linux" } } : device,
+    ),
+  };
+
+  test("IP를 바꿔도 OS가 남는다", () => {
+    expect(configOf(setIp({ ip: "10.0.0.50", mask: "255.255.255.0" }, linuxPc1))).toEqual({
+      ip: "10.0.0.50",
+      mask: "255.255.255.0",
+      os: "linux",
+    });
+  });
+
+  test("IP를 지워도 OS가 남는다", () => {
+    expect(configOf(setIp({}, linuxPc1))).toEqual({ os: "linux" });
+  });
+
+  test("OS가 없던 PC에는 OS 칸을 만들지 않는다", () => {
+    expect(configOf(setIp({}))).toEqual({});
+  });
+});
+
 describe("pc/set-ip: 중복 IP 알림 (FR-27)", () => {
   test("다른 PC와 같은 IP면 설정하면서 알린다", () => {
     const result = setIp({ ip: pc2.ip, mask: TWO_PC.mask });

@@ -15,7 +15,7 @@ import { TopBar } from "./components/top-bar";
 import { formatError } from "./messages/errors";
 import { TOPOLOGY_NAME, simulator, useSnapshot } from "./simulator";
 import { createCommandQueue } from "./terminal/command-queue";
-import { completed, historyStep, initialTerminal, runLine, showHelp } from "./terminal/terminal-state";
+import { completed, historyStep, initialTerminal, refreshPrompts, runLine, showHelp } from "./terminal/terminal-state";
 import type { TerminalState } from "./terminal/terminal-state";
 import { INITIAL_UI_STATE, uiReducer } from "./ui-state";
 
@@ -102,9 +102,11 @@ export function App() {
     }),
   );
 
-  // 문서에서 사라진 장비를 가리키는 선택과 터미널을 비운다
+  // 문서에서 사라진 장비를 가리키는 선택과 터미널을 비운다.
+  // 남은 터미널의 프롬프트는 지금 문서의 것으로 맞춘다 (OS나 이름이 바뀌었을 때, T0.7)
   useEffect(() => {
     dispatch({ type: "sync", deviceIds: document.devices.map((device) => device.id) });
+    updateTerminals((current) => refreshPrompts(current, (deviceId) => simulator.console(deviceId).prompt()));
     setSelectedLinkId(current => document.links.some(link => link.id === current) ? current : null);
   }, [document]);
 

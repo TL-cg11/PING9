@@ -46,11 +46,27 @@ export interface PortRef {
   readonly port: string;
 }
 
-/** PC 구성. IP가 없으면 세 값 모두 없다. `mask`는 `ip`와 함께만, `gateway`는 `ip`가 있을 때만 있다 */
+/** PC의 OS (T0.7). 콘솔 명령어와 출력 형식, 아이콘이 달라진다. 네트워크 동작은 같다 */
+export const OS_KINDS = ["windows", "linux"] as const;
+export type OsKind = (typeof OS_KINDS)[number];
+
+/** `os`가 없는 PC의 OS. 옛 문서와 예시 토폴로지가 그대로 읽힌다 */
+export const DEFAULT_OS: OsKind = "windows";
+
+/**
+ * PC 구성. IP가 없으면 세 값 모두 없다. `mask`는 `ip`와 함께만, `gateway`는 `ip`가 있을 때만 있다.
+ * `os`는 IP와 상관없이 따로 있고, 없으면 `DEFAULT_OS`다
+ */
 export interface PcConfig {
   readonly ip?: string;
   readonly mask?: string;
   readonly gateway?: string;
+  readonly os?: OsKind;
+}
+
+/** PC의 OS. 칸이 없으면 `DEFAULT_OS` */
+export function osOf(config: PcConfig): OsKind {
+  return config.os ?? DEFAULT_OS;
 }
 
 export interface Vlan {
