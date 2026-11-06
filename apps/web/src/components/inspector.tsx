@@ -6,6 +6,7 @@ import type { Command, DeviceKind, DispatchResult, PortView, Snapshot, TopologyD
 
 import { PcSettings } from "./pc-settings";
 import { SwitchMacTable, SwitchVlanList } from "./switch-inspector";
+import { SwitchPortTag, trunkAllowedText } from "./switch-port-tag";
 
 const KIND_LABEL: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router" };
 
@@ -60,7 +61,12 @@ export function Inspector({
         <div key={port.name} className="if-row">
           <span className={port.status === "up" ? "dot" : "dot off"} />
           {shortPortName(port.name)}
-          <span className="ip">{peerName(document, device.id, port) ?? "연결 없음"}</span>
+          {device.kind === "switch" && <SwitchPortTag config={device.config} port={port.name} />}
+          <span className="ip">
+            {(device.kind === "switch" ? trunkAllowedText(device.config, port.name) : undefined) ??
+              peerName(document, device.id, port) ??
+              "연결 없음"}
+          </span>
         </div>
       ))}
 

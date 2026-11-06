@@ -149,10 +149,19 @@ describe("completeLine", () => {
 
 describe("도움말·완성과 해석기의 일치 (AD-8): Switch의 실제 명령 정의", () => {
   const SAMPLE: Readonly<Record<string, string>> = { "vlan-id": "30", word: "LAB" };
-  const MODES: readonly CliMode[] = ["user", "privileged", "config", "config-vlan"];
+  // 글을 직접 읽는 매개변수는 종류가 아니라 이름으로 예시 값을 고른다
+  const SAMPLE_BY_NAME: Readonly<Record<string, string>> = {
+    port: "fa0/1",
+    type: "fastethernet",
+    number: "0/1",
+    list: "10,20-30",
+  };
+  const sampleOf = (token: { readonly param: string; readonly type: string }): string =>
+    SAMPLE_BY_NAME[token.param] ?? SAMPLE[token.type] ?? "x";
+  const MODES: readonly CliMode[] = ["user", "privileged", "config", "config-if", "config-vlan"];
 
   const sampleWords = (definition: CommandDefinition): string[] =>
-    definition.tokens.map((token) => (typeof token === "string" ? token : (SAMPLE[token.type] ?? "x")));
+    definition.tokens.map((token) => (typeof token === "string" ? token : (sampleOf(token))));
 
   const parse = (line: string, mode: CliMode) => parseLine(line, mode, "switch", SWITCH_COMMANDS);
   const helpTokens = (line: string, mode: CliMode) =>

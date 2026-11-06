@@ -1,7 +1,18 @@
 // Switch를 다루는 Command 처리기가 함께 쓰는 것: 장비 찾기, 구성 정규화, 구성 바꿔 끼우기.
 // 출처: docs/superpowers/specs/2026-11-05-switch-vlan-design.md 5.2절, 5.3절.
 
-import { DEFAULT_VLAN_ID, LIMITS, VLAN_ID_MAX, VLAN_ID_MIN, errorInfo, portIndex, switchVlans } from "@ping9/shared";
+import {
+  DEFAULT_VLAN_ID,
+  LIMITS,
+  VLAN_ID_MAX,
+  VLAN_ID_MIN,
+  checkVlanId,
+  errorInfo,
+  isPortName,
+  portIndex,
+  switchPort,
+  switchVlans,
+} from "@ping9/shared";
 import type {
   ErrorInfo,
   SwitchConfig,
@@ -92,4 +103,37 @@ export function withSwitchConfig(
         : device,
     ),
   };
+}
+
+/**
+ * Command의 VLAN 번호를 확인한다. 경계 밖에서 온 값이 수가 아니면 그 값을 오류에 담지 않는다.
+ * 객체나 Symbol이 params에 들어가면 화면이 문구를 만들다 예외를 던진다 (AD-16).
+ */
+export function checkVlanIdValue(value: unknown): ErrorInfo | null {
+  return typeof value === "number" ? checkVlanId(value) : errorInfo("INVALID_VLAN_ID", { value: Number.NaN });
+}
+
+/** Command가 가리키는 Switch 포트의 이름이 맞는지. 전체 이름만 받는다 (줄임은 CLI가 푼다) */
+export function checkSwitchPort(device: SwitchDevice, port: unknown): ErrorInfo | null {
+  return typeof port === "string" && isPortName("switch", port)
+    ? null
+    : errorInfo("UNKNOWN_PORT", { deviceId: device.id, kind: "switch", port: describeValue(port) });
+}
+
+/** 포트 하나의 설정 일부를 바꾼 새 Document. 나머지 설정은 그대로 두고, 구성은 정규화해서 끼운다 */
+export function withSwitchPort(
+  document: TopologyDocument,
+  device: SwitchDevice,
+  port: string,
+  change: Partial<SwitchPortConfig>,
+): TopologyDocument {
+  const current = switchPort(device.config, port);
+  const next: SwitchPortConfig = {
+    adminUp: current.adminUp,
+    mode: current.mode,
+    accessVlan: current.accessVlan,
+    allowedVlans: current.allowedVlans,
+    ...change,
+  };
+  return withSwitchConfig(document, device.id, { ...device.config, ports: { ...device.config.ports, [port]: next } });
 }

@@ -8,7 +8,7 @@ import { defineCommand, linesFromDispatch, param } from "../ios";
 import type { CommandContext, CommandDefinition, CommandOutcome } from "../ios";
 import { showVlanBriefLines } from "./show-vlan";
 
-const VLAN_ID = param("id", "vlan-id", "VLAN ID (1-4094)");
+export const VLAN_ID = param("id", "vlan-id", "VLAN ID (1-4094)");
 
 function showVlanBrief(context: CommandContext): CommandOutcome {
   if (context.device.kind !== "switch") return {};

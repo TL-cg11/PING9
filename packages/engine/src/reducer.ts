@@ -10,7 +10,13 @@ import { errorInfo } from "@ping9/shared";
 import type { Command, CommandOf, CommandType, ErrorInfo, Notice, TopologyDocument } from "@ping9/shared";
 
 import { describeValue } from "./describe";
+import { setInterfaceAdmin } from "./reducer/interface-admin";
 import { setPcIp } from "./reducer/pc-set-ip";
+import {
+  setSwitchportAccessVlan,
+  setSwitchportAllowedVlans,
+  setSwitchportMode,
+} from "./reducer/switch-port";
 import { createVlan, removeVlan, renameVlan } from "./reducer/switch-vlan";
 
 export type ReduceResult =
@@ -29,9 +35,13 @@ export type CommandHandler<T extends CommandType> = (
 // 처리기의 본문은 reducer/ 폴더의 각자 파일에 두고, 여기에는 자기 Command의 줄만 더한다
 const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
   "pc/set-ip": setPcIp,
+  "interface/set-admin": setInterfaceAdmin,
   "vlan/create": createVlan,
   "vlan/rename": renameVlan,
   "vlan/remove": removeVlan,
+  "switchport/set-mode": setSwitchportMode,
+  "switchport/set-access-vlan": setSwitchportAccessVlan,
+  "switchport/set-allowed-vlans": setSwitchportAllowedVlans,
 };
 
 /** 처리기가 있는 Command. 처리기가 없는 Command를 확인하는 테스트가 쓴다 */

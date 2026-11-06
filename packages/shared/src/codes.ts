@@ -209,6 +209,8 @@ export interface DropParamsByReason {
     readonly port: string;
     readonly vlan: number;
   };
+  /** 포트의 VLAN이 그 Switch에서 지워져 통신할 수 없음. VLAN_BLOCKED(VLAN이 서로 다름)와 사유가 다르다 */
+  VLAN_INACTIVE: { readonly device: DeviceRef; readonly port: string; readonly vlan: number };
   /** 일치하는 경로가 없음 */
   NO_ROUTE: { readonly device: DeviceRef; readonly targetIp: string };
   /** TTL이 0이 됨 */
@@ -229,6 +231,7 @@ const DROP_REASON_SET = {
   ARP_TIMEOUT: true,
   VLAN_BLOCKED: true,
   TRUNK_NOT_ALLOWED: true,
+  VLAN_INACTIVE: true,
   NO_ROUTE: true,
   TTL_EXPIRED: true,
   NOT_FOR_ME: true,

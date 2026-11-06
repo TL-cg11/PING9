@@ -8,13 +8,18 @@ import type {
   Device,
   DeviceKind,
   DispatchResult,
+  ErrorInfo,
   TopologyDocument,
 } from "@ping9/shared";
 
 export type CliMode = "user" | "privileged" | "config" | "config-if" | "config-vlan";
 
-/** 매개변수의 종류. `word`는 빈칸 없는 글, `vlan-id`는 1~4094의 수 */
-export type ParamType = "word" | "vlan-id";
+/**
+ * 매개변수의 종류. `word`는 빈칸 없는 글, `vlan-id`는 1~4094의 수,
+ * `ipv4`는 점으로 구분한 IPv4 주소, `mask`는 1이 이어지는 서브넷 마스크다.
+ * `ipv4`와 `mask`는 형식만 본다. 특수 주소나 네트워크 주소 같은 규칙은 reducer가 판정한다 (AD-3)
+ */
+export type ParamType = "word" | "vlan-id" | "ipv4" | "mask";
 
 export interface ParamToken {
   /** 인자 이름. `run`이 받는 `args`의 키다 */
@@ -22,13 +27,28 @@ export interface ParamToken {
   readonly type: ParamType;
   /** `?` 도움말에 보일 영어 설명 */
   readonly help: string;
+  /**
+   * 이 자리의 글을 직접 읽는 함수. 있으면 `type`의 읽기 대신 쓴다 (`customParam`).
+   * 장비 종류에 따라 달라지는 값(인터페이스 이름)이나 한 명령어만 쓰는 형식(VLAN 목록)에 쓴다.
+   */
+  readonly read?: (text: string, kind: DeviceKind) => ParamValue;
 }
+
+/** 매개변수 자리의 글을 읽은 결과 */
+export type ParamValue =
+  | { readonly ok: true; readonly value: string | number }
+  | { readonly ok: false; readonly error: ErrorInfo };
 
 /** 문자열은 키워드, 객체는 매개변수 자리다 */
 export type Token = string | ParamToken;
 
 export function param(name: string, type: ParamType, help: string): ParamToken {
   return { param: name, type, help };
+}
+
+/** 글을 직접 읽는 매개변수. `read`가 받아들인 값이 `args`에 들어간다 */
+export function customParam(name: string, help: string, read: NonNullable<ParamToken["read"]>): ParamToken {
+  return { param: name, type: "word", help, read };
 }
 
 /** 장비 하나의 CLI 세션. 변경 불가능한 값이며 바꿀 때는 새로 만든다 */

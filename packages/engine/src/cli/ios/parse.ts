@@ -1,7 +1,7 @@
 // 입력 한 줄을 명령 정의와 인자로 해석한다. 틀리면 오류 코드와 틀린 단어의 위치를 돌려준다 (FR-46).
 // 키워드는 그 자리에서 하나로 정해지는 만큼만 쳐도 된다 (줄임 입력, T3.2.1).
 
-import { checkVlanId, errorInfo } from "@ping9/shared";
+import { checkIpv4, checkMask, checkVlanId, errorInfo } from "@ping9/shared";
 import type { DeviceKind, ErrorInfo } from "@ping9/shared";
 
 import type { CliMode, CommandArgs, CommandDefinition, ParamToken } from "./define";
@@ -42,7 +42,21 @@ function readParam(token: ParamToken, text: string): ParamResult {
       const error = checkVlanId(value);
       return error === null ? { ok: true, value } : { ok: false, error };
     }
+    // 검사 함수는 받은 글을 오류에 그대로 담으므로, 오류는 자른 글로 다시 만든다
+    case "ipv4":
+      return checkIpv4(text) === null
+        ? { ok: true, value: text }
+        : { ok: false, error: errorInfo("INVALID_IPV4", { value: clip(text) }) };
+    case "mask":
+      return checkMask(text) === null
+        ? { ok: true, value: text }
+        : { ok: false, error: errorInfo("INVALID_MASK", { value: clip(text) }) };
   }
+}
+
+/** 매개변수 자리의 글을 읽는다. 정의가 읽는 함수를 따로 주었으면 그것을 쓴다 (T3.3.1) */
+function readToken(token: ParamToken, text: string, kind: DeviceKind): ParamResult {
+  return token.read === undefined ? readParam(token, text) : token.read(text, kind);
 }
 
 /**
@@ -60,7 +74,11 @@ export interface Walk {
   readonly alive: readonly CommandDefinition[];
 }
 
-export function walkWords(definitions: readonly CommandDefinition[], words: readonly Word[]): Walk {
+export function walkWords(
+  definitions: readonly CommandDefinition[],
+  words: readonly Word[],
+  kind: DeviceKind,
+): Walk {
   const keywords: (string | undefined)[] = [];
   // 앞의 단어가 모두 맞은 정의들
   let alive = definitions;
@@ -75,7 +93,7 @@ export function walkWords(definitions: readonly CommandDefinition[], words: read
       const token = definition.tokens[index];
       if (token === undefined) continue;
       if (typeof token === "string") here.add(token.toLowerCase());
-      else if (readParam(token, word.text).ok) paramAccepts = true;
+      else if (readToken(token, word.text, kind).ok) paramAccepts = true;
     }
 
     let keyword: string | undefined;
@@ -92,7 +110,7 @@ export function walkWords(definitions: readonly CommandDefinition[], words: read
     alive = alive.filter((definition) => {
       const token = definition.tokens[index];
       if (token === undefined) return false;
-      return typeof token === "string" ? token.toLowerCase() === keyword : readParam(token, word.text).ok;
+      return typeof token === "string" ? token.toLowerCase() === keyword : readToken(token, word.text, kind).ok;
     });
   }
 
@@ -113,6 +131,7 @@ function attempt(
   definition: CommandDefinition,
   words: readonly Word[],
   keywords: readonly (string | undefined)[],
+  kind: DeviceKind,
 ): Attempt {
   const args: Record<string, string | number> = {};
 
@@ -127,7 +146,7 @@ function attempt(
       continue;
     }
 
-    const value = readParam(token, word.text);
+    const value = readToken(token, word.text, kind);
     if (!value.ok) return { kind: "invalid", matched: index, error: value.error, word };
     args[token.param] = value.value;
   }
@@ -160,11 +179,13 @@ export function candidatesFor(mode: CliMode, forDevice: readonly CommandDefiniti
   return [...own, ...forDevice.filter((definition) => definition.modes.includes("config") && !own.includes(definition))];
 }
 
-/** 이 정의들 가운데 줄 전체가 맞는 것이 있는가 */
-function matchesAny(definitions: readonly CommandDefinition[], words: readonly Word[]): boolean {
-  const walk = walkWords(definitions, words);
-  if (walk.ambiguous !== undefined) return false;
-  return definitions.some((definition) => attempt(definition, words, walk.keywords).kind === "ok");
+/** 이 정의들 가운데 첫 단어가 이 글로 시작하는 것이 있는가. 줄여 쓴 글도 같은 명령어로 본다 */
+function startsAny(definitions: readonly CommandDefinition[], word: Word): boolean {
+  const typed = word.text.toLowerCase();
+  return definitions.some((definition) => {
+    const first = definition.tokens[0];
+    return typeof first === "string" && first.toLowerCase().startsWith(typed);
+  });
 }
 
 export function parseLine(
@@ -180,7 +201,7 @@ export function parseLine(
   const forDevice = definitionsFor(kind, definitions);
   const candidates = candidatesFor(mode, forDevice);
 
-  const walk = walkWords(candidates, words);
+  const walk = walkWords(candidates, words, kind);
   if (walk.ambiguous !== undefined) {
     return {
       ok: false,
@@ -191,7 +212,7 @@ export function parseLine(
 
   let best: Failure | undefined;
   for (const definition of candidates) {
-    const result = attempt(definition, words, walk.keywords);
+    const result = attempt(definition, words, walk.keywords, kind);
     if (result.kind === "ok") return { ok: true, definition, args: result.args };
 
     const better =
@@ -203,9 +224,10 @@ export function parseLine(
 
   // 첫 단어부터 틀렸는데 다른 모드에는 있는 명령어라면 모드가 틀린 것이다
   if (best === undefined || (best.kind === "mismatch" && best.matched === 0)) {
-    const elsewhere = matchesAny(
+    // 뒤의 단어가 맞는지는 보지 않는다. 다른 모드의 명령어를 쳤으면 값이 틀렸어도 모드부터 알린다 (T3.5.1)
+    const elsewhere = startsAny(
       forDevice.filter((definition) => !candidates.includes(definition)),
-      words,
+      firstWord,
     );
     const code = elsewhere ? "CLI_WRONG_MODE" : "CLI_UNKNOWN_COMMAND";
     return {

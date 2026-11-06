@@ -1,7 +1,10 @@
 // 가운데 캔버스. Document의 장비와 링크를 그린다 (읽기 전용).
 // 노드의 모양은 시안의 그리기 코드를 옮긴 것이다. 캔버스는 자체 상태로 장비 목록을 들고 있지 않다 (AD-4).
 
-import type { Device, DeviceKind, TopologyDocument } from "@ping9/shared";
+import type { Device, DeviceKind, Position, TopologyDocument } from "@ping9/shared";
+
+import { linkVlan } from "../format/link-vlan";
+import { vlanColor } from "../format/vlan-color";
 
 /** 시안의 기본 그림 영역 */
 const BASE_WIDTH = 860;
@@ -32,6 +35,52 @@ function Icon({ kind }: { readonly kind: DeviceKind }) {
     case "router":
       return <path d="M34 17l12 12M46 17L34 29" stroke="#1E7A6E" strokeWidth="2" {...ICON_STROKE} />;
   }
+}
+
+/** 링크 가운데에 붙는 알약 모양 표시. 시안의 vlabel과 같은 크기 계산이다 */
+function LinkLabel({
+  x,
+  y,
+  text,
+  vlan,
+}: {
+  readonly x: number;
+  readonly y: number;
+  readonly text: string;
+  readonly vlan: number | "trunk";
+}) {
+  const width = text.length * 7 + 16;
+  const color = vlanColor(vlan);
+  return (
+    <g className="vlabel">
+      <rect x={x - width / 2} y={y - 10} width={width} height="20" rx="10" fill={color.background} />
+      <text x={x} y={y + 4} textAnchor="middle" fill={color.text}>
+        {text}
+      </text>
+    </g>
+  );
+}
+
+/**
+ * trunk 끝 옆에 그 끝의 허용 목록을 쓴다. 시안처럼 노드 카드 바깥, 선이 뻗는 쪽에 둔다
+ * (카드 가운데에서 가로 48, 세로 24).
+ */
+function TrunkEndText({
+  at,
+  other,
+  text,
+}: {
+  readonly at: Position;
+  readonly other: Position;
+  readonly text: string | undefined;
+}) {
+  if (text === undefined) return null;
+  const toRight = other.x >= at.x;
+  return (
+    <text className="net" x={toRight ? at.x + 48 : at.x - 48} y={at.y + 24} textAnchor={toRight ? "start" : "end"}>
+      {text}
+    </text>
+  );
 }
 
 /** 모든 장비가 보이는 viewBox. 시안의 영역 안에 다 들어가면 시안과 같다 */
@@ -71,7 +120,29 @@ export function Canvas({
             const from = positions.get(link.ends[0].deviceId);
             const to = positions.get(link.ends[1].deviceId);
             if (from === undefined || to === undefined) return null;
-            return <line key={link.id} className="wire" x1={from.x} y1={from.y} x2={to.x} y2={to.y} />;
+            const mark = linkVlan(document, link);
+            const middle = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+            return (
+              <g key={link.id}>
+                <line
+                  className={mark?.kind === "trunk" ? "wire trunk" : "wire"}
+                  x1={from.x}
+                  y1={from.y}
+                  x2={to.x}
+                  y2={to.y}
+                />
+                {mark?.kind === "access" && (
+                  <LinkLabel x={middle.x} y={middle.y} text={`VLAN ${mark.vlan}`} vlan={mark.vlan} />
+                )}
+                {mark?.kind === "trunk" && (
+                  <>
+                    <LinkLabel x={middle.x} y={middle.y} text="trunk" vlan="trunk" />
+                    <TrunkEndText at={from} other={to} text={mark.ends[0]} />
+                    <TrunkEndText at={to} other={from} text={mark.ends[1]} />
+                  </>
+                )}
+              </g>
+            );
           })}
         </g>
         <g>

@@ -148,6 +148,58 @@ describe("이전 명령어", () => {
   });
 });
 
+describe("오류의 위치 표시 (T3.5.2)", () => {
+  async function inConfig() {
+    const port = switchPort();
+    let state = initialTerminal(port.prompt());
+    for (const line of ["enable", "configure terminal"]) state = await runLine(port, state, line);
+    return { port, state };
+  }
+
+  test("틀린 단어 밑에 ^ 줄이 나오고 그 아래에 한국어 설명이 나온다", async () => {
+    const { port, state } = await inConfig();
+
+    const next = await runLine(port, state, "vlan 5000");
+
+    expect(next.lines.slice(-3)).toEqual([
+      { kind: "input", prompt: "SW1(config)#", text: "vlan 5000" },
+      // 프롬프트 12자 + 공백 1자 + 위치 5
+      { kind: "marker", text: `${" ".repeat(18)}^` },
+      { kind: "error", text: "VLAN 번호는 1~4094여야 해요: 5000" },
+    ]);
+  });
+
+  test("첫 단어가 틀리면 첫 단어를 가리킨다. 앞의 공백도 센다", async () => {
+    const port = switchPort();
+
+    const first = await runLine(port, initialTerminal(port.prompt()), "foo");
+    const padded = await runLine(port, initialTerminal(port.prompt()), "   foo");
+
+    expect(first.lines[1]).toEqual({ kind: "marker", text: `${" ".repeat(5)}^` });
+    expect(padded.lines[1]).toEqual({ kind: "marker", text: `${" ".repeat(8)}^` });
+  });
+
+  test("위치가 없는 오류에는 ^ 줄이 없다", async () => {
+    const { port, state } = await inConfig();
+
+    const next = await runLine(port, state, "vlan");
+
+    expect(next.lines.slice(-2)).toEqual([
+      { kind: "input", prompt: "SW1(config)#", text: "vlan" },
+      { kind: "error", text: "명령어가 끝나지 않았어요" },
+    ]);
+  });
+
+  test("입력한 줄 없이 받은 오류에는 ^ 줄을 붙이지 않는다", () => {
+    const state = received(initialTerminal("SW1>"), {
+      lines: [{ kind: "error", code: "CLI_UNKNOWN_COMMAND", params: { token: "x" }, position: 3 }],
+      prompt: "SW1>",
+    });
+
+    expect(state.lines).toEqual([{ kind: "error", text: "알 수 없는 명령어예요: x" }]);
+  });
+});
+
 describe("Tab 완성", () => {
   test("키워드 하나로 정해지면 완성한 줄을 돌려준다", async () => {
     const port = switchPort();

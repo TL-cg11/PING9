@@ -64,11 +64,16 @@ export function iosExec(
     return { lines, prompt: iosPrompt(current, env) };
   };
 
+  // 설정 중이던 대상이 사라져 config 모드로 물러났으면 그 세션을 저장한다.
+  // 저장하지 않으면 대상이 다른 경로로 다시 생겼을 때 옛 모드가 되살아난다
+  const stored = env.getSession(device.id);
+  const session = effectiveSession(stored, device);
+  if (session !== stored) env.setSession(device.id, session);
+
   // `!`로 시작하는 줄은 설명이다. show running-config의 출력을 그대로 붙여 넣을 수 있게 한다
   const trimmed = line.trim();
   if (trimmed === "" || trimmed.startsWith("!")) return result([]);
 
-  const session = effectiveSession(env.getSession(device.id), device);
   const parsed = parseLine(line, session.mode, device.kind, definitions);
   if (!parsed.ok) {
     const error: ConsoleLine =

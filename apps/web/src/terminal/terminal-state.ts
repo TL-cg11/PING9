@@ -12,7 +12,8 @@ import { formatNotice } from "../messages/notices";
 export type TerminalLine =
   /** 사용자가 입력한 줄. 그때의 프롬프트와 함께 남긴다 */
   | { readonly kind: "input"; readonly prompt: string; readonly text: string }
-  | { readonly kind: "text" | "error" | "notice"; readonly text: string };
+  /** `marker`는 바로 위의 입력 줄에서 틀린 위치를 가리키는 `^` 줄이다 (T3.5.2) */
+  | { readonly kind: "text" | "error" | "notice" | "marker"; readonly text: string };
 
 export interface TerminalState {
   readonly lines: readonly TerminalLine[];
@@ -63,12 +64,19 @@ export function submitted(state: TerminalState, input: string): TerminalState {
 /** engine이 돌려준 결과를 기록한다. 오류와 알림은 한국어 문구로 바꾼다 */
 export function received(state: TerminalState, result: ConsoleResult): TerminalState {
   const lines: TerminalLine[] = [];
+  // 이 결과를 낸 입력 줄. 실행하면 입력 줄이 먼저 기록되므로 화면 기록의 마지막 줄이다
+  const last = state.lines.at(-1);
+  const echoed = last?.kind === "input" ? last : undefined;
   for (const line of result.lines) {
     switch (line.kind) {
       case "text":
         lines.push({ kind: "text", text: line.text });
         break;
       case "error":
+        // 틀린 단어 밑에 ^를 찍는다. 화면의 입력 줄은 "프롬프트 + 공백 + 입력한 글"이다
+        if (line.position !== undefined && echoed !== undefined) {
+          lines.push({ kind: "marker", text: `${" ".repeat(echoed.prompt.length + 1 + line.position)}^` });
+        }
         lines.push({ kind: "error", text: formatError(line) });
         break;
       case "notice":

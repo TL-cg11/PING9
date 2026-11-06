@@ -5,9 +5,7 @@ import { shortPortName, switchVlans, vlanAccessPorts } from "@ping9/shared";
 import type { SwitchConfig, SwitchView } from "@ping9/shared";
 
 import { formatPortList } from "../format/port-list";
-
-/** 시안에 색이 정해진 VLAN. 그 밖의 번호는 VLAN 1과 같은 회색으로 그린다 (나머지 색은 T5.2.1에서 정한다) */
-const VLAN_COLOR: Readonly<Record<number, string>> = { 1: "v1", 10: "v10", 20: "v20" };
+import { vlanColor } from "../format/vlan-color";
 
 export function SwitchVlanList({ config }: { readonly config: SwitchConfig }) {
   return (
@@ -15,7 +13,7 @@ export function SwitchVlanList({ config }: { readonly config: SwitchConfig }) {
       <h4>VLAN</h4>
       {switchVlans(config).map((vlan) => (
         <div key={vlan.id} className="if-row">
-          <span className={`vtag ${VLAN_COLOR[vlan.id] ?? "v1"}`}>VLAN {vlan.id}</span>
+          <span className={`vtag ${vlanColor(vlan.id).className}`}>VLAN {vlan.id}</span>
           {vlan.name}
           <span className="ip">{formatPortList(vlanAccessPorts(config, vlan.id))}</span>
         </div>

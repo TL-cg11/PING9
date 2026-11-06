@@ -4,7 +4,6 @@
 import {
   DEFAULT_VLAN_ID,
   LIMITS,
-  checkVlanId,
   checkVlanName,
   defaultVlanName,
   errorInfo,
@@ -14,7 +13,7 @@ import type { ErrorInfo, TopologyDocument } from "@ping9/shared";
 
 import { describeValue } from "../describe";
 import type { CommandHandler, ReduceResult } from "../reducer";
-import { findSwitch, withSwitchConfig } from "./switch-common";
+import { checkVlanIdValue, findSwitch, withSwitchConfig } from "./switch-common";
 
 const rejected = (error: ErrorInfo): ReduceResult => ({ ok: false, error });
 const accepted = (document: TopologyDocument): ReduceResult => ({ ok: true, document, notices: [] });
@@ -31,7 +30,7 @@ export const createVlan: CommandHandler<"vlan/create"> = (document, command) => 
   if (!found.ok) return found;
   const { device } = found;
 
-  const idError = checkVlanId(command.vlanId);
+  const idError = checkVlanIdValue(command.vlanId);
   if (idError !== null) return rejected(idError);
 
   const vlans = switchVlans(device.config);
@@ -62,7 +61,7 @@ export const renameVlan: CommandHandler<"vlan/rename"> = (document, command) => 
   if (!found.ok) return found;
   const { device } = found;
 
-  const idError = checkVlanId(command.vlanId);
+  const idError = checkVlanIdValue(command.vlanId);
   if (idError !== null) return rejected(idError);
   if (command.vlanId === DEFAULT_VLAN_ID) {
     return rejected(errorInfo("DEFAULT_VLAN_READONLY", { deviceId: device.id }));
@@ -91,7 +90,7 @@ export const removeVlan: CommandHandler<"vlan/remove"> = (document, command) => 
   if (!found.ok) return found;
   const { device } = found;
 
-  const idError = checkVlanId(command.vlanId);
+  const idError = checkVlanIdValue(command.vlanId);
   if (idError !== null) return rejected(idError);
   if (command.vlanId === DEFAULT_VLAN_ID) {
     return rejected(errorInfo("DEFAULT_VLAN_READONLY", { deviceId: device.id }));
