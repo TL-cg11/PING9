@@ -14,13 +14,16 @@ const LINE_CLASS: Readonly<Record<Exclude<TerminalLine["kind"], "input">, string
   text: "pre",
   error: "err",
   notice: "dim",
+  // 공백으로 위치를 맞춘 줄이라 공백을 그대로 둔다
+  marker: "pre err",
 };
 
 function Line({ line }: { readonly line: TerminalLine }) {
   if (line.kind === "input") {
     return (
       <div>
-        <span className="p">{line.prompt}</span> {line.text}
+        {/* 입력한 글의 공백을 그대로 둔다. 아래의 ^ 줄과 위치가 맞아야 한다 */}
+        <span className="p">{line.prompt}</span> <span className="pre">{line.text}</span>
       </div>
     );
   }
