@@ -7,6 +7,7 @@ export * from "./console";
 export * from "./document";
 export * from "./limits";
 export * from "./port-name";
+export * from "./router-config";
 export * from "./switch-config";
 export * from "./trace";
 export * from "./values";

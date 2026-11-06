@@ -41,6 +41,7 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T3.5.1 CLI 오류 분류 | [T3.5.1-cli-errors.md](T3.5.1-cli-errors.md) | 엔진 | SDY | 병합됨 (PR #20, 팀원 검토 없이) |
 | T3.5.2 터미널 창의 오류 위치 표시 | [T3.5.2-terminal-error-marker.md](T3.5.2-terminal-error-marker.md) | 화면 | SDY | 병합됨 (PR #21, 팀원 검토 없이) |
 | T4.1.1 Router 생성과 기본 CLI 연결 | [T4.1.1-router-model.md](T4.1.1-router-model.md) | 엔진, 화면 | ssunyoung2 | 생성·CLI 부분 로컬 검증 완료. 프로토콜 모델 조립과 PR 검토 남음 |
+| T4.1.2 Router 인터페이스 IP 설정 | [T4.1.2-router-ip.md](T4.1.2-router-ip.md) | 엔진, 공통 | ssunyoung2 | 로컬 구현·검증 완료, PR/팀원 검토 대기 |
 | T5.1.1 VLAN 구성 | [T5.1.1-vlan-config.md](T5.1.1-vlan-config.md) | 엔진, 공통 | SDY | 병합됨 (PR #6, 팀원 검토 없이). `shared` 변경은 팀 확인 필요. 직렬화는 T3.4.1에서 |
 | T5.2.1 access 포트와 VLAN 분리 | [T5.2.1-access-ports.md](T5.2.1-access-ports.md) | 엔진, 공통, 화면 | SDY | 병합됨 (PR #17, 팀원 검토 없이). `shared` 변경은 팀 확인 필요. ping으로 확인하는 부분은 kernel 뒤 |
 | T5.3.1 trunk 포트와 허용 목록 | [T5.3.1-trunk-ports.md](T5.3.1-trunk-ports.md) | 엔진, 화면 | SDY | 병합됨 (PR #18, 팀원 검토 없이). ping으로 확인하는 부분은 kernel 뒤 |

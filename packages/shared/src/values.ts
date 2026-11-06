@@ -94,6 +94,17 @@ export function isSameNetwork(a: string, b: string, mask: string): boolean {
   return networkOf(first, length) === networkOf(second, length);
 }
 
+/** 두 IPv4 네트워크가 겹치는지. 주소는 호스트 주소여도 되고, 형식이 틀리면 false다. */
+export function networksOverlap(firstIp: string, firstMask: string, secondIp: string, secondMask: string): boolean {
+  const first = parseIpv4(firstIp);
+  const second = parseIpv4(secondIp);
+  const firstLength = maskToPrefixLength(firstMask);
+  const secondLength = maskToPrefixLength(secondMask);
+  if (first === null || second === null || firstLength === null || secondLength === null) return false;
+  const commonLength = Math.min(firstLength, secondLength);
+  return networkOf(first, commonLength) === networkOf(second, commonLength);
+}
+
 /**
  * 인터페이스(PC, Router)에 줄 주소와 마스크의 짝을 확인한다.
  * 주소는 특수 주소가 아니어야 하고, 마스크는 /1 ~ /30이어야 하며, 주소가 네트워크 주소나 브로드캐스트 주소면 안 된다.
