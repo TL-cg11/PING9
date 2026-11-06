@@ -65,7 +65,8 @@ button { font: inherit; cursor: pointer; }
 /* 키보드 포커스: 아이콘 둘레의 점선 원 (T1.6.2). 마우스로 누를 때는 보이지 않는다 */
 .node:focus { outline: none; }
 .node .focus-ring { fill: none; stroke: none; pointer-events: none; }
-.node:focus-visible .focus-ring { stroke: var(--sky-700); stroke-width: 1.5; stroke-dasharray: 4 3; }
+/* 키보드로 고를 때만 보인다. 눈에 덜 띄게 옅게 둔다 */
+.node:focus-visible .focus-ring { stroke: var(--sky-700); stroke-opacity: 0.55; stroke-width: 1.2; stroke-dasharray: 4 3; }
 .node text { font-family: Pretendard, sans-serif; fill: var(--navy); }
 .node .lbl { font-size: 14px; font-weight: 700; }
 .node .ip { font-size: 12px; fill: var(--navy-60); }
