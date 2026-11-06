@@ -84,6 +84,10 @@ export interface ErrorParamsByCode {
    * IP 없이 마스크나 게이트웨이만 있으면 `ip`, IP는 있는데 마스크가 없으면 `mask`
    */
   PC_ADDRESS_INCOMPLETE: { readonly deviceId: string; readonly missing: "ip" | "mask" };
+  /** 그 Switch에 없는 VLAN의 이름을 바꾸거나 지우려 함 */
+  VLAN_NOT_FOUND: { readonly deviceId: string; readonly vlanId: number };
+  /** VLAN 1은 지우거나 이름을 바꿀 수 없음 (FR-31) */
+  DEFAULT_VLAN_READONLY: { readonly deviceId: string };
 
   // CLI 해석 (FR-46). `position`은 ConsoleLine에 따로 담는다
   CLI_UNKNOWN_COMMAND: { readonly token: string };
@@ -141,6 +145,8 @@ const ERROR_CODE_SET = {
   LINK_NOT_FOUND: true,
   DEVICE_KIND_MISMATCH: true,
   PC_ADDRESS_INCOMPLETE: true,
+  VLAN_NOT_FOUND: true,
+  DEFAULT_VLAN_READONLY: true,
   CLI_UNKNOWN_COMMAND: true,
   CLI_INCOMPLETE_COMMAND: true,
   CLI_AMBIGUOUS_COMMAND: true,

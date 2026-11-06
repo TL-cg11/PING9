@@ -227,6 +227,15 @@ describe("포트 상태 (AD-7)", () => {
 });
 
 describe("dispatch", () => {
+  test.each(HANDLED_COMMAND_TYPES)("%s: 필드가 빠진 Command도 예외 없이 거부한다", (type) => {
+    const simulator = createSimulator();
+    simulator.load(twoPcSwitchDocument);
+    const before = simulator.getSnapshot();
+
+    expect(simulator.dispatch({ type } as Command).ok).toBe(false);
+    expect(simulator.getSnapshot()).toBe(before);
+  });
+
   const unhandled = COMMAND_TYPES.filter((type) => !HANDLED_COMMAND_TYPES.includes(type));
 
   test.each(unhandled)("%s: 처리기가 아직 없어 오류 결과로 돌려주고 예외를 던지지 않는다", (type) => {
@@ -252,6 +261,8 @@ describe("dispatch", () => {
     ["Object의 기본 속성 이름", { type: "toString" }, "toString"],
     ["__proto__", { type: "__proto__" }, "__proto__"],
     ["문자열", "device/add", "undefined"],
+    // String()이 예외를 던지는 값. JSON으로도 올 수 있다
+    ["문자열로 바꿀 수 없는 type", { type: { toString: 1, valueOf: 1 } }, "object"],
   ])("Command가 아닌 값(%s)도 오류 결과로 끝난다", (_name, value, type) => {
     const simulator = createSimulator();
 

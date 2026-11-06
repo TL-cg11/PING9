@@ -229,6 +229,15 @@ describe("pc/set-ip: 거부", () => {
     ["마스크가 객체", { ip: "10.0.0.1", mask: {} }, "INVALID_MASK"],
     ["게이트웨이가 참거짓", { ip: "10.0.0.1", mask: "255.255.255.0", gateway: true }, "INVALID_IPV4"],
     ["장비 ID가 수", { deviceId: 7 }, "DEVICE_NOT_FOUND"],
+    // String()이 예외를 던지는 값. JSON으로도 올 수 있다
+    ["장비 ID가 문자열로 바꿀 수 없는 객체", { deviceId: { toString: 1, valueOf: 1 } }, "DEVICE_NOT_FOUND"],
+    ["IP가 문자열로 바꿀 수 없는 객체", { ip: { toString: 1, valueOf: 1 } }, "INVALID_IPV4"],
+    ["마스크가 문자열로 바꿀 수 없는 객체", { ip: "10.0.0.1", mask: { toString: 1, valueOf: 1 } }, "INVALID_MASK"],
+    [
+      "게이트웨이가 문자열로 바꿀 수 없는 객체",
+      { ip: "10.0.0.1", mask: "255.255.255.0", gateway: { toString: 1, valueOf: 1 } },
+      "INVALID_IPV4",
+    ],
   ])("문자열이 아닌 값(%s)도 예외 없이 오류로 끝난다", (_name, fields, code) => {
     const command = {
       type: "pc/set-ip",

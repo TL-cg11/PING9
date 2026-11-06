@@ -7,11 +7,13 @@ import { validateDocument, validateTrace } from "../validate";
 import {
   EXAMPLE_DOCUMENTS,
   TWO_PC,
+  TWO_SWITCH_VLAN,
   thirtyDeviceDocument,
   twoPcDocument,
   twoPcPingConsoleResult,
   twoPcPingTrace,
   twoPcSnapshot,
+  twoSwitchVlanDocument,
 } from "./index";
 
 describe("예시 Document", () => {
@@ -35,6 +37,23 @@ describe("예시 Document", () => {
     expect(kinds.filter((kind) => kind === "switch")).toHaveLength(5);
     expect(kinds.filter((kind) => kind === "pc")).toHaveLength(25);
     expect(thirtyDeviceDocument.links).toHaveLength(29);
+  });
+
+  test("Switch 2대와 VLAN 2개: Switch 2대, PC 4대, 링크 5개이고 예시 목록에 들어 있다", () => {
+    const kinds = twoSwitchVlanDocument.devices.map((device) => device.kind);
+
+    expect(kinds.filter((kind) => kind === "switch")).toHaveLength(2);
+    expect(kinds.filter((kind) => kind === "pc")).toHaveLength(4);
+    expect(twoSwitchVlanDocument.links).toHaveLength(5);
+    expect(EXAMPLE_DOCUMENTS.map((example) => example.document)).toContain(twoSwitchVlanDocument);
+  });
+
+  test("Switch 2대와 VLAN 2개: 이름과 ID가 TWO_SWITCH_VLAN과 같다", () => {
+    const byName = new Map(twoSwitchVlanDocument.devices.map((device) => [device.name, device.id]));
+
+    for (const key of ["pc1", "pc2", "pc3", "pc4", "sw1", "sw2"] as const) {
+      expect(byName.get(TWO_SWITCH_VLAN[key].name)).toBe(TWO_SWITCH_VLAN[key].id);
+    }
   });
 });
 

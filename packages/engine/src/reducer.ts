@@ -9,7 +9,9 @@
 import { errorInfo } from "@ping9/shared";
 import type { Command, CommandOf, CommandType, ErrorInfo, Notice, TopologyDocument } from "@ping9/shared";
 
+import { describeValue } from "./describe";
 import { setPcIp } from "./reducer/pc-set-ip";
+import { createVlan, removeVlan, renameVlan } from "./reducer/switch-vlan";
 
 export type ReduceResult =
   | {
@@ -24,8 +26,12 @@ export type CommandHandler<T extends CommandType> = (
   command: CommandOf<T>,
 ) => ReduceResult;
 
+// 처리기의 본문은 reducer/ 폴더의 각자 파일에 두고, 여기에는 자기 Command의 줄만 더한다
 const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
   "pc/set-ip": setPcIp,
+  "vlan/create": createVlan,
+  "vlan/rename": renameVlan,
+  "vlan/remove": removeVlan,
 };
 
 /** 처리기가 있는 Command. 처리기가 없는 Command를 확인하는 테스트가 쓴다 */
@@ -37,7 +43,7 @@ export function reduce(document: TopologyDocument, command: Command): ReduceResu
   if (typeof type !== "string" || !Object.hasOwn(handlers, type)) {
     return {
       ok: false,
-      error: errorInfo("UNKNOWN_COMMAND", { type: String(type).slice(0, 64) }),
+      error: errorInfo("UNKNOWN_COMMAND", { type: describeValue(type) }),
     };
   }
 
