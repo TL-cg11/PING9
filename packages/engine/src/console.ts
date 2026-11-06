@@ -9,6 +9,7 @@ import type { ConsoleLine, ConsoleResult, DeviceKind, HelpEntry } from "@ping9/s
 
 import { iosExec, iosPrompt } from "./cli/ios";
 import type { CommandDefinition, IosConsoleEnv } from "./cli/ios";
+import { SWITCH_COMMANDS } from "./cli/switch";
 
 export interface ConsolePort {
   /** 현재 프롬프트 (예: `PC1>`, `R1(config-if)#`) */
@@ -22,7 +23,9 @@ export interface ConsolePort {
 }
 
 /** 장비 종류별 명령 정의 목록. 없는 종류는 아직 CLI가 없다 */
-const DEFINITIONS_BY_KIND: Partial<Record<DeviceKind, readonly CommandDefinition[]>> = {};
+const DEFINITIONS_BY_KIND: Partial<Record<DeviceKind, readonly CommandDefinition[]>> = {
+  switch: SWITCH_COMMANDS,
+};
 
 export function createConsolePort(deviceId: string, env: IosConsoleEnv): ConsolePort {
   const findDevice = () => env.getDocument().devices.find((device) => device.id === deviceId);
