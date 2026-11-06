@@ -1,4 +1,4 @@
-// Switch의 show 명령어: show interfaces trunk (T5.3.2).
+// Switch의 show 명령어: show interfaces trunk (T5.3.2), show mac address-table (T3.4.2).
 
 import type { ConsoleResult, TopologyDocument } from "@ping9/shared";
 import { TWO_PC_SWITCH, TWO_SWITCH_VLAN, twoPcSwitchDocument, twoSwitchVlanDocument } from "@ping9/shared/examples";
@@ -6,6 +6,7 @@ import { describe, expect, test } from "vitest";
 
 import { createSimulator } from "../../index";
 import { tableLines } from "../ios/table";
+import { macAddressTableLines } from "./show-commands";
 
 async function run(document: TopologyDocument, deviceId: string, ...lines: string[]): Promise<ConsoleResult> {
   const simulator = createSimulator();
@@ -89,6 +90,36 @@ describe("show interfaces trunk", () => {
   test("privileged 모드가 아니면 쓸 수 없다", async () => {
     const result = await run(twoSwitchVlanDocument, sw1, "disable", "show interfaces trunk");
 
+    expect(result.lines).toEqual([{ kind: "error", code: "CLI_WRONG_MODE", params: { token: "show" }, position: 0 }]);
+  });
+});
+
+describe("show mac address-table", () => {
+  test("VLAN, MAC 주소, 줄인 포트 이름", () => {
+    expect(
+      macAddressTableLines([
+        { vlan: 10, mac: "02:00:00:00:01:00", port: "FastEthernet0/1" },
+        { vlan: 4094, mac: "02:00:00:00:02:00", port: "FastEthernet0/8" },
+      ]),
+    ).toEqual([
+      "VLAN  MAC address        Port",
+      "10    02:00:00:00:01:00  Fa0/1",
+      "4094  02:00:00:00:02:00  Fa0/8",
+    ]);
+  });
+
+  test("배운 주소가 없으면 머리줄만 나온다 (프레임이 흐르기 전에는 늘 그렇다)", async () => {
+    expect(textOf(await run(twoSwitchVlanDocument, TWO_SWITCH_VLAN.sw1.id, "show mac address-table"))).toEqual([
+      "VLAN  MAC address  Port",
+    ]);
+  });
+
+  test("줄여 쓸 수 있고, privileged 모드에서만 쓸 수 있다", async () => {
+    expect(textOf(await run(twoSwitchVlanDocument, TWO_SWITCH_VLAN.sw1.id, "sh mac add"))).toEqual([
+      "VLAN  MAC address  Port",
+    ]);
+
+    const result = await run(twoSwitchVlanDocument, TWO_SWITCH_VLAN.sw1.id, "configure terminal", "show mac address-table");
     expect(result.lines).toEqual([{ kind: "error", code: "CLI_WRONG_MODE", params: { token: "show" }, position: 0 }]);
   });
 });
