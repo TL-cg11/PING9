@@ -16,6 +16,7 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 |---|---|---|---|---|
 | T0.1 저장소와 배포 연결 | [T0.1-repo-and-deploy-setup.md](T0.1-repo-and-deploy-setup.md) | 배포 | SDY | 완료 |
 | T0.4 저장소 공개 전환과 Vercel Git 연동 배포 | [T0.4-public-repo-and-git-deploy.md](T0.4-public-repo-and-git-deploy.md) | 배포 | SDY | 진행 중. 저장소 이전, 공개, Vercel 연결은 끝남 (팀원이 직접 병합했을 때의 배포 확인 남음) |
+| T0.5 운영 첫 화면을 편집기 화면으로 바꾸기 (계획에 없는 새 ID) | [T0.5-app-at-root.md](T0.5-app-at-root.md) | 배포 | SDY | 병합됨 (PR #8, 팀원 검토 없이). T0.3 담당자 확인 필요. 시안은 `/mockup.html`에 남김 |
 | T1.1.1 모노레포와 패키지 뼈대 | [T1.1.1-monorepo-skeleton.md](T1.1.1-monorepo-skeleton.md) | 공통 | SDY | 완료 (검토 없이 병합) |
 | T1.1.3 CI 검사와 운영 배포 | [T1.1.3-ci-and-deploy.md](T1.1.3-ci-and-deploy.md) | 배포 | SDY | 일부 완료. CI 동작 중. Actions 배포는 T0.4에서 없앰 (브랜치 보호 남음) |
 | T1.2.1 `shared` 타입과 코드 열거형 | [T1.2.1-shared-types.md](T1.2.1-shared-types.md) | 공통 | SDY | 병합됨 (검토 없이). 팀 합의 필요 |
@@ -26,4 +27,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T3.1.1 명령 트리 확장: 모드와 세션 | [T3.1.1-cli-modes-and-session.md](T3.1.1-cli-modes-and-session.md) | 엔진 | SDY | 병합됨 (PR #4, 팀원 검토 없이) |
 | T3.1.2 Switch 기본 명령어 | [T3.1.2-switch-basic-commands.md](T3.1.2-switch-basic-commands.md) | 엔진 | SDY | 병합됨 (PR #5, 팀원 검토 없이). `hostname`은 `device/rename` 처리기 대기 |
 | T5.1.1 VLAN 구성 | [T5.1.1-vlan-config.md](T5.1.1-vlan-config.md) | 엔진, 공통 | SDY | 병합됨 (PR #6, 팀원 검토 없이). `shared` 변경은 팀 확인 필요. 직렬화는 T3.4.1에서 |
-| T5.4.1 Switch 화면 (계획에 없는 새 ID) | [T5.4.1-switch-screen.md](T5.4.1-switch-screen.md) | 화면 | SDY | 병합됨 (PR #7, 팀원 검토 없이). 운영 주소에서는 아직 보이지 않음 |
+| T5.4.1 Switch 화면 (계획에 없는 새 ID) | [T5.4.1-switch-screen.md](T5.4.1-switch-screen.md) | 화면 | SDY | 병합됨 (PR #7, 팀원 검토 없이). 운영 첫 화면은 T0.5에서 바꿈 |
