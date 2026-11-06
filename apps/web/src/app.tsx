@@ -136,7 +136,12 @@ export function App() {
             );
           })}
         </section>
-        <Inspector snapshot={snapshot} deviceId={ui.selectedDeviceId} onOpenTerminal={openTerminal} />
+        <Inspector
+          snapshot={snapshot}
+          deviceId={ui.selectedDeviceId}
+          onOpenTerminal={openTerminal}
+          onDispatch={simulator.dispatch}
+        />
       </main>
     </div>
   );

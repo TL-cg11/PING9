@@ -71,6 +71,6 @@ describe("알림 문구", () => {
         code: "DUPLICATE_IP",
         params: { ip: "10.0.10.1", others: [{ deviceId: "a", deviceName: "PC2" }, { deviceId: "b", deviceName: "PC3" }] },
       }),
-    ).toBe("10.0.10.1은 PC2, PC3도 쓰고 있어요");
+    ).toBe("10.0.10.1은 PC2, PC3도 쓰고 있어요. 이대로 두면 통신이 제대로 안 될 수 있어요");
   });
 });
