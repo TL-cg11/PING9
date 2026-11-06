@@ -39,7 +39,7 @@ function cursorAt(
   const atNewWord = words.length === 0 || /\s$/.test(line);
   const done = atNewWord ? words : words.slice(0, -1);
 
-  const walk = walkWords(candidatesFor(mode, definitionsFor(kind, definitions)), done);
+  const walk = walkWords(candidatesFor(mode, definitionsFor(kind, definitions)), done, kind);
   return { alive: walk.alive, index: done.length, partial: atNewWord ? undefined : words.at(-1) };
 }
 

@@ -45,6 +45,11 @@ function readParam(token: ParamToken, text: string): ParamResult {
   }
 }
 
+/** 매개변수 자리의 글을 읽는다. 정의가 읽는 함수를 따로 주었으면 그것을 쓴다 (T3.3.1) */
+function readToken(token: ParamToken, text: string, kind: DeviceKind): ParamResult {
+  return token.read === undefined ? readParam(token, text) : token.read(text, kind);
+}
+
 /**
  * 줄임 입력 (T3.2.1). 단어를 앞에서부터 읽으며 자리마다 어느 키워드인지 정한다.
  * 그 자리에 올 수 있는 키워드 가운데 단어와 똑같은 것이 있으면 그것이고,
@@ -60,7 +65,11 @@ export interface Walk {
   readonly alive: readonly CommandDefinition[];
 }
 
-export function walkWords(definitions: readonly CommandDefinition[], words: readonly Word[]): Walk {
+export function walkWords(
+  definitions: readonly CommandDefinition[],
+  words: readonly Word[],
+  kind: DeviceKind,
+): Walk {
   const keywords: (string | undefined)[] = [];
   // 앞의 단어가 모두 맞은 정의들
   let alive = definitions;
@@ -75,7 +84,7 @@ export function walkWords(definitions: readonly CommandDefinition[], words: read
       const token = definition.tokens[index];
       if (token === undefined) continue;
       if (typeof token === "string") here.add(token.toLowerCase());
-      else if (readParam(token, word.text).ok) paramAccepts = true;
+      else if (readToken(token, word.text, kind).ok) paramAccepts = true;
     }
 
     let keyword: string | undefined;
@@ -92,7 +101,7 @@ export function walkWords(definitions: readonly CommandDefinition[], words: read
     alive = alive.filter((definition) => {
       const token = definition.tokens[index];
       if (token === undefined) return false;
-      return typeof token === "string" ? token.toLowerCase() === keyword : readParam(token, word.text).ok;
+      return typeof token === "string" ? token.toLowerCase() === keyword : readToken(token, word.text, kind).ok;
     });
   }
 
@@ -113,6 +122,7 @@ function attempt(
   definition: CommandDefinition,
   words: readonly Word[],
   keywords: readonly (string | undefined)[],
+  kind: DeviceKind,
 ): Attempt {
   const args: Record<string, string | number> = {};
 
@@ -127,7 +137,7 @@ function attempt(
       continue;
     }
 
-    const value = readParam(token, word.text);
+    const value = readToken(token, word.text, kind);
     if (!value.ok) return { kind: "invalid", matched: index, error: value.error, word };
     args[token.param] = value.value;
   }
@@ -161,10 +171,10 @@ export function candidatesFor(mode: CliMode, forDevice: readonly CommandDefiniti
 }
 
 /** 이 정의들 가운데 줄 전체가 맞는 것이 있는가 */
-function matchesAny(definitions: readonly CommandDefinition[], words: readonly Word[]): boolean {
-  const walk = walkWords(definitions, words);
+function matchesAny(definitions: readonly CommandDefinition[], words: readonly Word[], kind: DeviceKind): boolean {
+  const walk = walkWords(definitions, words, kind);
   if (walk.ambiguous !== undefined) return false;
-  return definitions.some((definition) => attempt(definition, words, walk.keywords).kind === "ok");
+  return definitions.some((definition) => attempt(definition, words, walk.keywords, kind).kind === "ok");
 }
 
 export function parseLine(
@@ -180,7 +190,7 @@ export function parseLine(
   const forDevice = definitionsFor(kind, definitions);
   const candidates = candidatesFor(mode, forDevice);
 
-  const walk = walkWords(candidates, words);
+  const walk = walkWords(candidates, words, kind);
   if (walk.ambiguous !== undefined) {
     return {
       ok: false,
@@ -191,7 +201,7 @@ export function parseLine(
 
   let best: Failure | undefined;
   for (const definition of candidates) {
-    const result = attempt(definition, words, walk.keywords);
+    const result = attempt(definition, words, walk.keywords, kind);
     if (result.kind === "ok") return { ok: true, definition, args: result.args };
 
     const better =
@@ -206,6 +216,7 @@ export function parseLine(
     const elsewhere = matchesAny(
       forDevice.filter((definition) => !candidates.includes(definition)),
       words,
+      kind,
     );
     const code = elsewhere ? "CLI_WRONG_MODE" : "CLI_UNKNOWN_COMMAND";
     return {
