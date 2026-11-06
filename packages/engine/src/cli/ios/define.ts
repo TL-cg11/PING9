@@ -8,6 +8,7 @@ import type {
   Device,
   DeviceKind,
   DispatchResult,
+  ErrorInfo,
   TopologyDocument,
 } from "@ping9/shared";
 
@@ -22,13 +23,28 @@ export interface ParamToken {
   readonly type: ParamType;
   /** `?` 도움말에 보일 영어 설명 */
   readonly help: string;
+  /**
+   * 이 자리의 글을 직접 읽는 함수. 있으면 `type`의 읽기 대신 쓴다 (`customParam`).
+   * 장비 종류에 따라 달라지는 값(인터페이스 이름)이나 한 명령어만 쓰는 형식(VLAN 목록)에 쓴다.
+   */
+  readonly read?: (text: string, kind: DeviceKind) => ParamValue;
 }
+
+/** 매개변수 자리의 글을 읽은 결과 */
+export type ParamValue =
+  | { readonly ok: true; readonly value: string | number }
+  | { readonly ok: false; readonly error: ErrorInfo };
 
 /** 문자열은 키워드, 객체는 매개변수 자리다 */
 export type Token = string | ParamToken;
 
 export function param(name: string, type: ParamType, help: string): ParamToken {
   return { param: name, type, help };
+}
+
+/** 글을 직접 읽는 매개변수. `read`가 받아들인 값이 `args`에 들어간다 */
+export function customParam(name: string, help: string, read: NonNullable<ParamToken["read"]>): ParamToken {
+  return { param: name, type: "word", help, read };
 }
 
 /** 장비 하나의 CLI 세션. 변경 불가능한 값이며 바꿀 때는 새로 만든다 */

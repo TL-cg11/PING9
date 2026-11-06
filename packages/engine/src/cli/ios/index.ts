@@ -1,7 +1,9 @@
 // IOS 방식 CLI의 공통 부분. Switch와 Router의 명령 정의가 이것을 쓴다.
 
 export { BASE_COMMANDS } from "./base-commands";
-export { defineCommand, param } from "./define";
+export { customParam, defineCommand, param } from "./define";
+export { INTERFACE_COMMANDS } from "./interface-commands";
+export { isPortType, resolvePortName } from "./port-name";
 export type {
   CliMode,
   CliSession,
@@ -11,6 +13,7 @@ export type {
   CommandOutcome,
   ParamToken,
   ParamType,
+  ParamValue,
   Token,
 } from "./define";
 export { completeLine, helpFor } from "./assist";

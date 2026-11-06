@@ -129,6 +129,10 @@ describe("줄임 입력: 오류", () => {
 
 describe("줄임 입력: Switch의 실제 명령 정의", () => {
   const SAMPLE: Readonly<Record<string, string>> = { "vlan-id": "30", word: "LAB" };
+  // 글을 직접 읽는 매개변수는 종류가 아니라 이름으로 예시 값을 고른다
+  const SAMPLE_BY_NAME: Readonly<Record<string, string>> = { port: "fa0/1", type: "fastethernet", number: "0/1" };
+  const sampleOf = (token: { readonly param: string; readonly type: string }): string =>
+    SAMPLE_BY_NAME[token.param] ?? SAMPLE[token.type] ?? "x";
 
   /** 정의마다 (모드, 정의, 키워드별 접두사 길이의 씨앗)을 뽑는다 */
   const cases = SWITCH_COMMANDS.flatMap((definition) => definition.modes.map((mode) => ({ definition, mode })));
@@ -141,7 +145,7 @@ describe("줄임 입력: Switch의 실제 명령 정의", () => {
         ({ definition, mode }, seeds) => {
           const line = definition.tokens
             .map((token, index) => {
-              if (typeof token !== "string") return SAMPLE[token.type] ?? "x";
+              if (typeof token !== "string") return sampleOf(token);
               // 1글자부터 전체까지
               const length = 1 + Math.floor((seeds[index] ?? 0) * token.length);
               return token.slice(0, Math.min(length, token.length));
@@ -163,7 +167,7 @@ describe("줄임 입력: Switch의 실제 명령 정의", () => {
 
   test.each(cases)("$mode: 줄이지 않은 명령어는 그대로 읽힌다 ($definition.help)", ({ definition, mode }) => {
     const line = definition.tokens
-      .map((token) => (typeof token === "string" ? token : (SAMPLE[token.type] ?? "x")))
+      .map((token) => (typeof token === "string" ? token : (sampleOf(token))))
       .join(" ");
 
     const result = parseLine(line, mode, "switch", SWITCH_COMMANDS);

@@ -49,7 +49,9 @@ describe("help", () => {
     await port.exec("enable");
     await port.exec("configure terminal");
 
-    expect(tokens(port.help(""))).toEqual(["end", "exit", "hostname", "no", "vlan"]);
+    // 명령어가 늘어도 깨지지 않게 들어 있는지만 본다
+    expect(tokens(port.help(""))).toEqual(expect.arrayContaining(["end", "exit", "hostname", "interface", "no", "vlan"]));
+    expect(tokens(port.help(""))).not.toContain("name");
     expect(port.help("vlan ")).toEqual([{ token: "<id>", description: "VLAN ID (1-4094)" }]);
   });
 
@@ -57,7 +59,7 @@ describe("help", () => {
     const { port } = open();
     for (const line of ["enable", "configure terminal", "vlan 30"]) await port.exec(line);
 
-    expect(tokens(port.help(""))).toEqual(["end", "exit", "hostname", "name", "no", "vlan"]);
+    expect(tokens(port.help(""))).toEqual(expect.arrayContaining(["end", "exit", "hostname", "name", "no", "vlan"]));
     expect(tokens(port.help("n"))).toEqual(["name", "no"]);
   });
 
