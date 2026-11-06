@@ -70,11 +70,15 @@ export class ArpModule {
     this.#host = host;
   }
 
-  /** 다음 홉 IP로 보내고 싶다. 알면 바로 보내고, 모르면 보관하고 요청한다 */
-  send(ctx: SimContext, port: string, nextHopIp: string, pending: PendingSend): void {
+  /**
+   * 다음 홉 IP로 보내고 싶다. 알면 바로 보내고, 모르면 보관하고 요청한다.
+   * `parentSeq`는 부른 쪽이 원인으로 삼는 이벤트다 (예: ICMP_ECHO_REQUEST_RECEIVED). 바로 보내면 `onSend`에,
+   * 요청하면 ARP_REQUEST_SENT에 넘긴다. 없으면 kernel의 기본값(이 콜백의 원인)이다
+   */
+  send(ctx: SimContext, port: string, nextHopIp: string, pending: PendingSend, parentSeq?: number): void {
     const known = this.#table.get(nextHopIp);
     if (known !== undefined) {
-      this.#sendNow(ctx, known.port, known.mac, pending, undefined);
+      this.#sendNow(ctx, known.port, known.mac, pending, parentSeq);
       return;
     }
 
@@ -85,7 +89,7 @@ export class ArpModule {
       return;
     }
 
-    const request = this.#request(ctx, port, nextHopIp);
+    const request = this.#request(ctx, port, nextHopIp, parentSeq);
     this.#waiting.set(nextHopIp, {
       port,
       sends: [pending],
@@ -159,7 +163,7 @@ export class ArpModule {
       .sort((a, b) => compareIp(a.ip, b.ip));
   }
 
-  #request(ctx: SimContext, port: string, targetIp: string): Frame {
+  #request(ctx: SimContext, port: string, targetIp: string, parentSeq?: number): Frame {
     const senderMac = this.#host.macOf(port);
     const senderIp = this.#host.ipOf(port) ?? "";
     const frame = ctx.createFrame({
@@ -173,6 +177,7 @@ export class ArpModule {
       ...this.#link(port),
       layer: "ARP",
       action: "create",
+      ...(parentSeq === undefined ? {} : { parentSeq }),
       reason: { code: "ARP_REQUEST_SENT", params: { device: this.#host.device, senderIp, targetIp } },
     });
     // transmit과 setTimer의 부모는 기본값(마지막 기록 = ARP_REQUEST_SENT)이다

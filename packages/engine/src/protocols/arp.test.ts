@@ -160,6 +160,36 @@ describe("ARP 모듈", () => {
     expect(changed.arp(PC3.id).view()).toEqual([{ ip: pc1.ip, mac: moved.mac, port }]);
   });
 
+  test("send의 parentSeq: 바로 보내면 onSend에, 요청하면 ARP_REQUEST_SENT에 넘긴다", () => {
+    const { arp, run } = world([pc1, pc2]);
+    const parents: (number | undefined)[] = [];
+    const watch = (pending: PendingSend): PendingSend => ({
+      build: pending.build,
+      onSend(ctx, frame, parentSeq) {
+        parents.push(parentSeq);
+        pending.onSend(ctx, frame, parentSeq);
+      },
+    });
+    const cause = (ctx: SimContext) => ctx.record({
+      frame: ctx.createFrame({ ethernet: { sourceMac: pc1.mac, destinationMac: pc1.mac } }),
+      deviceId: pc1.id, layer: "L3", action: "receive",
+      reason: { code: "ICMP_ECHO_REQUEST_RECEIVED", params: { device: ref(pc1), sourceIp: pc2.ip, targetIp: pc1.ip } },
+    });
+
+    // 모를 때: 요청의 부모가 넘긴 값
+    const first = run(ctx => arp(pc1.id).send(ctx, port, pc2.ip, echo(pc1, pc2), cause(ctx)));
+    expect(first.events[1]).toMatchObject({ reason: { code: "ARP_REQUEST_SENT" }, parentSeq: 0 });
+
+    // 알 때: onSend가 넘긴 값을 받는다 (kernel 기본값이 아님)
+    const second = run(ctx => {
+      cause(ctx);
+      const seq = cause(ctx);
+      arp(pc1.id).send(ctx, port, pc2.ip, watch(echo(pc1, pc2)), seq);
+    });
+    expect(parents).toEqual([1]);
+    expect(second.events[2]).toMatchObject({ reason: { code: "ICMP_ECHO_REQUEST_SENT" }, parentSeq: 1 });
+  });
+
   test("같은 IP로 여러 패킷이 기다리면 요청은 한 번, 응답 뒤 넣은 순서대로 모두 나간다", () => {
     const { arp, run } = world([pc1, pc2]);
     const sent: Frame[] = [];
