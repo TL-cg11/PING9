@@ -12,7 +12,7 @@ import type {
 } from "@ping9/shared";
 
 import { completeLine, helpFor } from "./assist";
-import type { CliSession, CommandDefinition } from "./define";
+import type { CliSession, CommandDefinition, RuntimeAccess } from "./define";
 import { parseLine } from "./parse";
 import { effectiveSession, promptFor } from "./session";
 
@@ -24,6 +24,8 @@ export interface IosConsoleEnv {
   /** 보관된 세션. 없으면 처음 세션 */
   getSession(deviceId: string): CliSession;
   setSession(deviceId: string, session: CliSession): void;
+  /** ping과 ARP 명령어가 쓰는 Runtime (T1.8.3) */
+  readonly runtime?: RuntimeAccess;
 }
 
 export function iosPrompt(device: Device, env: IosConsoleEnv): string {
@@ -88,6 +90,7 @@ export function iosExec(
     document: env.getDocument(),
     session,
     dispatch: (command) => env.dispatch(command),
+    ...(env.runtime === undefined ? {} : { runtime: env.runtime }),
   });
   if (outcome.session !== undefined) env.setSession(device.id, outcome.session);
   return result(outcome.lines ?? []);

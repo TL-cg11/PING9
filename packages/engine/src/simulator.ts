@@ -9,15 +9,15 @@ import type {
   Snapshot,
   TopologyDocument,
   Trace,
-  TraceSummary,
 } from "@ping9/shared";
 
 import { INITIAL_SESSION } from "./cli/ios";
-import type { CliSession, IosConsoleEnv } from "./cli/ios";
+import type { CliSession, IosConsoleEnv, RuntimeAccess } from "./cli/ios";
 import { createConsolePort } from "./console";
 import type { ConsolePort } from "./console";
 import { deepFreeze } from "./freeze";
 import { reduce } from "./reducer";
+import { createRuntime } from "./runtime";
 import { computeViews } from "./views";
 
 export type LoadResult =
@@ -42,19 +42,13 @@ export interface Simulator {
   subscribe(listener: () => void): () => void;
 }
 
-/** 추적 선택 목록에 보일 요약. kernel(T1.7.1)이 Trace를 만들 때 출발 장비와 목적지를 함께 넘긴다 */
-interface StoredTrace {
-  readonly trace: Trace;
-  readonly summary: TraceSummary;
-}
-
 export function createSimulator(): Simulator {
   let document: TopologyDocument = deepFreeze(EMPTY_DOCUMENT);
   let docVersion = 0;
   let runtimeVersion = 0;
-  // 가장 최근 것이 앞. 최대 LIMITS.maxTraces개
-  let traces: readonly StoredTrace[] = [];
   let snapshot: Snapshot | null = null;
+  // kernel, 장비 모델(ARP 테이블), 보관 중인 추적 (T1.8.3)
+  const runtime = createRuntime(() => document);
 
   const listeners = new Set<() => void>();
   const consoles = new Map<string, ConsolePort>();
@@ -70,10 +64,33 @@ export function createSimulator(): Simulator {
     const result = reduce(document, command);
     if (!result.ok) return result;
 
+    const previous = document;
     document = deepFreeze(result.document);
     docVersion += 1;
+    // IP나 링크가 바뀐 PC의 ARP 테이블을 비운다. 실제로 지워졌을 때만 Runtime이 바뀐 것이다
+    if (runtime.configChanged(previous, document)) runtimeVersion += 1;
     changed();
     return { ok: true, notices: result.notices };
+  };
+
+  const runtimeChanged = (): void => {
+    runtimeVersion += 1;
+    changed();
+  };
+
+  // 콘솔의 ping과 ARP 명령어가 쓰는 것. Document는 바꾸지 않고 Runtime만 바꾼다
+  const runtimeAccess: RuntimeAccess = {
+    ping(request) {
+      const run = runtime.ping(request, docVersion);
+      if (run.ok && run.rounds.length > 0) runtimeChanged();
+      return run;
+    },
+    arpTable: (deviceId) => runtime.arpTable(deviceId),
+    clearArp(deviceId, ip) {
+      const cleared = runtime.clearArp(deviceId, ip);
+      if (cleared) runtimeChanged();
+      return cleared;
+    },
   };
 
   // 콘솔이 Simulator에서 받아 쓰는 것. CLI의 설정 명령어도 공개 dispatch와 같은 경로로 Document를 바꾼다 (AD-3)
@@ -84,6 +101,7 @@ export function createSimulator(): Simulator {
     setSession: (deviceId, session) => {
       sessions.set(deviceId, session);
     },
+    runtime: runtimeAccess,
   };
 
   return {
@@ -95,7 +113,7 @@ export function createSimulator(): Simulator {
       document = deepFreeze(result.document);
       docVersion += 1;
       runtimeVersion += 1;
-      traces = [];
+      runtime.reset();
       sessions.clear();
       changed();
       return { ok: true };
@@ -117,14 +135,14 @@ export function createSimulator(): Simulator {
         document,
         docVersion,
         runtimeVersion,
-        views: computeViews(document),
-        traces: traces.slice(0, LIMITS.maxTraces).map((stored) => stored.summary),
+        views: runtime.fillViews(computeViews(document)),
+        traces: runtime.traceSummaries().slice(0, LIMITS.maxTraces),
       });
       return snapshot;
     },
 
     getTrace(traceId) {
-      return traces.find((stored) => stored.trace.id === traceId)?.trace;
+      return runtime.getTrace(traceId);
     },
 
     subscribe(listener) {
