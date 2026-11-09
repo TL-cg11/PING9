@@ -1,17 +1,20 @@
 // 편집기 화면. 배치는 화면 시안을 따른다: 상단 막대, 왼쪽 장비 목록, 가운데 캔버스, 오른쪽 속성 패널.
 // 화면이 가진 상태는 선택, 열린 터미널, 터미널의 화면 기록뿐이다. 나머지는 engine의 스냅샷에서 읽는다 (AD-4).
 
-import type { DeviceKind, ErrorInfo, PortRef } from "@ping9/shared";
+import { shortPortName } from "@ping9/shared";
+import type { DeviceKind, ErrorInfo, PortRef, Position } from "@ping9/shared";
 import { useEffect, useReducer, useRef, useState } from "react";
 
 import { Canvas } from "./components/canvas";
-import { ConnectionDialog } from "./components/connection-dialog";
 import { Inspector } from "./components/inspector";
 import { LinkInspector } from "./components/link-inspector";
 import { Palette } from "./components/palette";
 import { TerminalWindow } from "./components/terminal-window";
 import { focusCanvasNode, focusTerminalInput } from "./focus";
 import { TopBar } from "./components/top-bar";
+import { CABLE_OFF, CABLE_READY, syncCableState } from "./cable-state";
+import type { CableState } from "./cable-state";
+import { availablePorts } from "./format/available-ports";
 import { formatError } from "./messages/errors";
 import { TOPOLOGY_NAME, simulator, useSnapshot } from "./simulator";
 import { createCommandQueue } from "./terminal/command-queue";
@@ -35,20 +38,14 @@ export function App() {
   const { document } = snapshot;
   const [ui, dispatch] = useReducer(uiReducer, INITIAL_UI_STATE);
   const [actionError, setActionError] = useState<ErrorInfo | null>(null);
-  const [connecting, setConnecting] = useState(false);
+  const [cable, setCable] = useState<CableState>(CABLE_OFF);
+  const [dragKind, setDragKind] = useState<DeviceKind | null>(null);
+  const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const selectedLink = document.links.find(link => link.id === selectedLinkId);
 
-  const addDevice = (kind: DeviceKind) => {
-    const current = simulator.getSnapshot().document;
-    // 기존 장비와 겹치지 않는 첫 격자 칸을 고른다. 장비 이동은 T1.3.2에서 구현한다.
-    let slot = 0;
-    let position = { x: 160, y: 120 };
-    while (current.devices.some(device =>
-      Math.abs(device.position.x - position.x) < 110 && Math.abs(device.position.y - position.y) < 110)) {
-      slot += 1;
-      position = { x: 160 + (slot % 5) * 140, y: 120 + Math.floor(slot / 5) * 130 };
-    }
+  const addDevice = (kind: DeviceKind, position: Position) => {
+    setDragKind(null);
     const id = crypto.randomUUID();
     const result = simulator.dispatch({ type: "device/add", id, kind, position });
     setActionError(result.ok ? null : result.error);
@@ -58,16 +55,51 @@ export function App() {
     }
   };
 
-  const connect = (ends: readonly [PortRef, PortRef]) => {
+  const pickPort = (end: PortRef) => {
+    const current = simulator.getSnapshot().document;
+    if (!availablePorts(current, end.deviceId).includes(end.port)) {
+      setActionError({ code: "PORT_IN_USE", params: end });
+      return;
+    }
+    const synced = syncCableState(cable, current);
+    if (synced.first !== cable.first) {
+      setCable(synced);
+      if (cable.first !== null) setActionError({ code: "PORT_IN_USE", params: cable.first });
+      return;
+    }
+    if (cable.first === null) {
+      setCable({ active: true, first: end, pickerDeviceId: null });
+      setActionError(null);
+      setConnectionMessage(null);
+      return;
+    }
+    if (cable.first.deviceId === end.deviceId) return;
     const id = crypto.randomUUID();
-    const result = simulator.dispatch({ type: "link/add", id, ends });
+    const result = simulator.dispatch({ type: "link/add", id, ends: [cable.first, end] });
     if (result.ok) {
-      setConnecting(false);
+      setCable(CABLE_READY);
       setSelectedLinkId(id);
       setActionError(null);
+      setConnectionMessage("케이블을 연결했어요. 다음 장비를 선택하거나 Esc로 도구를 해제하세요");
       dispatch({ type: "select", deviceId: null });
+    } else setActionError(result.error);
+  };
+
+  const selectDevice = (deviceId: string) => {
+    setSelectedLinkId(null);
+    setActionError(null);
+    setConnectionMessage(null);
+    dispatch({ type: "select", deviceId });
+    if (cable.active) setCable(current => ({ ...current, pickerDeviceId: deviceId }));
+  };
+
+  const moveDevice = (deviceId: string, position: Position) => {
+    const result = simulator.dispatch({ type: "device/move", deviceId, position });
+    setActionError(result.ok ? null : result.error);
+    if (result.ok) {
+      setSelectedLinkId(null);
+      dispatch({ type: "select", deviceId });
     }
-    return result;
   };
 
   const removeSelectedLink = () => {
@@ -108,9 +140,20 @@ export function App() {
     dispatch({ type: "sync", deviceIds: document.devices.map((device) => device.id) });
     updateTerminals((current) => refreshPrompts(current, (deviceId) => simulator.console(deviceId).prompt()));
     setSelectedLinkId(current => document.links.some(link => link.id === current) ? current : null);
+    setCable(current => syncCableState(current, document));
   }, [document]);
 
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setCable(CABLE_OFF); setDragKind(null); setConnectionMessage(null);
+    };
+    window.addEventListener("keydown", escape);
+    return () => window.removeEventListener("keydown", escape);
+  }, []);
+
   const openTerminal = (deviceId: string) => {
+    setCable(CABLE_OFF);
     setSelectedLinkId(null);
     updateTerminals((current) =>
       current[deviceId] === undefined
@@ -157,20 +200,33 @@ export function App() {
     <div className="app">
       <TopBar name={TOPOLOGY_NAME} />
       <main className="work">
-        <Palette deviceCount={document.devices.length} onAdd={addDevice} linkCount={document.links.length}
-          onConnect={() => setConnecting(true)} />
+        <Palette deviceCount={document.devices.length} linkCount={document.links.length} cableActive={cable.active}
+          onConnect={() => { setCable(cable.active ? CABLE_OFF : CABLE_READY); setConnectionMessage(null); setActionError(null); }}
+          onDeviceDragStart={kind => { setDragKind(kind); setCable(CABLE_OFF); setConnectionMessage(null); }} />
         <section className="canvas">
           {actionError !== null && <div className="canvas-error" role="alert">{formatError(actionError)}</div>}
+          {(dragKind !== null || cable.active) && <div className="edit-banner" role="status">
+            <span>{dragKind !== null ? `${KIND_LABEL[dragKind]}를 원하는 위치에 놓으세요` :
+              connectionMessage ?? (cable.first === null ? "케이블 선택됨 · 첫 번째 장비를 클릭해 포트를 고르세요" :
+                `${document.devices.find(device => device.id === cable.first?.deviceId)?.name ?? "장비"} ${shortPortName(cable.first.port)} 선택됨 · 두 번째 장비를 클릭하세요`)}</span>
+            {cable.active && <button type="button" onClick={() => setCable(CABLE_OFF)}>연결 도구 해제</button>}
+          </div>}
           <Canvas
             document={document}
             selectedDeviceId={ui.selectedDeviceId}
-            onSelect={(deviceId) => { setSelectedLinkId(null); dispatch({ type: "select", deviceId }); }}
+            onSelect={selectDevice}
             onOpenTerminal={openTerminal}
             selectedLinkId={selectedLinkId}
-            onSelectLink={(linkId) => { setSelectedLinkId(linkId); dispatch({ type: "select", deviceId: null }); }}
+            onSelectLink={linkId => {
+              setSelectedLinkId(linkId); setCable(current => ({ ...current, pickerDeviceId: null }));
+              dispatch({ type: "select", deviceId: null });
+            }}
+            onDropDevice={addDevice} onMoveDevice={moveDevice}
+            paletteDragKind={dragKind} onPaletteDragEnd={() => setDragKind(null)}
+            onDeviceDrag={() => setCable(current => ({ ...current, pickerDeviceId: null }))}
+            cableActive={cable.active} firstPort={cable.first} pickerDeviceId={cable.pickerDeviceId}
+            onPickPort={pickPort} onClosePortPicker={() => setCable(current => ({ ...current, pickerDeviceId: null }))}
           />
-          {connecting && <ConnectionDialog document={document} initialDeviceId={ui.selectedDeviceId}
-            onConnect={connect} onClose={() => setConnecting(false)} />}
           {ui.terminals.map((placement, index) => {
             const device = document.devices.find((candidate) => candidate.id === placement.deviceId);
             const state = terminals[placement.deviceId];

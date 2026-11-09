@@ -7,6 +7,7 @@ import type { ErrorInfo } from "./codes";
 import { isPortName } from "./document";
 import type { DeviceKind, TopologyDocument } from "./document";
 import { CURRENT_SCHEMA_VERSION, LIMITS } from "./limits";
+import { checkRouterInterfaceOverlap } from "./router-config";
 import { topologyDocumentSchema, traceSchema } from "./schema";
 import type { ParsedDocument } from "./schema";
 import type { Trace } from "./trace";
@@ -156,6 +157,13 @@ function checkRouterConfig(
     if (iface.ip !== undefined && iface.mask !== undefined) {
       const error = checkInterfaceAddress(iface.ip, iface.mask);
       if (error) return error;
+    }
+  }
+
+  for (const [port, iface] of Object.entries(config.interfaces)) {
+    if (iface.ip !== undefined && iface.mask !== undefined) {
+      const overlap = checkRouterInterfaceOverlap(deviceId, port, iface.ip, iface.mask, config.interfaces);
+      if (overlap !== null) return overlap;
     }
   }
 

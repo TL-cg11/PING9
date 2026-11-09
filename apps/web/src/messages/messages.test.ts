@@ -41,6 +41,16 @@ describe("오류 문구", () => {
     );
   });
 
+  test("Router 네트워크 겹침에는 설정한 포트와 겹치는 상대 포트를 표시한다", () => {
+    const message = formatError({ code: "INTERFACE_NETWORK_OVERLAP", params: {
+      deviceId: "r", port: "GigabitEthernet0/1", otherPort: "GigabitEthernet0/0", ip: "10.0.1.2", mask: "255.255.255.0",
+    } });
+    expect(message).toContain("GigabitEthernet0/1");
+    expect(message).toContain("GigabitEthernet0/0");
+    expect(message).toContain("10.0.1.2");
+    expect(message).toContain("다른 네트워크를 입력해 주세요");
+  });
+
   test("한도의 종류마다 문구가 다르다", () => {
     const limits = ["devices", "links", "staticRoutes", "vlans", "allowedVlanRanges"] as const;
 

@@ -14,7 +14,8 @@
 html, body { height: 100%; }
 body { font-family: Pretendard, -apple-system, 'Apple SD Gothic Neo', sans-serif; color: var(--navy); background: var(--ice-50); min-width: 1280px; overflow: hidden; }
 button { font: inherit; cursor: pointer; }
-.app { display: grid; grid-template-rows: 64px 1fr; height: 100vh; }
+.app { display: grid; grid-template-rows: 64px 1fr; height: 100vh; user-select: none; -webkit-user-select: none; }
+.app input, .app textarea, .term-body { user-select: text; -webkit-user-select: text; }
 
 /* top bar */
 .topbar { display: flex; align-items: center; gap: 16px; padding: 0 20px; background: linear-gradient(90deg, var(--sky-900), var(--sky-500)); color: #fff; }
@@ -45,8 +46,18 @@ button { font: inherit; cursor: pointer; }
 .tool:is(button):hover:not(:disabled) { border-color: var(--sky-500); background: var(--ice-100); }
 .tool:is(button):focus-visible { outline: 2px solid var(--sky-700); outline-offset: 2px; }
 .tool:disabled { cursor: default; opacity: .5; }
+.tool.device-tool:not(:disabled) { cursor: grab; touch-action: none; }
+.tool.device-tool:not(:disabled):active { cursor: grabbing; }
+.placement-preview { pointer-events: none; opacity: .65; }
+.device-tool svg { pointer-events: none; }
+.palette-note { font-size: 11px; line-height: 1.4; text-align: center; color: var(--navy-60); }
+.cable-tool.active { color: #fff; background: var(--sky-700); border-color: var(--sky-700); box-shadow: 0 0 0 3px var(--ice-200); }
+.cable-tool.active:hover:not(:disabled) { background: var(--sky-900); border-color: var(--sky-900); }
+.tool-selected { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 999px; background: #fff; color: var(--sky-700); }
+.edit-banner { position: absolute; top: 12px; left: 12px; max-width: calc(100% - 24px); z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--sky-300); border-radius: 10px; background: #fff; color: var(--sky-900); font-size: 12px; box-shadow: 0 3px 12px #1565D814; }
+.edit-banner button { flex: none; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--ice-50); color: var(--sky-700); font-size: 11px; }
 .port-state { font-size: 10px; color: var(--navy-60); }
-.canvas-error { position: absolute; top: 12px; left: 12px; z-index: 1; max-width: 80%; padding: 8px 12px; border-radius: 8px; background: var(--danger-bg); color: var(--danger); }
+.canvas-error { position: absolute; top: 68px; left: 12px; z-index: 6; max-width: 80%; padding: 8px 12px; border-radius: 8px; background: var(--danger-bg); color: var(--danger); }
 .quota { margin-top: auto; font-size: 12px; color: var(--navy-60); }
 .quota .bar { height: 6px; border-radius: 3px; background: var(--ice-200); margin-top: 6px; overflow: hidden; }
 .quota .bar i { display: block; height: 100%; width: 20%; background: var(--sky-500); }
@@ -54,7 +65,13 @@ button { font: inherit; cursor: pointer; }
 .canvas { position: relative; overflow: hidden; background-color: var(--ice-50); background-image: radial-gradient(circle, #C4DBF7 1.4px, transparent 1.6px); background-size: 24px 24px; }
 
 .topo { position: absolute; inset: 0; width: 100%; height: 100%; }
-.node { cursor: pointer; }
+.topo.drop-target { outline: 2px dashed var(--sky-500); outline-offset: -8px; background: #1565D809; }
+.node { cursor: grab; touch-action: none; }
+.node.dragging { cursor: grabbing; }
+.cable-mode .node { cursor: crosshair; }
+.cable-mode .node.dragging { cursor: grabbing; }
+.node:focus-visible { outline: none; }
+.node:focus-visible .halo, .node.cable-source .halo { fill: url(#sel-glow); }
 /* 카드는 보이지 않는다. 클릭 영역으로만 남긴다 (T0.6) */
 .node rect.card { fill: transparent; stroke: none; }
 
@@ -83,26 +100,27 @@ button { font: inherit; cursor: pointer; }
 .link.selected .wire, .link:focus-visible .wire { stroke: var(--sky-700); stroke-width: 4; }
 /* 브라우저 기본 포커스 테두리를 끈다. Chrome은 클릭에도 SVG 묶음 둘레에 굵은 네모를 그린다. 키보드 포커스는 위의 굵은 선으로 보인다 */
 .link:focus, .link:focus-visible { outline: none; }
+.wire.pending { stroke: var(--sky-700); stroke-dasharray: 6 5; pointer-events: none; opacity: .75; }
 
-.connection-dialog { position: fixed; inset: 0; margin: auto; width: 440px; max-width: calc(100vw - 32px); padding: 24px; border: 1px solid var(--line); border-radius: 16px; color: var(--navy); box-shadow: 0 20px 70px rgba(14,27,56,.25); }
-.connection-dialog::backdrop { background: rgba(14,27,56,.35); }
-.connection-dialog header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.connection-dialog h2 { font-size: 18px; }
-.connection-dialog header button { border: 0; background: transparent; font-size: 24px; color: var(--navy-60); }
-.connection-dialog p { font-size: 13px; line-height: 1.6; margin: 8px 0 14px; }
-.connection-dialog fieldset { display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
-.connection-dialog legend { padding: 0 4px; font-size: 12px; font-weight: 600; }
-.connection-dialog label { font-size: 12px; color: var(--navy-60); }
-.connection-dialog select { width: 100%; padding: 8px; margin-bottom: 4px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--navy); font: inherit; font-size: 13px; }
-.connection-dialog .connection-error { color: var(--danger); }
-.connection-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-.connection-actions button { padding: 8px 18px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
-.connection-actions .primary { color: #fff; background: var(--sky-700); border-color: var(--sky-700); }
-.connection-actions button:disabled { opacity: .45; cursor: default; }
+.port-picker-anchor { position: absolute; z-index: 100; width: 250px; }
+.port-picker { padding: 12px; background: #fff; border: 1px solid var(--sky-300); border-radius: 12px; box-shadow: 0 8px 28px #0E1B3829; }
+.port-picker header { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 8px; }
+.port-picker header button { border: 0; background: transparent; color: var(--navy-60); font-size: 20px; }
+.port-options { display: grid; gap: 4px; max-height: 235px; overflow: auto; }
+.port-options button { padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--ice-50); color: var(--navy); text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+.port-options button:hover, .port-options button:focus-visible { outline: none; background: var(--ice-100); border-color: var(--sky-500); }
+.port-picker p { font-size: 12px; line-height: 1.5; color: var(--navy-60); }
+.port-picker .port-step { margin-top: 10px; font-size: 11px; }
 .link-end p { font-size: 12px; margin-top: 6px; color: var(--navy-60); }
 .remove-link { margin-top: 24px; width: 100%; padding: 8px; border: 1px solid var(--danger); border-radius: 8px; background: var(--danger-bg); color: var(--danger); }
 
-.hint { position: absolute; right: 16px; top: 16px; font-size: 12px; color: var(--navy-60); background: rgba(255,255,255,.85); padding: 6px 10px; border-radius: 8px; }
+.hint { position: absolute; left: 16px; bottom: 16px; font-size: 12px; color: var(--navy-60); background: rgba(255,255,255,.85); padding: 6px 10px; border-radius: 8px; pointer-events: none; }
+.canvas-zoom { position: absolute; right: 16px; bottom: 16px; z-index: 6; display: flex; align-items: center; gap: 4px; padding: 4px; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 3px 12px #0E1B3814; }
+.canvas-zoom button { width: 34px; height: 34px; border: 0; border-radius: 8px; background: var(--ice-50); color: var(--sky-700); font-size: 24px; line-height: 1; }
+.canvas-zoom button:hover:not(:disabled) { background: var(--ice-100); }
+.canvas-zoom button:focus-visible { outline: 2px solid var(--sky-700); outline-offset: 1px; }
+.canvas-zoom button:disabled { opacity: .35; cursor: default; }
+.canvas-zoom output { min-width: 48px; text-align: center; color: var(--navy-60); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /* terminal popups */
 .term { position: absolute; width: 400px; height: 230px; min-width: 300px; min-height: 160px; background: var(--term); border-radius: 12px; box-shadow: 0 12px 32px rgba(14,27,56,.28), 0 0 0 1px rgba(255,255,255,.06); display: flex; flex-direction: column; overflow: hidden; resize: both; z-index: 10; }

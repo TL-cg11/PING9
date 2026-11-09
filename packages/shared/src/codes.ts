@@ -86,6 +86,14 @@ export interface ErrorParamsByCode {
   PC_ADDRESS_INCOMPLETE: { readonly deviceId: string; readonly missing: "ip" | "mask" };
   /** PC에 없는 주소를 지우려 함 (Linux `ip addr del`, T0.7). `ip`는 입력한 주소와 길이 */
   PC_ADDRESS_NOT_FOUND: { readonly deviceId: string; readonly ip: string };
+  /** 같은 Router의 서로 다른 인터페이스에 겹치는 IPv4 네트워크를 설정함 (FR-27) */
+  INTERFACE_NETWORK_OVERLAP: {
+    readonly deviceId: string;
+    readonly port: string;
+    readonly otherPort: string;
+    readonly ip: string;
+    readonly mask: string;
+  };
   /** 그 Switch에 없는 VLAN의 이름을 바꾸거나 지우려 함 */
   VLAN_NOT_FOUND: { readonly deviceId: string; readonly vlanId: number };
   /** VLAN 1은 지우거나 이름을 바꿀 수 없음 (FR-31) */
@@ -148,6 +156,7 @@ const ERROR_CODE_SET = {
   DEVICE_KIND_MISMATCH: true,
   PC_ADDRESS_INCOMPLETE: true,
   PC_ADDRESS_NOT_FOUND: true,
+  INTERFACE_NETWORK_OVERLAP: true,
   VLAN_NOT_FOUND: true,
   DEFAULT_VLAN_READONLY: true,
   CLI_UNKNOWN_COMMAND: true,
