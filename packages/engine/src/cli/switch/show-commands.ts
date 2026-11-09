@@ -42,11 +42,9 @@ export function macAddressTableLines(entries: readonly MacTableEntryView[]): str
   );
 }
 
+/** 배운 주소는 Runtime(Switch 모델)에 있다 (T5.2.2). Runtime 없이 쓰는 콘솔(테스트)에서는 빈 테이블이다 */
 function showMacAddressTable(context: CommandContext): CommandOutcome {
-  return onSwitch(context, (device) => {
-    const view = computeViews(context.document)[device.id];
-    return macAddressTableLines(view?.kind === "switch" ? view.macTable : []);
-  });
+  return onSwitch(context, (device) => macAddressTableLines(context.runtime?.macTable(device.id) ?? []));
 }
 
 export const SHOW_COMMANDS: readonly CommandDefinition[] = [
