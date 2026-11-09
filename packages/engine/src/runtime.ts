@@ -18,6 +18,7 @@ import { errorInfo } from "@ping9/shared";
 import { PC_PORT, PcModel } from "./devices/pc/pc-model";
 import { deviceRun } from "./devices/link";
 import type { DeviceModel } from "./devices/model";
+import { RouterModel } from "./devices/router/router-model";
 import { createKernel } from "./kernel";
 import { deviceRef, findDevice } from "./topology";
 
@@ -105,6 +106,7 @@ class MissingModel implements DeviceModel {
 export function createRuntime(getDocument: () => TopologyDocument): Runtime {
   const kernel = createKernel();
   const pcs = new Map<string, PcModel>();
+  const routers = new Map<string, RouterModel>();
   // 가장 최근 것이 앞. 최대 LIMITS.maxTraces개
   let traces: readonly StoredTrace[] = [];
 
@@ -123,6 +125,11 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     const models = new Map<string, DeviceModel>();
     for (const device of getDocument().devices) {
       if (device.kind === "pc") models.set(device.id, pcModel(device.id)!);
+      else if (device.kind === "router") {
+        let model = routers.get(device.id);
+        if (model === undefined) { model = new RouterModel(device.id, getDocument); routers.set(device.id, model); }
+        models.set(device.id, model);
+      }
       else models.set(device.id, new MissingModel(device.id, device.kind, device.name));
     }
     return models;
@@ -136,11 +143,18 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     reset() {
       kernel.reset();
       pcs.clear();
+      routers.clear();
       traces = [];
     },
 
     configChanged(previous, document) {
       let changed = false;
+      for (const [deviceId, model] of routers) {
+        const before = model.arpTable();
+        if (findDevice(document, deviceId)?.kind !== "router") { routers.delete(deviceId); changed ||= before.length > 0; continue; }
+        model.onConfigChanged({ previous, document });
+        changed ||= model.arpTable().length !== before.length;
+      }
       for (const [deviceId, model] of pcs) {
         if (findDevice(document, deviceId)?.kind !== "pc") {
           pcs.delete(deviceId);
@@ -174,6 +188,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
             models,
             start: (ctx) => {
               for (const pc of pcs.values()) pc.startRun();
+              for (const router of routers.values()) router.startRun();
               model.ipv4.sendEcho(ctx, PC_PORT, request.targetIp, sequence);
             },
             outcome: () => (model.ipv4.repliesReceived().includes(sequence) ? "success" : "failed"),
@@ -209,10 +224,15 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     },
 
     arpTable(deviceId) {
-      return pcs.get(deviceId)?.arp.view() ?? [];
+      return pcs.get(deviceId)?.arp.view() ?? routers.get(deviceId)?.arpTable() ?? [];
     },
 
     clearArp(deviceId, ip) {
+      const router = routers.get(deviceId);
+      if (router !== undefined) {
+        const before = router.arpTable(); router.clearArp(ip);
+        return router.arpTable().length !== before.length;
+      }
       const model = pcs.get(deviceId);
       if (model === undefined) return false;
       const before = model.arp.view();
@@ -222,6 +242,10 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     },
 
     fillViews(views) {
+      for (const [deviceId, model] of routers) {
+        const view = views[deviceId];
+        if (view?.kind === "router") views[deviceId] = { ...view, arpTable: model.arpTable() };
+      }
       for (const [deviceId, model] of pcs) {
         const view = views[deviceId];
         if (view?.kind === "pc") views[deviceId] = { ...view, arpTable: model.arp.view() };

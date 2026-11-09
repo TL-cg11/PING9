@@ -276,6 +276,11 @@ export const DROP_REASONS = Object.keys(DROP_REASON_SET) as readonly DropReason[
 // ---------------------------------------------------------------------------
 
 export interface EventParamsByCode {
+  IPV4_RECEIVED: { readonly device: DeviceRef; readonly sourceIp: string; readonly targetIp: string };
+  IPV4_FORWARDED: {
+    readonly device: DeviceRef; readonly sourceIp: string; readonly targetIp: string;
+    readonly port: string; readonly nextHop: string; readonly ttl: number;
+  };
   /** 목적지의 MAC 주소를 몰라 ARP 요청을 브로드캐스트로 보냄 */
   ARP_REQUEST_SENT: {
     readonly device: DeviceRef;
@@ -361,6 +366,8 @@ export type Reason<C extends ReasonCode = ReasonCode> = {
 }[C];
 
 const EVENT_CODE_SET = {
+  IPV4_RECEIVED: true,
+  IPV4_FORWARDED: true,
   ARP_REQUEST_SENT: true,
   ARP_REQUEST_RECEIVED: true,
   ARP_REPLY_SENT: true,

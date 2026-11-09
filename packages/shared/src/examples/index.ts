@@ -8,6 +8,7 @@ import { twoPcSwitchDocument } from "./two-pc-switch";
 import { twoSwitchVlanDocument } from "./two-switch-vlan";
 
 export * from "./thirty-devices";
+export * from "./router-lab";
 export * from "./two-pc";
 export * from "./two-pc-switch";
 export * from "./two-switch-vlan";
