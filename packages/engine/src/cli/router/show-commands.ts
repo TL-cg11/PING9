@@ -1,12 +1,34 @@
 import { maskToPrefixLength, PORT_NAMES } from "@ping9/shared";
 
 import { computeViews } from "../../views";
-import { defineCommand } from "../ios";
+import { lookupRoute } from "../../devices/router/routing";
+import type { RoutingEntry } from "../../devices/router/routing";
+import { defineCommand, param } from "../ios";
 import type { CommandDefinition } from "../ios";
 import { tableLines } from "../ios/table";
 import { routerRunningConfigLines } from "./running-config";
 
 export const ROUTER_SHOW_COMMANDS: readonly CommandDefinition[] = [
+  defineCommand({
+    modes: ["privileged"], devices: ["router"],
+    tokens: ["show", "ip", "route", param("destination", "ipv4", "Destination IPv4 address")],
+    help: "Look up the route, outgoing interface and next hop for a destination",
+    run: (args, context) => {
+      const view = computeViews(context.document)[context.device.id];
+      if (view?.kind !== "router") return {};
+      // 계산된 Router 테이블은 모두 실제 출력 포트를 포함한다.
+      const table = view.routingTable.filter((route): route is RoutingEntry => route.port !== undefined);
+      const destination = String(args.destination);
+      const decision = lookupRoute(table, destination);
+      const lines = decision === null ? [`No route to ${destination}`] : [
+        `Routing entry for ${decision.route.network}/${maskToPrefixLength(decision.route.mask)}`,
+        `  ${decision.route.source === "connected" ? "C - connected" : "S - static"}`,
+        `  Next hop: ${decision.nextHop}`,
+        `  Outgoing interface: ${decision.port}`,
+      ];
+      return { lines: lines.map(text => ({ kind: "text", text })) };
+    },
+  }),
   defineCommand({
     modes: ["privileged"], devices: ["router"], tokens: ["show", "ip", "route"],
     help: "Show active connected and static routes",
