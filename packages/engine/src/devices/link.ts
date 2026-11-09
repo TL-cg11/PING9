@@ -1,9 +1,8 @@
 // T1.7.2: Ethernet 포트와 링크 전달. 장비 모델이 포트로 내보낸 프레임을 링크 반대쪽 포트에 1,000µs 뒤 도착하게 한다.
 // 장비 종류를 모른다. 보냄·받음 이벤트는 장비 모델이 기록하고, 여기서는 보낼 수 없을 때의 폐기만 기록한다.
 
-import { LINK_DELAY_MICROSECONDS } from "@ping9/shared";
-import type { PortRef } from "@ping9/shared";
-import type { TopologyDocument } from "@ping9/shared";
+import { LINK_DELAY_MICROSECONDS, isPortName } from "@ping9/shared";
+import type { PortRef, TopologyDocument } from "@ping9/shared";
 
 import type { Frame, KernelRun, SimContext } from "../kernel";
 import { deviceRef, findDevice, isAdminUp, portLink } from "../topology";
@@ -27,6 +26,7 @@ export function transmit(
 ): boolean {
   const device = findDevice(document, from.deviceId);
   if (device === undefined) throw new Error(`transmit: device ${from.deviceId} is not in the document`);
+  if (!isPortName(device.kind, from.port)) throw new RangeError(`transmit: unknown port ${from.port} for ${device.kind}`);
 
   const drop = (code: "IF_DOWN" | "NO_LINK"): false => {
     ctx.record({

@@ -23,7 +23,6 @@ interface Arrival {
 class FakeDevice implements DeviceModel {
   readonly arrivals: Arrival[] = [];
   readonly timers: { readonly timer: TimerRef; readonly time: number }[] = [];
-  readonly configChanges: number[] = [];
 
   constructor(
     readonly deviceId: string,
@@ -39,9 +38,7 @@ class FakeDevice implements DeviceModel {
     this.timers.push({ timer, time: ctx.now() });
   }
 
-  onConfigChanged(): void {
-    this.configChanges.push(1);
-  }
+  onConfigChanged(): void {}
 
   view(): DeviceView {
     return EMPTY_VIEW;
@@ -282,6 +279,14 @@ describe("transmit: 링크로 프레임 전달", () => {
 
     expect(sw.arrivals.map((a) => [a.port, a.time])).toEqual([["FastEthernet0/1", 1_000]]);
     expect(trace.events).toHaveLength(0);
+  });
+
+  test("그 장비 종류에 없는 포트 이름으로 보내는 것은 내부 오류다 (NO_LINK로 숨기지 않는다)", () => {
+    expect(() =>
+      runWith(models(new FakeDevice(TWO_PC.pc1.id)), (ctx) => {
+        sent(ctx, twoPcDocument, { deviceId: TWO_PC.pc1.id, port: "FastEthernet0/1" });
+      }),
+    ).toThrow(RangeError);
   });
 
   test("문서에 없는 장비에서 보내는 것은 내부 오류다", () => {
