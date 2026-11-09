@@ -106,6 +106,14 @@ export interface ErrorParamsByCode {
   CLI_INVALID_VALUE: { readonly token: string };
   CLI_WRONG_MODE: { readonly token: string };
   CLI_LINE_TOO_LONG: { readonly limit: number };
+
+  // ping (T1.8.3)
+  /** 브로드캐스트 주소(255.255.255.255, 자기 네트워크의 브로드캐스트)로 ping. 지원하지 않는다 (MAL-6, NET-9) */
+  PING_BROADCAST_UNSUPPORTED: { readonly ip: string };
+  /** `ping -n`·`-c`의 횟수가 범위 밖. 보관하는 추적이 20개라 한 번에 너무 많이 돌리지 않는다 */
+  PING_COUNT_OUT_OF_RANGE: { readonly value: string; readonly min: number; readonly max: number };
+  /** ping이 아직 동작 모델이 없는 장비(Switch, Router)를 지나야 함. 그 장비의 모델이 들어오면 사라진다 */
+  PING_DEVICE_UNSUPPORTED: { readonly kind: DeviceKind; readonly deviceName: string };
 }
 
 export type ErrorCode = keyof ErrorParamsByCode;
@@ -165,6 +173,9 @@ const ERROR_CODE_SET = {
   CLI_INVALID_VALUE: true,
   CLI_WRONG_MODE: true,
   CLI_LINE_TOO_LONG: true,
+  PING_BROADCAST_UNSUPPORTED: true,
+  PING_COUNT_OUT_OF_RANGE: true,
+  PING_DEVICE_UNSUPPORTED: true,
 } satisfies Record<ErrorCode, true>;
 
 export const ERROR_CODES = Object.keys(ERROR_CODE_SET) as readonly ErrorCode[];

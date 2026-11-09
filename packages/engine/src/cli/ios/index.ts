@@ -14,6 +14,7 @@ export type {
   ParamToken,
   ParamType,
   ParamValue,
+  RuntimeAccess,
   Token,
 } from "./define";
 export { completeLine, helpFor } from "./assist";
