@@ -111,6 +111,8 @@ test("trunk 링크는 넓은 길과 trunk 글자, 차선, 끝마다 그 끝의 �
   // SW1은 10, 20을, SW2는 20만 허용한다: 차선 둘, 10은 SW2 앞에서 막힌다
   expect(html.match(/class="cable-lane"/g)).toHaveLength(2);
   expect(html.match(/class="cable-block"/g)).toHaveLength(1);
+  // 막힌 10은 길 가운데부터 SW2까지 흐린 점선이다
+  expect(html.match(/class="cable-lane-closed"/g)).toHaveLength(1);
   // SW1(왼쪽)의 글은 오른쪽으로, SW2(오른쪽)의 글은 왼쪽으로 뻗는다
   expect(html).toMatch(/<text class="net"[^>]*text-anchor="start"[^>]*>허용 10, 20<\/text>/);
   expect(html).toMatch(/<text class="net"[^>]*text-anchor="end"[^>]*>허용 20<\/text>/);

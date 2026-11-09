@@ -175,8 +175,8 @@ const RAINBOW = ["#F7A8A8", "#F9C98F", "#F5E08A", "#A8DDA8", "#9CCFF0", "#A9B4F2
 const LANE_OFFSETS = [5.5, -5.5, 7.8, -7.8] as const;
 /** 차선과 무지개가 길 끝(장비 둘레 타원)에서 이만큼 안쪽에서 끝난다 */
 const LANE_INSET = 3;
-/** 막힌 차선이 끝에서 이만큼 앞에서 멈춘다 */
-const BLOCK_BEFORE_END = 22;
+/** 바깥쪽 차선의 ✕를 길 방향으로 옮기는 거리. 안쪽 차선의 ✕(지름 16)와 겹치지 않는다 */
+const BLOCK_SLIDE = 18;
 const BLOCK_RED = "#E5484D";
 
 function shift(point: Point, normal: Point, offset: number): Point {
@@ -200,31 +200,38 @@ function RoadText({ at, angle, text, color, size }: {
 }
 
 function LaneLine({ ends, lane, index }: { readonly ends: LineEnds; readonly lane: Lane; readonly index: number }) {
-  const { length, along, normal } = axes(ends);
+  const { along, normal } = axes(ends);
   const offset = LANE_OFFSETS[index] ?? 0;
   const start = shift({ x: ends.x1 + along.x * LANE_INSET, y: ends.y1 + along.y * LANE_INSET }, normal, offset);
   const end = shift({ x: ends.x2 - along.x * LANE_INSET, y: ends.y2 - along.y * LANE_INSET }, normal, offset);
-  const cut = Math.min(BLOCK_BEFORE_END, length / 3);
-  const from = lane.blockedAt === 0 ? { x: start.x + along.x * cut, y: start.y + along.y * cut } : start;
-  const to = lane.blockedAt === 1 ? { x: end.x - along.x * cut, y: end.y - along.y * cut } : end;
   const color = vlanPaint(lane.vlan).lane;
-  // 막힌 자리: 길을 가로지르는 빨간 막대와 길 위쪽의 ✕
-  const stop = lane.blockedAt === undefined ? undefined : lane.blockedAt === 0 ? from : to;
-  // ✕는 차선이 있는 쪽(위 또는 아래)의 길 바깥에 둔다
+  if (lane.blockedAt === undefined) {
+    return (
+      <g className="cable-lane">
+        <line x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      </g>
+    );
+  }
+  // 막힌 차선: 허용한 끝에서 길 가운데까지는 실선, 가운데부터 막은 끝까지는 흐린 점선.
+  // 가운데에 빨간 막대와 ✕를 세운다. 바깥쪽 차선(셋째, 넷째)의 ✕는 안쪽 차선의 ✕와 겹치지 않게 조금 옮긴다
+  const slide = index >= 2 ? BLOCK_SLIDE : 0;
+  const stop = { x: (start.x + end.x) / 2 + along.x * slide, y: (start.y + end.y) / 2 + along.y * slide };
+  const [open, closed] = lane.blockedAt === 1 ? [start, end] : [end, start];
+  // ✕는 차선이 있는 쪽(위 또는 아래)의 길 바깥에 둔다. 가운데의 trunk 글자와 겹치지 않는다
   const side = offset >= 0 ? 1 : -1;
-  const mark = stop === undefined ? undefined : shift(stop, normal, side * (STYLE.trunk.edgeWidth / 2 + 8) - offset);
+  const mark = shift(stop, normal, side * (STYLE.trunk.edgeWidth / 2 + 8) - offset);
   return (
     <g className="cable-lane">
-      <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      {stop !== undefined && mark !== undefined && (
-        <g className="cable-block">
-          <line x1={stop.x - normal.x * 2 * side} y1={stop.y - normal.y * 2 * side} x2={mark.x} y2={mark.y}
-            stroke={BLOCK_RED} strokeWidth="2" strokeLinecap="round" />
-          <circle cx={mark.x} cy={mark.y} r="6.5" fill={BLOCK_RED} stroke="#fff" strokeWidth="1.5" />
-          <path d={`M${mark.x - 2.6} ${mark.y - 2.6}L${mark.x + 2.6} ${mark.y + 2.6}M${mark.x + 2.6} ${mark.y - 2.6}L${mark.x - 2.6} ${mark.y + 2.6}`}
-            stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
-        </g>
-      )}
+      <line x1={open.x} y1={open.y} x2={stop.x} y2={stop.y} stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <line className="cable-lane-closed" x1={stop.x} y1={stop.y} x2={closed.x} y2={closed.y} stroke={color} strokeWidth="2.2"
+        strokeDasharray="3 4" opacity="0.45" />
+      <g className="cable-block">
+        <line x1={stop.x} y1={stop.y} x2={mark.x} y2={mark.y}
+          stroke={BLOCK_RED} strokeWidth="2" strokeLinecap="round" />
+        <circle cx={mark.x} cy={mark.y} r="6.5" fill={BLOCK_RED} stroke="#fff" strokeWidth="1.5" />
+        <path d={`M${mark.x - 2.6} ${mark.y - 2.6}L${mark.x + 2.6} ${mark.y + 2.6}M${mark.x + 2.6} ${mark.y - 2.6}L${mark.x - 2.6} ${mark.y + 2.6}`}
+          stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
+      </g>
     </g>
   );
 }
