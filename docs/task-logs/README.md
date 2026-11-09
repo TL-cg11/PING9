@@ -19,7 +19,7 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T0.5 운영 첫 화면을 편집기 화면으로 바꾸기 (계획에 없는 새 ID) | [T0.5-app-at-root.md](T0.5-app-at-root.md) | 배포 | SDY | 병합됨 (PR #8, 팀원 검토 없이). T0.3 담당자 확인 필요. 시안은 `/mockup.html`에 남김 |
 | T0.6 장비 아이콘과 선택 표시 (계획에 없는 새 ID) | [T0.6-device-icons.md](T0.6-device-icons.md) | 화면 | yysong1249 | 병합됨 (PR #25, 팀원 검토 없이) |
 | T0.7 Windows·Linux PC (계획에 없는 새 ID. 첫 회의의 목표) | [T0.7-pc-os.md](T0.7-pc-os.md) | 엔진, 화면 | yysong1249 | 검토 대기 |
-| T0.8 케이블 그림 (계획에 없는 새 ID) | [T0.8-cable-look.md](T0.8-cable-look.md) | 화면 | yysong1249 | 검토 대기 |
+| T0.8 케이블 그림 (계획에 없는 새 ID) | [T0.8-cable-look.md](T0.8-cable-look.md) | 화면 | yysong1249 | 검토 대기 ([PR #35](https://github.com/TL-cg11/PING9/pull/35)) |
 | T1.1.1 모노레포와 패키지 뼈대 | [T1.1.1-monorepo-skeleton.md](T1.1.1-monorepo-skeleton.md) | 공통 | SDY | 완료 (검토 없이 병합) |
 | T1.1.3 CI 검사와 운영 배포 | [T1.1.3-ci-and-deploy.md](T1.1.3-ci-and-deploy.md) | 배포 | SDY | 일부 완료. CI 동작 중. Actions 배포는 T0.4에서 없앰 (브랜치 보호 남음) |
 | T1.2.1 `shared` 타입과 코드 열거형 | [T1.2.1-shared-types.md](T1.2.1-shared-types.md) | 공통 | SDY | 병합됨 (검토 없이). 팀 합의 필요 |
