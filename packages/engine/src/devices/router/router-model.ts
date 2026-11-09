@@ -1,4 +1,4 @@
-import { BROADCAST_MAC, PORT_NAMES } from "@ping9/shared";
+import { BROADCAST_MAC, PORT_NAMES, UNKNOWN_MAC } from "@ping9/shared";
 import type { DeviceView, FrameSnapshot, IcmpMessage, Ipv4Header, Reason, RouterDevice, TopologyDocument } from "@ping9/shared";
 
 import type { Frame, SimContext, TimerRef } from "../../kernel";
@@ -22,6 +22,7 @@ export class RouterModel implements DeviceModel {
   readonly deviceId: string;
   readonly #getDocument: () => TopologyDocument;
   readonly #arps = new Map<string, ArpModule>();
+  readonly #replies = new Set<number>();
 
   constructor(deviceId: string, getDocument: () => TopologyDocument) {
     this.deviceId = deviceId;
@@ -75,6 +76,10 @@ export class RouterModel implements DeviceModel {
         if (decision !== null) this.#send(ctx, decision, {
           sourceIp: ipv4.destinationIp, destinationIp: ipv4.sourceIp, ttl: ROUTER_TTL,
         }, { type: "echo-reply", sequence: icmp.sequence }, "reply", request);
+      } else if (icmp?.type === "echo-reply") {
+        ctx.record({ frame, deviceId: device.id, inPort: port, layer: "ICMP", action: "receive", parentSeq: received,
+          reason: { code: "ICMP_ECHO_REPLY_RECEIVED", params: { device: ref, sourceIp: ipv4.sourceIp, targetIp: ipv4.destinationIp } } });
+        this.#replies.add(icmp.sequence);
       }
       return;
     }
@@ -89,7 +94,7 @@ export class RouterModel implements DeviceModel {
   }
 
   #send(ctx: SimContext, decision: RouteDecision, ipv4: Ipv4Header, icmp: IcmpMessage | undefined,
-    action: "forward" | "reply", parentSeq: number, originalFrame?: Frame, inPort?: string): void {
+    action: "forward" | "reply" | "create", parentSeq?: number, originalFrame?: Frame, inPort?: string): void {
     const device = this.#device();
     const { port, nextHop } = decision;
     const pending: PendingSend = {
@@ -105,7 +110,7 @@ export class RouterModel implements DeviceModel {
           ...(linkId === undefined ? {} : { linkId }), ...(cause === undefined ? {} : { parentSeq: cause }),
           layer: action === "forward" ? "L3" : "ICMP", action,
           reason: action === "forward" ? { code: "IPV4_FORWARDED", params: { ...params, port, nextHop, ttl: ipv4.ttl } }
-            : { code: "ICMP_ECHO_REPLY_SENT", params },
+            : action === "create" ? { code: "ICMP_ECHO_REQUEST_SENT", params } : { code: "ICMP_ECHO_REPLY_SENT", params },
         });
       },
     };
@@ -118,6 +123,24 @@ export class RouterModel implements DeviceModel {
 
   startRun(): void {
     for (const arp of this.#arps.values()) arp.discardPending();
+    this.#replies.clear();
+  }
+
+  repliesReceived(): readonly number[] { return [...this.#replies]; }
+
+  sendEcho(ctx: SimContext, targetIp: string, sequence: number): void {
+    const device = this.#device(); const decision = this.#decision(targetIp);
+    if (decision === null) {
+      const port = PORT_NAMES.router[0];
+      const frame = ctx.createFrame({ ethernet: { sourceMac: portMac(device, port), destinationMac: UNKNOWN_MAC },
+        ipv4: { sourceIp: device.config.interfaces[port]?.ip ?? "", destinationIp: targetIp, ttl: ROUTER_TTL },
+        icmp: { type: "echo-request", sequence } });
+      ctx.record({ frame, deviceId: device.id, layer: "L3", action: "drop",
+        reason: { code: "NO_ROUTE", params: { device: deviceRef(device), targetIp } } });
+      return;
+    }
+    this.#send(ctx, decision, { sourceIp: device.config.interfaces[decision.port]!.ip!, destinationIp: targetIp, ttl: ROUTER_TTL },
+      { type: "echo-request", sequence }, "create");
   }
 
   arpTable() { return [...this.#arps.values()].flatMap(arp => arp.view()); }

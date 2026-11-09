@@ -120,15 +120,21 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     return model;
   };
 
+  const routerModel = (deviceId: string): RouterModel | undefined => {
+    let model = routers.get(deviceId);
+    if (model === undefined && findDevice(getDocument(), deviceId)?.kind === "router") {
+      model = new RouterModel(deviceId, getDocument); routers.set(deviceId, model);
+    }
+    return model;
+  };
+
   /** 이번 실행에 쓸 장비별 모델. PC가 아닌 장비는 MissingModel이다 */
   const runModels = (): Map<string, DeviceModel> => {
     const models = new Map<string, DeviceModel>();
     for (const device of getDocument().devices) {
       if (device.kind === "pc") models.set(device.id, pcModel(device.id)!);
       else if (device.kind === "router") {
-        let model = routers.get(device.id);
-        if (model === undefined) { model = new RouterModel(device.id, getDocument); routers.set(device.id, model); }
-        models.set(device.id, model);
+        models.set(device.id, routerModel(device.id)!);
       }
       else models.set(device.id, new MissingModel(device.id, device.kind, device.name));
     }
@@ -172,7 +178,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     ping(request, docVersion) {
       const document = getDocument();
       const source = findDevice(document, request.deviceId);
-      const model = pcModel(request.deviceId);
+      const model = pcModel(request.deviceId) ?? routerModel(request.deviceId);
       if (source === undefined || model === undefined) {
         return { ok: false, error: errorInfo("DEVICE_NOT_FOUND", { deviceId: request.deviceId }) };
       }
@@ -189,9 +195,10 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
             start: (ctx) => {
               for (const pc of pcs.values()) pc.startRun();
               for (const router of routers.values()) router.startRun();
-              model.ipv4.sendEcho(ctx, PC_PORT, request.targetIp, sequence);
+              if (model instanceof PcModel) model.ipv4.sendEcho(ctx, PC_PORT, request.targetIp, sequence);
+              else model.sendEcho(ctx, request.targetIp, sequence);
             },
-            outcome: () => (model.ipv4.repliesReceived().includes(sequence) ? "success" : "failed"),
+            outcome: () => ((model instanceof PcModel ? model.ipv4.repliesReceived() : model.repliesReceived()).includes(sequence) ? "success" : "failed"),
           }));
         } catch (error) {
           if (!(error instanceof UnsupportedDevice)) throw error;
@@ -282,7 +289,7 @@ function roundOf(trace: Trace, sourceId: string, sequence: number): PingRound {
   if (drops.some((event) => event.reason.code === "NO_IP" || event.reason.code === "NO_GATEWAY")) {
     return { kind: "unsent", traceId, sequence };
   }
-  if (drops.some((event) => event.reason.code === "ARP_TIMEOUT")) {
+  if (drops.some((event) => event.reason.code === "ARP_TIMEOUT" || event.reason.code === "NO_ROUTE")) {
     return { kind: "unreachable", traceId, sequence };
   }
   return { kind: "timeout", traceId, sequence };

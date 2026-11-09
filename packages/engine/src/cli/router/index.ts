@@ -4,6 +4,7 @@ import type { CommandDefinition } from "../ios";
 import { ROUTER_INTERFACE_COMMANDS } from "./interface-commands";
 import { ROUTER_SHOW_COMMANDS } from "./show-commands";
 import { ROUTER_ROUTE_COMMANDS } from "./route-commands";
+import { ROUTER_NETWORK_COMMANDS } from "./network-commands";
 
 export const ROUTER_COMMANDS: readonly CommandDefinition[] = [
   ...BASE_COMMANDS,
@@ -11,4 +12,5 @@ export const ROUTER_COMMANDS: readonly CommandDefinition[] = [
   ...ROUTER_INTERFACE_COMMANDS,
   ...ROUTER_SHOW_COMMANDS,
   ...ROUTER_ROUTE_COMMANDS,
+  ...ROUTER_NETWORK_COMMANDS,
 ];
