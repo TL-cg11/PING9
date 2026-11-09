@@ -1,6 +1,6 @@
 // 화면에 보일 값의 계산 (AD-7). 포트 상태는 engine만 계산한다.
-// Document에서 포트 상태와 라우팅 경로를 계산한다. Runtime은 PC 모델의 ARP 테이블을 이 결과 위에 채운다.
-// Switch·Router의 동적 상태와 패킷 전달 모델은 후속 작업이다.
+// Document에서 포트 상태와 라우팅 경로를 계산한다. Runtime은 PC·Router 모델의 ARP 테이블을 이 결과 위에 채운다.
+// Switch의 동적 MAC 테이블은 해당 모델의 후속 작업이다.
 
 import { PORT_NAMES } from "@ping9/shared";
 import type { Device, DeviceView, PortStatus, PortView, TopologyDocument } from "@ping9/shared";

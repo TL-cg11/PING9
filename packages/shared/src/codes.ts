@@ -276,6 +276,8 @@ export const DROP_REASONS = Object.keys(DROP_REASON_SET) as readonly DropReason[
 // ---------------------------------------------------------------------------
 
 export interface EventParamsByCode {
+  ICMP_ERROR_SENT: { readonly device: DeviceRef; readonly sourceIp: string; readonly targetIp: string; readonly error: "destination-unreachable" | "time-exceeded" };
+  ICMP_ERROR_RECEIVED: { readonly device: DeviceRef; readonly sourceIp: string; readonly targetIp: string; readonly error: "destination-unreachable" | "time-exceeded" };
   IPV4_RECEIVED: { readonly device: DeviceRef; readonly sourceIp: string; readonly targetIp: string };
   IPV4_FORWARDED: {
     readonly device: DeviceRef; readonly sourceIp: string; readonly targetIp: string;
@@ -366,6 +368,8 @@ export type Reason<C extends ReasonCode = ReasonCode> = {
 }[C];
 
 const EVENT_CODE_SET = {
+  ICMP_ERROR_SENT: true,
+  ICMP_ERROR_RECEIVED: true,
   IPV4_RECEIVED: true,
   IPV4_FORWARDED: true,
   ARP_REQUEST_SENT: true,

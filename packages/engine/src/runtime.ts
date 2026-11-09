@@ -1,8 +1,8 @@
 // T1.8.3: Runtime. kernel 하나와 장비별 모델, 보관 중인 추적을 들고 있다 (03 문서 3.4절).
 // Document는 Simulator가 들고 있고, Runtime은 매번 getDocument()로 읽는다.
-// 지금은 PC 모델만 있다. Switch 모델은 T1.7.3, Router 모델은 E4에서 더한다.
+// PC·Router 모델을 보관한다. Switch 모델은 T1.7.3의 후속이다.
 
-import { LIMITS } from "@ping9/shared";
+import { isIcmpError, LIMITS } from "@ping9/shared";
 import type {
   ArpEntryView,
   DeviceKind,
@@ -24,6 +24,8 @@ import { deviceRef, findDevice } from "./topology";
 
 /** ping 한 회차의 결과. 결과 줄은 OS별 출력(cli/pc/ping-output)이 만든다 */
 export type PingRound =
+  | { readonly kind: "icmp-error"; readonly traceId: number; readonly sequence: number; readonly sourceIp: string;
+      readonly error: "destination-unreachable" | "time-exceeded" }
   /** 응답을 받음. 시간은 회차 시작부터 응답을 받기까지의 가상 µs, TTL은 받은 응답의 값 */
   | { readonly kind: "reply"; readonly traceId: number; readonly sequence: number; readonly timeUs: number; readonly ttl: number }
   /** 출발 PC의 ARP 요청에 응답이 없음 (ARP_TIMEOUT) */
@@ -77,7 +79,7 @@ class UnsupportedDevice extends Error {
 }
 
 /**
- * Switch·Router 자리. 프레임이 도착하면 조용히 버리지 않고 실행을 멈춘다.
+ * 아직 구현하지 않은 장비 자리. 프레임이 도착하면 조용히 버리지 않고 실행을 멈춘다.
  * 조용히 버리면 평범한 실패로 보여 학습자가 자기 설정이 틀렸다고 잘못 배운다 (설계 10절 12)
  */
 class MissingModel implements DeviceModel {
@@ -128,7 +130,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     return model;
   };
 
-  /** 이번 실행에 쓸 장비별 모델. PC가 아닌 장비는 MissingModel이다 */
+  /** 이번 실행에 쓸 장비별 모델. Switch는 아직 MissingModel이다 */
   const runModels = (): Map<string, DeviceModel> => {
     const models = new Map<string, DeviceModel>();
     for (const device of getDocument().devices) {
@@ -221,7 +223,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
             targetIp: request.targetIp,
           },
         });
-        const round = roundOf(trace, request.deviceId, sequence);
+        const round = roundOf(trace, request.deviceId, sequence, request.targetIp);
         rounds.push(round);
         if (round.kind === "unsent" && request.stopOnUnsent) break;
       }
@@ -271,7 +273,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
 }
 
 /** Trace에서 그 회차의 결과를 읽는다. 시간과 TTL은 받은 응답 이벤트의 값이다 */
-function roundOf(trace: Trace, sourceId: string, sequence: number): PingRound {
+function roundOf(trace: Trace, sourceId: string, sequence: number, targetIp: string): PingRound {
   const traceId = trace.id;
   const atSource = (event: TraceEvent) => event.deviceId === sourceId;
 
@@ -283,6 +285,12 @@ function roundOf(trace: Trace, sourceId: string, sequence: number): PingRound {
   );
   if (reply !== undefined) {
     return { kind: "reply", traceId, sequence, timeUs: reply.time, ttl: reply.frame.ipv4?.ttl ?? 0 };
+  }
+
+  const failure = trace.events.find(event => atSource(event) && event.reason.code === "ICMP_ERROR_RECEIVED" &&
+    isIcmpError(event.frame.icmp) && event.frame.icmp.original.destinationIp === targetIp && event.frame.icmp.original.sequence === sequence);
+  if (failure !== undefined && isIcmpError(failure.frame.icmp)) {
+    return { kind: "icmp-error", traceId, sequence, sourceIp: failure.frame.ipv4!.sourceIp, error: failure.frame.icmp.type };
   }
 
   const drops = trace.events.filter((event) => atSource(event) && event.action === "drop");

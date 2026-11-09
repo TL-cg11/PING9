@@ -53,6 +53,7 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T4.1.3 직접 연결 라우팅 테이블 | [T4.1.3-connected-routes.md](T4.1.3-connected-routes.md) | 엔진, 공통 | ssunyoung2 | 구현·개별 검증 완료, PR/팀원 검토 대기 |
 | T4.2.1 Router 패킷 수신·전달 | [T4.2.1-router-forwarding.md](T4.2.1-router-forwarding.md) | 엔진, 공통 | ssunyoung2 | 로컬 구현·개별 검사 완료, 리뷰 대기 |
 | T4.2.2 Router ping·ARP 명령 | [T4.2.2-router-network-cli.md](T4.2.2-router-network-cli.md) | 엔진 | ssunyoung2 | 로컬 구현·개별 검사 완료, 리뷰 대기 |
+| T4.4.1 Router ICMP 오류 응답 | [T4.4.1-router-icmp-errors.md](T4.4.1-router-icmp-errors.md) | 엔진, 공통 | ssunyoung2 | 로컬 구현·개별 검사 완료, 리뷰 대기 |
 | T4.3.1 정적 경로 설정과 활성화 | [T4.3.1-static-routes.md](T4.3.1-static-routes.md) | 엔진, 공통 | ssunyoung2 | 구현·개별 검증 완료, PR/팀원 검토 대기 |
 | T4.3.2 목적지 경로 선택 | [T4.3.2-route-lookup.md](T4.3.2-route-lookup.md) | 엔진 | ssunyoung2 | 로컬 구현·전체 검증 완료, PR/팀원 검토 대기 |
 | T4.3.2 후속: 전송·PC ping main 통합 | [T4.3.2-runtime-main-merge.md](T4.3.2-runtime-main-merge.md) | 엔진 | ssunyoung2 | 로컬 병합·검증 완료, PR/팀원 검토 대기 |

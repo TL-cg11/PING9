@@ -39,13 +39,17 @@ export interface Ipv4Header {
   readonly ttl: number;
 }
 
-export const ICMP_TYPES = ["echo-request", "echo-reply"] as const;
+export const ICMP_TYPES = ["echo-request", "echo-reply", "destination-unreachable", "time-exceeded"] as const;
 export type IcmpType = (typeof ICMP_TYPES)[number];
 
-export interface IcmpMessage {
-  readonly type: IcmpType;
-  /** ping의 회차 번호 (1부터) */
-  readonly sequence: number;
+export type IcmpErrorType = "destination-unreachable" | "time-exceeded";
+export type IcmpMessage = { readonly type: "echo-request" | "echo-reply"; readonly sequence: number }
+  | { readonly type: IcmpErrorType; readonly sequence: number; readonly original: {
+    readonly sourceIp: string; readonly destinationIp: string; readonly sequence: number;
+  } };
+
+export function isIcmpError(icmp: IcmpMessage | undefined): icmp is Extract<IcmpMessage, { type: IcmpErrorType }> {
+  return icmp?.type === "destination-unreachable" || icmp?.type === "time-exceeded";
 }
 
 /**

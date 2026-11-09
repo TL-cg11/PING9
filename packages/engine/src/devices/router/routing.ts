@@ -1,4 +1,4 @@
-// 라우팅 계산은 패킷 전송과 분리한다. 이후 Router DeviceModel.view()에서도 재사용한다.
+// 라우팅 계산은 패킷 전송과 분리한다. Router 모델과 스냅샷/CLI에서 재사용한다.
 import { checkInterfaceAddress, isSameNetwork, maskToPrefixLength, networkAddress, parseIpv4, PORT_NAMES } from "@ping9/shared";
 import type { PortView, RouteEntryView, RouterConfig } from "@ping9/shared";
 

@@ -3,7 +3,7 @@
 // `ctx`는 매번 받고 보관하지 않는다 (T1.7.1 kernel 규칙).
 // Router의 IPv4 전달(TTL 줄이기, 경로 찾기)은 이 모듈이 하지 않는다 (E4).
 
-import { BROADCAST_MAC, UNKNOWN_MAC, isSameNetwork } from "@ping9/shared";
+import { BROADCAST_MAC, UNKNOWN_MAC, isIcmpError, isSameNetwork } from "@ping9/shared";
 import type { DeviceRef, FrameSnapshot, IcmpMessage, Ipv4Header } from "@ping9/shared";
 
 import type { Frame, SimContext } from "../kernel";
@@ -98,7 +98,11 @@ export class Ipv4Host {
       return;
     }
 
-    if (icmp?.type === "echo-request") this.#onEchoRequest(ctx, port, frame, address, ipv4, icmp);
+    if (isIcmpError(icmp)) {
+      if (icmp.original.sourceIp !== address.ip || icmp.original.sequence !== icmp.sequence) return;
+      ctx.record({ frame, deviceId, inPort: port, layer: "ICMP", action: "receive",
+        reason: { code: "ICMP_ERROR_RECEIVED", params: { device, sourceIp: ipv4.sourceIp, targetIp: ipv4.destinationIp, error: icmp.type } } });
+    } else if (icmp?.type === "echo-request") this.#onEchoRequest(ctx, port, frame, address, ipv4, icmp);
     else if (icmp?.type === "echo-reply") {
       ctx.record({
         frame, deviceId, inPort: port, layer: "ICMP", action: "receive",

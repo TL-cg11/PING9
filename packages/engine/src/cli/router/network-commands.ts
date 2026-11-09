@@ -21,6 +21,7 @@ export const ROUTER_NETWORK_COMMANDS: readonly CommandDefinition[] = [
       let received = 0;
       for (const round of result.rounds) {
         if (round.kind === "reply") { received += 1; lines.push(text(`Reply from ${target}: time=${round.timeUs / 1000} ms TTL=${round.ttl}`)); }
+        else if (round.kind === "icmp-error") lines.push(text(`From ${round.sourceIp}: ${round.error === "time-exceeded" ? "TTL expired in transit." : "Destination unreachable."}`));
         else lines.push(text(round.kind === "unreachable" ? "Destination unreachable." : "Request timed out."));
         lines.push({ kind: "trace", traceId: round.traceId });
       }

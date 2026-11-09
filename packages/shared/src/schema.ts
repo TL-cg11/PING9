@@ -9,7 +9,7 @@ import type { TopologyDocument } from "./document";
 import { OS_KINDS, SWITCHPORT_MODES } from "./document";
 import { LIMITS } from "./limits";
 import type { Trace } from "./trace";
-import { ICMP_TYPES, TRACE_ACTIONS, TRACE_LAYERS, TRACE_STATUSES } from "./trace";
+import { TRACE_ACTIONS, TRACE_LAYERS, TRACE_STATUSES } from "./trace";
 
 /** 문서 안의 모든 문자열의 최대 길이 (SEC-7). ID, 이름, 주소, 포트 이름이 모두 이 안에 든다 */
 const MAX_STRING_LENGTH = 64;
@@ -104,7 +104,11 @@ const frameSnapshotSchema = z.object({
   ipv4: z
     .object({ sourceIp: shortString, destinationIp: shortString, ttl: integer })
     .optional(),
-  icmp: z.object({ type: z.enum(ICMP_TYPES), sequence: integer }).optional(),
+  icmp: z.discriminatedUnion("type", [
+    z.object({ type: z.enum(["echo-request", "echo-reply"]), sequence: integer }),
+    z.object({ type: z.enum(["destination-unreachable", "time-exceeded"]), sequence: integer,
+      original: z.object({ sourceIp: shortString, destinationIp: shortString, sequence: integer }) }),
+  ]).optional(),
 });
 
 const traceEventSchema = z.object({
