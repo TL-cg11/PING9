@@ -55,5 +55,6 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T5.3.1 trunk 포트와 허용 목록 | [T5.3.1-trunk-ports.md](T5.3.1-trunk-ports.md) | 엔진, 화면 | SDY | 병합됨 (PR #18, 팀원 검토 없이). ping으로 확인하는 부분은 kernel 뒤 |
 | T5.3.2 `show interfaces trunk` | [T5.3.2-show-interfaces-trunk.md](T5.3.2-show-interfaces-trunk.md) | 엔진 | SDY | 병합됨 (PR #19, 팀원 검토 없이) |
 | T5.4.1 Switch 화면 (계획에 없는 새 ID) | [T5.4.1-switch-screen.md](T5.4.1-switch-screen.md) | 화면 | SDY | 병합됨 (PR #7, 팀원 검토 없이). 운영 첫 화면은 T0.5에서 바꿈 |
-| T1.7.3 Switch의 전달 규칙 (kernel 없이 되는 부분) | [T1.7.3-switch-forwarding.md](T1.7.3-switch-forwarding.md) | 엔진 | SDY | 일부 병합됨 (PR #16, 팀원 검토 없이). kernel 연결 남음 |
+| T1.7.3 Switch의 전달 규칙 (kernel 없이 되는 부분) | [T1.7.3-switch-forwarding.md](T1.7.3-switch-forwarding.md) | 엔진 | SDY | 일부 병합됨 (PR #16, 팀원 검토 없이). kernel 연결은 T5.2.2 |
 | T1.7.2 Ethernet 포트와 링크 전달 | [T1.7.2-link-transfer.md](T1.7.2-link-transfer.md) | 엔진 | SDY | 병합됨 ([PR #33](https://github.com/TL-cg11/PING9/pull/33), 팀원 검토 없이) |
+| T5.2.2 Switch 모델: kernel 연결 | [T5.2.2-switch-model.md](T5.2.2-switch-model.md) | 엔진 | SDY | 병합됨 ([PR #36](https://github.com/TL-cg11/PING9/pull/36), 팀원 검토 없이). 계획의 T5.2.2(문구)와 다름: 설계 9절 18번 |

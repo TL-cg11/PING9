@@ -1,6 +1,6 @@
 // T1.8.3: Runtime. kernel 하나와 장비별 모델, 보관 중인 추적을 들고 있다 (03 문서 3.4절).
 // Document는 Simulator가 들고 있고, Runtime은 매번 getDocument()로 읽는다.
-// 지금은 PC 모델만 있다. Switch 모델은 T1.7.3, Router 모델은 E4에서 더한다.
+// PC 모델(T1.8.3)과 Switch 모델(T5.2.2)이 있다. Router 모델은 E4에서 더한다.
 
 import { LIMITS, pingRoundKind } from "@ping9/shared";
 import type {
@@ -8,6 +8,7 @@ import type {
   DeviceKind,
   DeviceView,
   ErrorInfo,
+  MacTableEntryView,
   TopologyDocument,
   Trace,
   TraceSummary,
@@ -17,6 +18,7 @@ import { errorInfo } from "@ping9/shared";
 import { PC_PORT, PcModel } from "./devices/pc/pc-model";
 import { deviceRun } from "./devices/link";
 import type { DeviceModel } from "./devices/model";
+import { SwitchModel } from "./devices/switch/switch-model";
 import { createKernel } from "./kernel";
 import { deviceRef, findDevice } from "./topology";
 
@@ -46,13 +48,15 @@ export interface PingRequest {
 export interface Runtime {
   /** 문서를 새로 열었다. kernel 시각과 추적 번호, 모델, 추적 목록을 처음으로 */
   reset(): void;
-  /** Document가 바뀌었다. 모델에 알리고 사라진 장비의 모델을 버린다. ARP 테이블이 바뀌었으면 true */
+  /** Document가 바뀌었다. 모델에 알리고 사라진 장비의 모델을 버린다. ARP·MAC 테이블이 바뀌었으면 true */
   configChanged(previous: TopologyDocument, document: TopologyDocument): boolean;
   /** ping. 회차마다 Trace 하나를 보관한다. 아직 모델이 없는 장비를 지나면 오류를 돌려주고 추적을 남기지 않는다 */
   ping(request: PingRequest, docVersion: number): PingRun;
   arpTable(deviceId: string): readonly ArpEntryView[];
   /** `arp -d`. IP를 주면 그 항목만. 지운 것이 있으면 true */
   clearArp(deviceId: string, ip?: string): boolean;
+  /** Switch가 배운 MAC 주소. Switch가 아니거나 아직 아무것도 지나지 않았으면 빈 목록 */
+  macTable(deviceId: string): readonly MacTableEntryView[];
   /** computeViews의 결과에 모델이 가진 테이블을 채운다 */
   fillViews(views: Record<string, DeviceView>): Record<string, DeviceView>;
   traceSummaries(): readonly TraceSummary[];
@@ -64,10 +68,13 @@ interface StoredTrace {
   readonly summary: TraceSummary;
 }
 
+/** 아직 모델이 없는 장비 종류 */
+type UnsupportedKind = Exclude<DeviceKind, "pc" | "switch">;
+
 /** 프레임이 아직 모델이 없는 장비에 도착했다. Runtime이 잡아 PING_DEVICE_UNSUPPORTED로 바꾼다 */
 class UnsupportedDevice extends Error {
   constructor(
-    readonly kind: Exclude<DeviceKind, "pc">,
+    readonly kind: UnsupportedKind,
     readonly deviceName: string,
   ) {
     super(`No device model for ${kind} ${deviceName} yet`);
@@ -75,13 +82,13 @@ class UnsupportedDevice extends Error {
 }
 
 /**
- * Switch·Router 자리. 프레임이 도착하면 조용히 버리지 않고 실행을 멈춘다.
+ * Router 자리. 프레임이 도착하면 조용히 버리지 않고 실행을 멈춘다.
  * 조용히 버리면 평범한 실패로 보여 학습자가 자기 설정이 틀렸다고 잘못 배운다 (설계 10절 12)
  */
 class MissingModel implements DeviceModel {
   constructor(
     readonly deviceId: string,
-    readonly kind: Exclude<DeviceKind, "pc">,
+    readonly kind: UnsupportedKind,
     readonly deviceName: string,
   ) {}
 
@@ -104,6 +111,7 @@ class MissingModel implements DeviceModel {
 export function createRuntime(getDocument: () => TopologyDocument): Runtime {
   const kernel = createKernel();
   const pcs = new Map<string, PcModel>();
+  const switches = new Map<string, SwitchModel>();
   // 가장 최근 것이 앞. 최대 LIMITS.maxTraces개
   let traces: readonly StoredTrace[] = [];
 
@@ -117,12 +125,31 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     return model;
   };
 
-  /** 이번 실행에 쓸 장비별 모델. PC가 아닌 장비는 MissingModel이다 */
+  /** Switch 모델도 처음 쓸 때 만든다. 화면용 테이블의 만료 판단에 kernel의 시각을 쓴다 */
+  const switchModel = (deviceId: string): SwitchModel | undefined => {
+    let model = switches.get(deviceId);
+    if (model === undefined && findDevice(getDocument(), deviceId)?.kind === "switch") {
+      model = new SwitchModel(deviceId, getDocument, () => kernel.now());
+      switches.set(deviceId, model);
+    }
+    return model;
+  };
+
+  /** 이번 실행에 쓸 장비별 모델. 아직 모델이 없는 종류(Router)는 MissingModel이다 */
   const runModels = (): Map<string, DeviceModel> => {
     const models = new Map<string, DeviceModel>();
     for (const device of getDocument().devices) {
-      if (device.kind === "pc") models.set(device.id, pcModel(device.id)!);
-      else models.set(device.id, new MissingModel(device.id, device.kind, device.name));
+      switch (device.kind) {
+        case "pc":
+          models.set(device.id, pcModel(device.id)!);
+          break;
+        case "switch":
+          models.set(device.id, switchModel(device.id)!);
+          break;
+        case "router":
+          models.set(device.id, new MissingModel(device.id, device.kind, device.name));
+          break;
+      }
     }
     return models;
   };
@@ -135,6 +162,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     reset() {
       kernel.reset();
       pcs.clear();
+      switches.clear();
       traces = [];
     },
 
@@ -151,6 +179,16 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
         model.onConfigChanged({ previous, document });
         changed ||= model.arp.view().length !== before.length;
       }
+      for (const [deviceId, model] of switches) {
+        if (findDevice(document, deviceId)?.kind !== "switch") {
+          switches.delete(deviceId);
+          changed ||= model.macTable().length > 0;
+          continue;
+        }
+        const before = model.macTable();
+        model.onConfigChanged({ previous, document });
+        changed ||= model.macTable().length !== before.length;
+      }
       return changed;
     },
 
@@ -166,6 +204,8 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
       const made: StoredTrace[] = [];
       for (let sequence = 1; sequence <= request.count; sequence += 1) {
         const models = runModels();
+        // 실행이 중간에 멈추면 Switch가 그 사이에 배운 것도 되돌린다. 남기지 않는 ping의 흔적이다
+        const restoreSwitches = [...switches.values()].map((model) => model.checkpoint());
         let trace: Trace;
         try {
           trace = kernel.run(deviceRun({
@@ -179,6 +219,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
           }));
         } catch (error) {
           if (!(error instanceof UnsupportedDevice)) throw error;
+          for (const restore of restoreSwitches) restore();
           // 이번 ping의 추적은 하나도 남기지 않는다. 앞 회차가 있었어도 결과가 반쪽이라 보이지 않는다
           return {
             ok: false,
@@ -220,10 +261,18 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
       return before.length > 0;
     },
 
+    macTable(deviceId) {
+      return switches.get(deviceId)?.macTable() ?? [];
+    },
+
     fillViews(views) {
       for (const [deviceId, model] of pcs) {
         const view = views[deviceId];
         if (view?.kind === "pc") views[deviceId] = { ...view, arpTable: model.arp.view() };
+      }
+      for (const [deviceId, model] of switches) {
+        const view = views[deviceId];
+        if (view?.kind === "switch") views[deviceId] = { ...view, macTable: model.macTable() };
       }
       return views;
     },

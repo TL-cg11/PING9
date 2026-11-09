@@ -67,7 +67,8 @@ export function createSimulator(): Simulator {
     const previous = document;
     document = deepFreeze(result.document);
     docVersion += 1;
-    // IP나 링크가 바뀐 PC의 ARP 테이블을 비운다. 실제로 지워졌을 때만 Runtime이 바뀐 것이다
+    // IP나 링크가 바뀐 PC의 ARP 테이블과 VLAN·링크가 바뀐 Switch 포트의 MAC 항목을 비운다.
+    // 실제로 지워졌을 때만 Runtime이 바뀐 것이다
     if (runtime.configChanged(previous, document)) runtimeVersion += 1;
     changed();
     return { ok: true, notices: result.notices };
@@ -86,6 +87,7 @@ export function createSimulator(): Simulator {
       return run;
     },
     arpTable: (deviceId) => runtime.arpTable(deviceId),
+    macTable: (deviceId) => runtime.macTable(deviceId),
     clearArp(deviceId, ip) {
       const cleared = runtime.clearArp(deviceId, ip);
       if (cleared) runtimeChanged();

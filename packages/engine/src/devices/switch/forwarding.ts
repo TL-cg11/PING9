@@ -1,5 +1,5 @@
 // Switch의 프레임 전달 규칙 (T1.7.3). 입력만으로 결과가 정해지는 순수 함수다 (AD-5).
-// kernel이 아직 없어서 따로 둔다. kernel이 들어오면 Switch 모델이 이 함수를 부르고,
+// kernel 없이 먼저 만들었다. Switch 모델(switch-model.ts, T5.2.2)이 프레임마다 이 함수를 부르고,
 // 결과를 프레임 보내기와 Trace 이벤트로 옮긴다 (설계 6.4절).
 // 출처: docs/superpowers/specs/2026-11-05-switch-vlan-design.md 6절.
 

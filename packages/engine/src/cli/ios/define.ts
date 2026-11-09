@@ -11,7 +11,7 @@ import type {
   ErrorInfo,
   TopologyDocument,
 } from "@ping9/shared";
-import type { ArpEntryView } from "@ping9/shared";
+import type { ArpEntryView, MacTableEntryView } from "@ping9/shared";
 
 import type { PingRequest, PingRun } from "../../runtime";
 
@@ -84,6 +84,8 @@ export interface RuntimeAccess {
   arpTable(deviceId: string): readonly ArpEntryView[];
   /** IP를 주면 그 항목만. 지운 것이 있으면 true */
   clearArp(deviceId: string, ip?: string): boolean;
+  /** Switch가 배운 MAC 주소 (T5.2.2). 화면의 테이블과 같은 값이다 */
+  macTable(deviceId: string): readonly MacTableEntryView[];
 }
 
 export interface CommandOutcome {
