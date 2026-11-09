@@ -57,6 +57,7 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T4.3.1 정적 경로 설정과 활성화 | [T4.3.1-static-routes.md](T4.3.1-static-routes.md) | 엔진, 공통 | ssunyoung2 | 구현·개별 검증 완료, PR/팀원 검토 대기 |
 | T4.3.2 목적지 경로 선택 | [T4.3.2-route-lookup.md](T4.3.2-route-lookup.md) | 엔진 | ssunyoung2 | 로컬 구현·전체 검증 완료, PR/팀원 검토 대기 |
 | T4.3.2 후속: 전송·PC ping main 통합 | [T4.3.2-runtime-main-merge.md](T4.3.2-runtime-main-merge.md) | 엔진 | ssunyoung2 | 로컬 병합·검증 완료, PR/팀원 검토 대기 |
+| T4.3.3 라우터 실습 통합 검사·안내 | [T4.3.3-router-lab.md](T4.3.3-router-lab.md) | 엔진, 문서 | ssunyoung2 | 요청 범위 로컬 검증 완료, Switch 포함 예시는 후속 |
 | T5.1.1 VLAN 구성 | [T5.1.1-vlan-config.md](T5.1.1-vlan-config.md) | 엔진, 공통 | SDY | 병합됨 (PR #6, 팀원 검토 없이). `shared` 변경은 팀 확인 필요. 직렬화는 T3.4.1에서 |
 | T5.2.1 access 포트와 VLAN 분리 | [T5.2.1-access-ports.md](T5.2.1-access-ports.md) | 엔진, 공통, 화면 | SDY | 병합됨 (PR #17, 팀원 검토 없이). `shared` 변경은 팀 확인 필요. ping으로 확인하는 부분은 kernel 뒤 |
 | T5.3.1 trunk 포트와 허용 목록 | [T5.3.1-trunk-ports.md](T5.3.1-trunk-ports.md) | 엔진, 화면 | SDY | 병합됨 (PR #18, 팀원 검토 없이). ping으로 확인하는 부분은 kernel 뒤 |
