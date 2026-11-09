@@ -1,5 +1,5 @@
 import { createSimulator } from "@ping9/engine";
-import { TWO_SWITCH_VLAN, twoSwitchVlanDocument } from "@ping9/shared/examples";
+import { TWO_PC, TWO_SWITCH_VLAN, twoPcDocument, twoSwitchVlanDocument } from "@ping9/shared/examples";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -8,6 +8,7 @@ import {
   historyStep,
   initialTerminal,
   received,
+  refreshPrompts,
   runLine,
   showHelp,
   submitted,
@@ -315,5 +316,24 @@ describe("화면 기록", () => {
     });
 
     expect(state.lines).toEqual([{ kind: "notice", text: "VLAN 10이 없어서 새로 만들었어요" }]);
+  });
+});
+
+describe("프롬프트 맞추기 (T0.7)", () => {
+  test("PC의 OS를 바꾸면 명령을 치지 않아도 프롬프트가 바뀐다. 찍힌 입력 줄은 그대로다", async () => {
+    const simulator = createSimulator();
+    simulator.load(twoPcDocument);
+    const port = simulator.console(TWO_PC.pc1.id);
+    const before = await runLine(port, initialTerminal(port.prompt()), "ipconfig");
+    const terminals = { [TWO_PC.pc1.id]: before };
+    const promptOf = (deviceId: string) => simulator.console(deviceId).prompt();
+
+    expect(refreshPrompts(terminals, promptOf)).toBe(terminals);
+
+    simulator.dispatch({ type: "pc/set-os", deviceId: TWO_PC.pc1.id, os: "linux" });
+    const after = refreshPrompts(terminals, promptOf)[TWO_PC.pc1.id]!;
+
+    expect(after.prompt).toBe("PC1$");
+    expect(after.lines[0]).toEqual({ kind: "input", prompt: "PC1>", text: "ipconfig" });
   });
 });

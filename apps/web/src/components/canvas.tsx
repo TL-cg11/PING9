@@ -1,11 +1,12 @@
 // 가운데 캔버스. Document의 장비와 링크를 그린다 (읽기 전용).
 // 노드는 장비 아이콘과 이름이다 (T0.6). 흰 카드는 보이지 않고 클릭 영역으로만 남는다. 캔버스는 자체 상태로 장비 목록을 들고 있지 않다 (AD-4).
 
-import { shortPortName } from "@ping9/shared";
+import { osOf, shortPortName } from "@ping9/shared";
 import type { Device, DeviceKind, Position, TopologyDocument } from "@ping9/shared";
 
 import { linkEnds } from "../format/link-ends";
 import { linkVlan } from "../format/link-vlan";
+import { cidrOf, OS_NAMES } from "../format/pc-address";
 import { vlanColor } from "../format/vlan-color";
 import { nodeKeyAction } from "./canvas-keys";
 import { DeviceIcon } from "./device-icons";
@@ -165,7 +166,9 @@ export function Canvas({
               // 키보드로도 고르고 콘솔을 연다 (T1.6.2, NFR-12). Tab 순서는 Document의 장비 순서다
               tabIndex={0}
               role="button"
-              aria-label={`${device.name}, ${KIND_NAME[device.kind]}, 콘솔 열기`}
+              aria-label={`${device.name}, ${KIND_NAME[device.kind]}, ${
+                device.kind === "pc" ? `${OS_NAMES[osOf(device.config)]}, ` : ""
+              }콘솔 열기`}
               aria-pressed={device.id === selectedDeviceId}
               onClick={() => onSelect(device.id)}
               onDoubleClick={() => onOpenTerminal(device.id)}
@@ -183,13 +186,21 @@ export function Canvas({
               <circle className="halo" cx="40" cy="36" r="46" />
               {/* 키보드 포커스 표시: 아이콘 둘레의 옅은 점선 원. 선택 빛(퍼짐)과 모양이 달라 겹쳐도 구별된다 */}
               <circle className="focus-ring" cx="40" cy="33" r="31" />
-              <DeviceIcon kind={device.kind} x={12} y={-2} width={56} height={56} />
+              <DeviceIcon
+                kind={device.kind}
+                {...(device.kind === "pc" ? { os: osOf(device.config) } : {})}
+                // 56에서 50으로 줄였다. 바닥선(그림의 25.8/32 높이)은 제자리라 이름과의 간격이 그대로다
+                x={15}
+                y={3}
+                width={50}
+                height={50}
+              />
               <text className="lbl" x="40" y="68" textAnchor="middle">
                 {device.name}
               </text>
               {device.kind === "pc" && device.config.ip !== undefined && (
                 <text className="ip" x="40" y="86" textAnchor="middle">
-                  {device.config.ip}
+                  {cidrOf(device.config.ip, device.config.mask)}
                 </text>
               )}
             </g>

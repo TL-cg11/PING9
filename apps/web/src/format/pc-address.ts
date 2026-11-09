@@ -1,8 +1,14 @@
 // PC 설정 패널(T1.5.2)의 판단. 화면 없이 테스트하도록 컴포넌트에서 떼어 냈다.
 // 값 하나의 형식은 CLI 해석기와 같은 shared 함수로 보고, 토폴로지 규칙은 reducer가 본다 (AD-3).
 
-import { checkIpv4, checkMask } from "@ping9/shared";
-import type { Command, DispatchResult, ErrorInfo, Notice, PcConfig } from "@ping9/shared";
+import { checkIpv4, checkMask, maskToPrefixLength, prefixLengthToMask } from "@ping9/shared";
+import type { Command, DispatchResult, ErrorInfo, Notice, OsKind, PcConfig } from "@ping9/shared";
+
+/** 화면에 보일 OS 이름 (T0.7) */
+export const OS_NAMES: Readonly<Record<OsKind, string>> = {
+  windows: "Windows",
+  linux: "Linux",
+};
 
 export const PC_FIELDS = ["ip", "mask", "gateway"] as const;
 export type PcField = (typeof PC_FIELDS)[number];
@@ -25,11 +31,47 @@ export function draftOf(config: PcConfig): PcDraft {
   return { ip: config.ip ?? "", mask: config.mask ?? "", gateway: config.gateway ?? "" };
 }
 
+/**
+ * 마스크 칸에는 `/24`나 `24`처럼 길이만 써도 된다 (T0.7). 마스크로 바꿔 보낸다.
+ * 길이가 0 ~ 32가 아니면 그대로 두어 형식 검사가 틀렸다고 알린다
+ */
+export function normalizeMask(value: string): string {
+  const text = value.trim();
+  const match = /^\/?([0-9]{1,2})$/.exec(text);
+  if (match === null) return text;
+  return prefixLengthToMask(Number(match[1])) ?? text;
+}
+
+/** `10.0.0.1/24`. 마스크를 읽지 못하면 IP만 (T0.7) */
+export function cidrOf(ip: string, mask: string | undefined): string {
+  const length = mask === undefined ? null : maskToPrefixLength(mask);
+  return length === null ? ip : `${ip}/${length}`;
+}
+
+
+/**
+ * IP 칸에 `10.0.20.4/24`처럼 길이까지 쓰면 주소와 마스크로 나눈다 (T0.7). 길이가 마스크 칸보다 앞선다.
+ * 길이가 0 ~ 32가 아니면 나누지 않아 IP 칸의 형식 오류가 된다
+ */
+function splitIpField(ip: string, mask: string): { ip: string; mask: string } {
+  const match = /^(.*)\/([0-9]{1,2})$/.exec(ip);
+  if (match === null) return { ip, mask };
+  const fromLength = prefixLengthToMask(Number(match[2]));
+  return fromLength === null ? { ip, mask } : { ip: (match[1] ?? "").trim(), mask: fromLength };
+}
+
 const trimmed = (draft: PcDraft): PcDraft => ({
-  ip: draft.ip.trim(),
-  mask: draft.mask.trim(),
+  ...splitIpField(draft.ip.trim(), normalizeMask(draft.mask)),
   gateway: draft.gateway.trim(),
 });
+
+/** 마스크 칸 옆에 보일 `/24`. IP 칸에 길이가 있으면 그것. 마스크가 비었거나 틀렸으면 null */
+export function prefixLabel(draft: PcDraft): string | null {
+  const normalized = trimmed(draft).mask;
+  if (normalized === "" || checkMask(normalized) !== null) return null;
+  const length = maskToPrefixLength(normalized);
+  return length === null ? null : `/${length}`;
+}
 
 /** 칸마다 형식을 본다. 빈 칸은 보지 않는다. 여러 칸이 틀리면 모두 돌려준다 */
 export function checkDraft(draft: PcDraft): FieldErrors {

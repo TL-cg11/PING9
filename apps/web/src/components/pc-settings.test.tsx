@@ -6,7 +6,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { Inspector } from "./inspector";
-import { PcSettingsView } from "./pc-settings";
+import { OsChoice, PcSettingsView } from "./pc-settings";
 import type { PcSettingsViewProps } from "./pc-settings";
 
 const { pc1, pc2, mask } = TWO_PC;
@@ -52,6 +52,18 @@ describe("속성 패널의 PC 구역", () => {
     expect(html).toMatch(/<label[^>]*>서브넷 마스크<\/label><input[^>]*value="255\.255\.255\.0"/);
     expect(html).toMatch(/<label[^>]*>기본 게이트웨이<\/label><input[^>]*value=""/);
     expect(html).toContain('<button type="submit" class="apply">적용</button>');
+  });
+
+  test("OS 고르기가 있고, OS 칸이 없는 PC는 Windows가 골라져 있다 (T0.7)", () => {
+    const html = inspect(twoPcDocument, pc1.id);
+
+    expect(html).toContain("<legend>OS</legend>");
+    expect(html).toMatch(/<input type="radio"[^>]*checked=""[^>]*value="windows"/);
+    expect(html).not.toMatch(/<input type="radio"[^>]*checked=""[^>]*value="linux"/);
+  });
+
+  test("마스크 칸 옆에 길이를 보인다 (T0.7)", () => {
+    expect(inspect(twoPcDocument, pc1.id)).toContain('<span class="prefix">/24</span>');
   });
 
   test("Switch에는 없다", () => {
@@ -116,5 +128,30 @@ describe("PcSettingsView", () => {
 
     expect(html).not.toContain("<b>");
     expect(html).toContain("&lt;b&gt;x&lt;/b&gt;");
+  });
+});
+
+describe("OsChoice (T0.7)", () => {
+  test("Windows와 Linux 라디오 버튼 둘이 같은 묶음이고 고른 것만 checked", () => {
+    const html = text(<OsChoice os="linux" onChange={() => {}} />);
+
+    expect(html.match(/type="radio"/g)).toHaveLength(2);
+    const names = [...html.matchAll(/name="([^"]+)"/g)].map((match) => match[1]);
+    expect(new Set(names).size).toBe(1);
+    expect(html).toMatch(/checked="" value="linux"/);
+    expect(html).not.toMatch(/checked="" value="windows"/);
+    expect(html).toContain("Windows");
+    expect(html).toContain("Linux");
+  });
+});
+
+describe("마스크 칸의 길이 표시 (T0.7)", () => {
+  test("길이로 써도 /24를 보인다", () => {
+    expect(view({ draft: { ip: "", mask: "24", gateway: "" } })).toContain('<span class="prefix">/24</span>');
+  });
+
+  test("비었거나 틀렸으면 없다", () => {
+    expect(view({})).not.toContain('class="prefix"');
+    expect(view({ draft: { ip: "", mask: "255.0.255.0", gateway: "" } })).not.toContain('class="prefix"');
   });
 });

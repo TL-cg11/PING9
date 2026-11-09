@@ -2,7 +2,17 @@ import { createSimulator } from "@ping9/engine";
 import { TWO_PC, twoPcDocument } from "@ping9/shared/examples";
 import { describe, expect, test } from "vitest";
 
-import { applyDraft, checkDraft, commandFor, draftOf, fieldOfError, sameAsConfig } from "./pc-address";
+import {
+  applyDraft,
+  checkDraft,
+  cidrOf,
+  commandFor,
+  draftOf,
+  fieldOfError,
+  normalizeMask,
+  prefixLabel,
+  sameAsConfig,
+} from "./pc-address";
 import type { PcDraft } from "./pc-address";
 
 const { pc1, pc2, mask } = TWO_PC;
@@ -156,5 +166,102 @@ describe("applyDraft (Simulator와 함께)", () => {
 
     expect(applyDraft(pc1.id, config(), draft("", "", ""), simulator.dispatch)).toEqual({ kind: "applied", notices: [] });
     expect(config()).toEqual({});
+  });
+});
+
+describe("마스크 칸의 길이 입력 (T0.7)", () => {
+  test.each([
+    ["/24", "255.255.255.0"],
+    ["24", "255.255.255.0"],
+    [" /30 ", "255.255.255.252"],
+    ["/0", "0.0.0.0"],
+    ["255.255.0.0", "255.255.0.0"],
+    ["/33", "/33"],
+    ["abc", "abc"],
+  ])("normalizeMask(%j) → %j", (input, output) => {
+    expect(normalizeMask(input)).toBe(output);
+  });
+
+  test("길이로 쓴 마스크는 형식 오류가 아니고, 마스크로 바꿔 보낸다", () => {
+    const draft = { ip: "10.0.0.1", mask: "/24", gateway: "" };
+    expect(checkDraft(draft)).toEqual({});
+    expect(commandFor("d", draft)).toMatchObject({ mask: "255.255.255.0" });
+  });
+
+  test("범위 밖 길이는 마스크 형식 오류", () => {
+    expect(checkDraft({ ip: "10.0.0.1", mask: "/33", gateway: "" }).mask?.code).toBe("INVALID_MASK");
+  });
+
+  test("지금 마스크와 같은 길이면 바뀐 것이 없다", () => {
+    expect(sameAsConfig({ ip: "10.0.0.1", mask: "24", gateway: "" }, { ip: "10.0.0.1", mask: "255.255.255.0" })).toBe(
+      true,
+    );
+  });
+});
+
+describe("CIDR 표시 (T0.7)", () => {
+  test.each([
+    ["10.0.0.1", "255.255.255.0", "10.0.0.1/24"],
+    ["10.0.0.1", "255.255.255.252", "10.0.0.1/30"],
+    ["10.0.0.1", "255.0.255.0", "10.0.0.1"],
+    ["10.0.0.1", undefined, "10.0.0.1"],
+  ])("cidrOf(%s, %s) → %s", (ip, mask, output) => {
+    expect(cidrOf(ip, mask)).toBe(output);
+  });
+
+  test.each([
+    ["255.255.255.0", "/24"],
+    ["/16", "/16"],
+    ["", null],
+    ["255.0.255.0", null],
+    ["255.255", null],
+  ])("prefixLabel(마스크 %j) → %j", (mask, label) => {
+    expect(prefixLabel({ ip: "", mask, gateway: "" })).toBe(label);
+  });
+
+  test("IP 칸에 길이가 있으면 그것을 보인다", () => {
+    expect(prefixLabel({ ip: "10.0.20.4/30", mask: "255.255.255.0", gateway: "" })).toBe("/30");
+  });
+});
+
+describe("IP 칸의 길이 입력 (T0.7)", () => {
+  test("10.0.20.4/24는 주소와 마스크로 나눠 보낸다. 형식 오류가 아니다", () => {
+    const draft = { ip: "10.0.20.4/24", mask: "", gateway: "" };
+    expect(checkDraft(draft)).toEqual({});
+    expect(commandFor("d", draft)).toMatchObject({ ip: "10.0.20.4", mask: "255.255.255.0" });
+  });
+
+  test("IP 칸의 길이가 마스크 칸보다 앞선다", () => {
+    expect(commandFor("d", { ip: "10.0.20.4/30", mask: "255.255.0.0", gateway: "" })).toMatchObject({
+      mask: "255.255.255.252",
+    });
+  });
+
+  test("범위 밖 길이는 IP 칸의 형식 오류", () => {
+    expect(checkDraft({ ip: "10.0.20.4/40", mask: "", gateway: "" }).ip?.code).toBe("INVALID_IPV4");
+  });
+
+  test("지금 구성과 같으면 바뀐 것이 없다", () => {
+    expect(sameAsConfig({ ip: "10.0.20.4/24", mask: "", gateway: "" }, { ip: "10.0.20.4", mask: "255.255.255.0" })).toBe(
+      true,
+    );
+  });
+
+  test("Simulator에 적용하면 주소와 마스크가 들어간다", () => {
+    const simulator = createSimulator();
+    simulator.load(twoPcDocument);
+    const pc = twoPcDocument.devices.find((device) => device.id === TWO_PC.pc1.id)!;
+    const outcome = applyDraft(
+      pc.id,
+      pc.kind === "pc" ? pc.config : {},
+      { ip: "10.0.20.4/24", mask: "", gateway: "" },
+      (command) => simulator.dispatch(command),
+    );
+
+    expect(outcome.kind).toBe("applied");
+    expect(simulator.getSnapshot().document.devices.find((device) => device.id === pc.id)?.config).toEqual({
+      ip: "10.0.20.4",
+      mask: "255.255.255.0",
+    });
   });
 });

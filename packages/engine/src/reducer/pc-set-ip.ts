@@ -75,7 +75,8 @@ export function setPcIp(
     return fail(errorInfo("INVALID_IPV4", { value: echo(command.gateway) }));
   }
 
-  let config: PcConfig;
+  // IP 구성만 바꾼다. OS(T0.7)는 IP와 상관없이 그대로 둔다
+  let address: PcConfig;
   const notices: Notice[] = [];
 
   if (ip === null) {
@@ -83,7 +84,7 @@ export function setPcIp(
     if (mask !== null || gateway !== null) {
       return fail(errorInfo("PC_ADDRESS_INCOMPLETE", { deviceId: device.id, missing: "ip" }));
     }
-    config = {};
+    address = {};
   } else {
     if (mask === null) {
       return fail(errorInfo("PC_ADDRESS_INCOMPLETE", { deviceId: device.id, missing: "mask" }));
@@ -98,7 +99,7 @@ export function setPcIp(
     }
 
     // 비운 칸은 키를 지운다. 스키마는 값이 없는 칸을 키가 없는 것으로만 받는다
-    config = gateway === null ? { ip, mask } : { ip, mask, gateway };
+    address = gateway === null ? { ip, mask } : { ip, mask, gateway };
 
     // 같은 IP를 쓰는 다른 장비가 있어도 설정은 반영하고 알리기만 한다 (FR-27).
     // Document에 나오는 순서대로 담아 결과가 매번 같다 (AD-5)
@@ -107,6 +108,8 @@ export function setPcIp(
       .map((other) => ({ deviceId: other.id, deviceName: other.name }));
     if (others.length > 0) notices.push({ code: "DUPLICATE_IP", params: { ip, others } });
   }
+
+  const config: PcConfig = device.config.os === undefined ? address : { ...address, os: device.config.os };
 
   // 받은 Document는 고치지 않고 새 객체를 만든다
   return {

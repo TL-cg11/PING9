@@ -37,6 +37,29 @@ describe("device/add", () => {
     expect(validateDocument(simulator.getSnapshot().document).ok).toBe(true);
   });
 
+  test("PC는 고른 OS로 만들고, 고르지 않으면 os 칸이 없다 (T0.7)", () => {
+    const simulator = createSimulator();
+    expect(simulator.dispatch(command({ kind: "pc", os: "linux" })).ok).toBe(true);
+    expect(simulator.dispatch(command({ kind: "pc", id: id(101), os: "windows" })).ok).toBe(true);
+    expect(simulator.dispatch(command({ kind: "pc", id: id(102) })).ok).toBe(true);
+    const configs = simulator.getSnapshot().document.devices.map(device => device.config);
+    expect(configs).toEqual([{ os: "linux" }, { os: "windows" }, {}]);
+    expect(simulator.console(id(100)).prompt()).toBe("PC1$");
+    expect(simulator.console(id(101)).prompt()).toBe("PC2>");
+  });
+
+  test.each([
+    ["없는 OS", { kind: "pc", os: "macos" }],
+    ["PC가 아닌 장비", { kind: "switch", os: "linux" }],
+  ])("os가 잘못되면 거부하고 문서는 그대로다: %s", (_, fields) => {
+    const simulator = createSimulator();
+    const before = simulator.getSnapshot();
+    expect(simulator.dispatch(command(fields))).toMatchObject({
+      ok: false, error: { code: "DOCUMENT_INVALID_SHAPE", params: { path: "os" } },
+    });
+    expect(simulator.getSnapshot()).toBe(before);
+  });
+
   test("종류와 관계없이 사용 중인 이름은 피하고 다음 번호를 붙인다", () => {
     const simulator = createSimulator();
     const document: TopologyDocument = {
