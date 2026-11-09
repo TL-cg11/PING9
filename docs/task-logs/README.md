@@ -30,6 +30,7 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T1.3.2 후속: 실습 확대·축소 버튼 | [T1.3.2-canvas-zoom.md](T1.3.2-canvas-zoom.md) | 화면 | ssunyoung2 | 로컬 구현·검증 완료, PR/팀원 검토 대기 |
 | T1.8.1 ARP 모듈 | [T1.8.1-arp.md](T1.8.1-arp.md) | 엔진 | yysong1249 | 검토 대기. T1.7.2(링크 전달) 없이 가짜 `transmit`으로 검증 |
 | T1.8.2 IPv4 호스트 처리와 ICMP echo | [T1.8.2-ipv4-icmp.md](T1.8.2-ipv4-icmp.md) | 엔진 | yysong1249 | 검토 대기 (PR #32). T1.8.1(PR #30) 위에서. 가짜 `transmit`으로 검증 |
+| T1.8.3 PC 모델과 `ping` 명령어 | [T1.8.3-pc-ping.md](T1.8.3-pc-ping.md) | 엔진 | yysong1249 | 검토 대기 ([PR #34](https://github.com/TL-cg11/PING9/pull/34)). T1.7.2(PR #33) 위에서 |
 | T1.4.1 링크 생성·삭제 명령 | [T1.4.1-link-commands.md](T1.4.1-link-commands.md) | 엔진 | ssunyoung2 | 문서 명령 로컬 검증 완료. 런타임 훅과 PR 검토 남음 |
 | T1.4.2 케이블 연결·선택·삭제 화면 | [T1.4.2-link-editor.md](T1.4.2-link-editor.md) | 화면 | ssunyoung2 | 선택 창 연결/삭제 로컬 검증 완료. 드래그 연결과 PR 검토 남음 |
 | T1.5.1 reducer `pc/set-ip` | [T1.5.1-pc-set-ip.md](T1.5.1-pc-set-ip.md) | 엔진 | yysong1249 | 완료 (PR #3, SDY가 병합). 오류에 값을 담는 함수는 T5.1.1에서 `describeValue`로 맞춤 (담당자 확인함) |
@@ -52,9 +53,11 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T4.1.3 직접 연결 라우팅 테이블 | [T4.1.3-connected-routes.md](T4.1.3-connected-routes.md) | 엔진, 공통 | ssunyoung2 | 구현·개별 검증 완료, PR/팀원 검토 대기 |
 | T4.3.1 정적 경로 설정과 활성화 | [T4.3.1-static-routes.md](T4.3.1-static-routes.md) | 엔진, 공통 | ssunyoung2 | 구현·개별 검증 완료, PR/팀원 검토 대기 |
 | T4.3.2 목적지 경로 선택 | [T4.3.2-route-lookup.md](T4.3.2-route-lookup.md) | 엔진 | ssunyoung2 | 로컬 구현·전체 검증 완료, PR/팀원 검토 대기 |
+| T4.3.2 후속: 전송·PC ping main 통합 | [T4.3.2-runtime-main-merge.md](T4.3.2-runtime-main-merge.md) | 엔진 | ssunyoung2 | 로컬 병합·검증 완료, PR/팀원 검토 대기 |
 | T5.1.1 VLAN 구성 | [T5.1.1-vlan-config.md](T5.1.1-vlan-config.md) | 엔진, 공통 | SDY | 병합됨 (PR #6, 팀원 검토 없이). `shared` 변경은 팀 확인 필요. 직렬화는 T3.4.1에서 |
 | T5.2.1 access 포트와 VLAN 분리 | [T5.2.1-access-ports.md](T5.2.1-access-ports.md) | 엔진, 공통, 화면 | SDY | 병합됨 (PR #17, 팀원 검토 없이). `shared` 변경은 팀 확인 필요. ping으로 확인하는 부분은 kernel 뒤 |
 | T5.3.1 trunk 포트와 허용 목록 | [T5.3.1-trunk-ports.md](T5.3.1-trunk-ports.md) | 엔진, 화면 | SDY | 병합됨 (PR #18, 팀원 검토 없이). ping으로 확인하는 부분은 kernel 뒤 |
 | T5.3.2 `show interfaces trunk` | [T5.3.2-show-interfaces-trunk.md](T5.3.2-show-interfaces-trunk.md) | 엔진 | SDY | 병합됨 (PR #19, 팀원 검토 없이) |
 | T5.4.1 Switch 화면 (계획에 없는 새 ID) | [T5.4.1-switch-screen.md](T5.4.1-switch-screen.md) | 화면 | SDY | 병합됨 (PR #7, 팀원 검토 없이). 운영 첫 화면은 T0.5에서 바꿈 |
 | T1.7.3 Switch의 전달 규칙 (kernel 없이 되는 부분) | [T1.7.3-switch-forwarding.md](T1.7.3-switch-forwarding.md) | 엔진 | SDY | 일부 병합됨 (PR #16, 팀원 검토 없이). kernel 연결 남음 |
+| T1.7.2 Ethernet 포트와 링크 전달 | [T1.7.2-link-transfer.md](T1.7.2-link-transfer.md) | 엔진 | SDY | 병합됨 ([PR #33](https://github.com/TL-cg11/PING9/pull/33), 팀원 검토 없이) |

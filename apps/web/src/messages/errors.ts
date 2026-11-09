@@ -72,6 +72,13 @@ export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsBy
   CLI_INVALID_VALUE: ({ token }) => `이 자리에 쓸 수 없는 값이에요: ${token}`,
   CLI_WRONG_MODE: ({ token }) => `이 모드에서는 쓸 수 없는 명령어예요: ${token}`,
   CLI_LINE_TOO_LONG: ({ limit }) => `한 줄은 ${limit}자까지 입력할 수 있어요`,
+
+  // ping
+  PING_BROADCAST_UNSUPPORTED: ({ ip }) => `브로드캐스트 주소로는 ping할 수 없어요: ${ip}`,
+  PING_COUNT_OUT_OF_RANGE: ({ value, min, max }) => `횟수는 ${min}~${max}여야 해요: ${value}`,
+  // Switch, Router 모두 받침이 없어 "를"이다
+  PING_DEVICE_UNSUPPORTED: ({ kind, deviceName }) =>
+    `${KIND_NAMES[kind]}(${deviceName})를 지나는 ping은 아직 지원하지 않아요`,
 };
 
 export function formatError(error: ErrorInfo): string {

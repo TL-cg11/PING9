@@ -11,6 +11,9 @@ import type {
   ErrorInfo,
   TopologyDocument,
 } from "@ping9/shared";
+import type { ArpEntryView } from "@ping9/shared";
+
+import type { PingRequest, PingRun } from "../../runtime";
 
 export type CliMode = "user" | "privileged" | "config" | "config-if" | "config-vlan";
 
@@ -68,6 +71,19 @@ export interface CommandContext {
   readonly session: CliSession;
   /** Document를 바꾸는 길은 이것 하나다 (AD-3) */
   dispatch(command: Command): DispatchResult;
+  /** Document가 아닌 동적 상태(ping, ARP 테이블). Simulator가 채운다. 없으면 그 명령어는 실행할 수 없다 */
+  readonly runtime?: RuntimeAccess;
+}
+
+/**
+ * 명령어가 Runtime에서 쓰는 것 (T1.8.3). `ping`과 `arp -d`는 Document를 바꾸지 않고 Runtime만 바꾼다
+ * (03 문서: Command가 아니라 ConsolePort.exec로)
+ */
+export interface RuntimeAccess {
+  ping(request: PingRequest): PingRun;
+  arpTable(deviceId: string): readonly ArpEntryView[];
+  /** IP를 주면 그 항목만. 지운 것이 있으면 true */
+  clearArp(deviceId: string, ip?: string): boolean;
 }
 
 export interface CommandOutcome {

@@ -305,12 +305,13 @@ describe("console", () => {
     await expect(port.exec("   ")).resolves.toEqual({ lines: [], prompt: "PC1>" });
   });
 
-  test("명령 트리가 아직 없어 모든 명령어가 알 수 없는 명령어이고, 틀린 단어의 위치를 담는다", async () => {
+  test("없는 명령어는 알 수 없는 명령어이고, 틀린 단어의 위치를 담는다", async () => {
     const simulator = createSimulator();
     simulator.load(twoPcDocument);
 
-    await expect(simulator.console(TWO_PC.pc1.id).exec("  ping 192.168.1.2")).resolves.toEqual({
-      lines: [{ kind: "error", code: "CLI_UNKNOWN_COMMAND", params: { token: "ping" }, position: 2 }],
+    // ping은 T1.8.3에서 생겼다. tracert는 아직 없다
+    await expect(simulator.console(TWO_PC.pc1.id).exec("  tracert 192.168.1.2")).resolves.toEqual({
+      lines: [{ kind: "error", code: "CLI_UNKNOWN_COMMAND", params: { token: "tracert" }, position: 2 }],
       prompt: "PC1>",
     });
   });
