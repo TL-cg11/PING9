@@ -1,8 +1,8 @@
 // T1.8.3: ping과 ARP 명령어의 OS별 출력. 입력만으로 줄이 정해지는 순수 함수다.
 // Windows 형식은 예시 `twoPcPingConsoleResult`와 글자 하나까지 같다.
-// 실제 OS의 왕복 시간 요약 줄(Windows `Approximate round trip times…`, Linux `rtt min/avg/max/mdev`,
-// 통계 끝의 `, time 3004ms`)은 넣지 않는다 (설계 10절 4).
+// 통계 줄은 shared의 `pingStatisticsLines`가 만든다. web이 Ctrl+C로 멈춘 뒤에도 같은 줄을 만들어야 해서다.
 
+import { pingStatisticsLines } from "@ping9/shared";
 import type { ArpEntryView, ConsoleLine, OsKind } from "@ping9/shared";
 
 import type { PingRound } from "../../runtime";
@@ -29,47 +29,18 @@ export function linuxTime(timeUs: number): string {
   return `0.${String(timeUs).padStart(3, "0")}`;
 }
 
-/** C의 `%g`처럼 유효 숫자 여섯 자리. 33.3333, 25, 0 */
-function percentG(value: number): string {
-  return String(Number(value.toPrecision(6)));
-}
-
-function windowsStatistics(targetIp: string, sent: number, received: number): ConsoleLine[] {
-  const lost = sent - received;
-  // Windows는 정수 나눗셈으로 버린다
-  const loss = Math.floor((lost * 100) / sent);
-  return [
-    text(""),
-    text(`Ping statistics for ${targetIp}:`),
-    text(`    Packets: Sent = ${sent}, Received = ${received}, Lost = ${lost} (${loss}% loss)`),
-  ];
-}
-
-function linuxStatistics(targetIp: string, sent: number, received: number, errors: number): ConsoleLine[] {
-  const loss = percentG(((sent - received) * 100) / sent);
-  const errorPart = errors > 0 ? `+${errors} errors, ` : "";
-  return [
-    text(""),
-    text(`--- ${targetIp} ping statistics ---`),
-    text(`${sent} packets transmitted, ${received} received, ${errorPart}${loss}% packet loss`),
-  ];
-}
-
 /**
  * Windows `ping`. `ownIp`는 출발 PC의 주소다 (ARP 실패 줄).
  * ARP 실패(`Destination host unreachable.`)는 실제 Windows처럼 "받음"으로 센다 (설계 10절 5)
  */
 export function windowsPingLines(targetIp: string, ownIp: string | undefined, rounds: readonly PingRound[]): ConsoleLine[] {
   const lines: ConsoleLine[] = [text(`Pinging ${targetIp} with 32 bytes of data:`)];
-  let received = 0;
   for (const round of rounds) {
     switch (round.kind) {
       case "reply":
-        received += 1;
         lines.push(text(`Reply from ${targetIp}: bytes=32 ${windowsTime(round.timeUs)} TTL=${round.ttl}`));
         break;
       case "unreachable":
-        received += 1;
         lines.push(text(`Reply from ${ownIp ?? targetIp}: Destination host unreachable.`));
         break;
       case "timeout":
@@ -81,7 +52,7 @@ export function windowsPingLines(targetIp: string, ownIp: string | undefined, ro
     }
     lines.push(traceLine(round.traceId));
   }
-  return [...lines, ...windowsStatistics(targetIp, rounds.length, received)];
+  return [...lines, ...pingStatisticsLines("windows", targetIp, rounds.map((round) => round.kind))];
 }
 
 /**
@@ -95,18 +66,14 @@ export function linuxPingLines(targetIp: string, ownIp: string | undefined, roun
   }
 
   const lines: ConsoleLine[] = [text(`PING ${targetIp} (${targetIp}) 56(84) bytes of data.`)];
-  let received = 0;
-  let errors = 0;
   for (const round of rounds) {
     switch (round.kind) {
       case "reply":
-        received += 1;
         lines.push(text(
           `64 bytes from ${targetIp}: icmp_seq=${round.sequence} ttl=${round.ttl} time=${linuxTime(round.timeUs)} ms`,
         ));
         break;
       case "unreachable":
-        errors += 1;
         lines.push(text(`From ${ownIp ?? targetIp} icmp_seq=${round.sequence} Destination Host Unreachable`));
         break;
       case "timeout":
@@ -118,7 +85,7 @@ export function linuxPingLines(targetIp: string, ownIp: string | undefined, roun
     }
     lines.push(traceLine(round.traceId));
   }
-  return [...lines, ...linuxStatistics(targetIp, rounds.length, received, errors)];
+  return [...lines, ...pingStatisticsLines("linux", targetIp, rounds.map((round) => round.kind))];
 }
 
 /** 자기 주소(또는 127.x)로 ping. 링크를 지나지 않아 추적이 없다 (설계 10절 2) */
@@ -130,13 +97,13 @@ export function loopbackPingLines(os: OsKind, targetIp: string, count: number, t
       ...rounds.map((sequence) =>
         text(`64 bytes from ${targetIp}: icmp_seq=${sequence} ttl=${ttl} time=${linuxTime(LOOPBACK_TIME_US)} ms`),
       ),
-      ...linuxStatistics(targetIp, count, count, 0),
+      ...pingStatisticsLines("linux", targetIp, rounds.map(() => "reply" as const)),
     ];
   }
   return [
     text(`Pinging ${targetIp} with 32 bytes of data:`),
     ...rounds.map(() => text(`Reply from ${targetIp}: bytes=32 ${windowsTime(LOOPBACK_TIME_US)} TTL=${ttl}`)),
-    ...windowsStatistics(targetIp, count, count),
+    ...pingStatisticsLines("windows", targetIp, rounds.map(() => "reply" as const)),
   ];
 }
 

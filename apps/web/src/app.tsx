@@ -1,7 +1,7 @@
 // 편집기 화면. 배치는 화면 시안을 따른다: 상단 막대, 왼쪽 장비 목록, 가운데 캔버스, 오른쪽 속성 패널.
 // 화면이 가진 상태는 선택, 열린 터미널, 터미널의 화면 기록뿐이다. 나머지는 engine의 스냅샷에서 읽는다 (AD-4).
 
-import { shortPortName } from "@ping9/shared";
+import { osOf, pingRoundKind, shortPortName } from "@ping9/shared";
 import type { DeviceKind, ErrorInfo, PortRef, Position } from "@ping9/shared";
 import { useEffect, useReducer, useRef, useState } from "react";
 
@@ -18,7 +18,7 @@ import { availablePorts } from "./format/available-ports";
 import { formatError } from "./messages/errors";
 import { TOPOLOGY_NAME, simulator, useSnapshot } from "./simulator";
 import { createCommandQueue } from "./terminal/command-queue";
-import { completed, historyStep, initialTerminal, refreshPrompts, runLine, showHelp } from "./terminal/terminal-state";
+import { completed, historyStep, initialTerminal, refreshPrompts, runLinePaced, showHelp } from "./terminal/terminal-state";
 import type { TerminalState } from "./terminal/terminal-state";
 import { INITIAL_UI_STATE, uiReducer } from "./ui-state";
 
@@ -166,13 +166,66 @@ export function App() {
     focusTerminalInput(deviceId);
   };
 
+  // 회차를 하나씩 보이는 중인 터미널. Ctrl+C가 이것을 멈춘다 (T1.8.3)
+  const running = useRef(new Map<string, AbortController>());
+  // 회차를 보이는 중인 장비. 그동안 입력 줄을 숨긴다
+  const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
+  const setBusyFor = (deviceId: string, value: boolean) =>
+    setBusy((current) => {
+      if (current.has(deviceId) === value) return current;
+      const next = new Set(current);
+      if (value) next.add(deviceId);
+      else next.delete(deviceId);
+      return next;
+    });
+
   const submit = (deviceId: string, input: string) => {
     void queue.enqueue(deviceId, async () => {
       const state = latest.current[deviceId];
       if (state === undefined) return;
-      const next = await runLine(simulator.console(deviceId), state, input);
-      updateTerminals((current) => ({ ...current, [deviceId]: next }));
+      const controller = new AbortController();
+      running.current.set(deviceId, controller);
+      const update = (next: TerminalState) => updateTerminals((current) => ({ ...current, [deviceId]: next }));
+      // 회차를 하나씩 보일 때만 불린다. 바로 끝나는 명령어는 입력 줄이 깜빡이지 않는다
+      const show = (next: TerminalState) => {
+        setBusyFor(deviceId, true);
+        update(next);
+      };
+      const device = simulator.getSnapshot().document.devices.find((candidate) => candidate.id === deviceId);
+      try {
+        const next = await runLinePaced(simulator.console(deviceId), state, input, {
+          show,
+          wait: (ms) =>
+            new Promise((resolve) => {
+              if (controller.signal.aborted) return resolve(false);
+              const timer = setTimeout(() => resolve(true), ms);
+              controller.signal.addEventListener("abort", () => {
+                clearTimeout(timer);
+                resolve(false);
+              });
+            }),
+          kindOf: (traceId, sequence) => {
+            const trace = simulator.getTrace(traceId);
+            return trace === undefined ? "reply" : pingRoundKind(trace, deviceId, sequence);
+          },
+          targetOf: (traceId) =>
+            simulator.getSnapshot().traces.find((summary) => summary.id === traceId)?.targetIp ?? "",
+          os: device?.kind === "pc" ? osOf(device.config) : "windows",
+        });
+        update(next);
+      } finally {
+        running.current.delete(deviceId);
+        setBusyFor(deviceId, false);
+      }
     });
+  };
+
+  /** Ctrl+C. 회차를 보이는 중이면 멈추고 true */
+  const interrupt = (deviceId: string): boolean => {
+    const controller = running.current.get(deviceId);
+    if (controller === undefined || controller.signal.aborted) return false;
+    controller.abort();
+    return true;
   };
 
   const stepHistory = (deviceId: string, direction: "up" | "down"): string => {
@@ -237,6 +290,7 @@ export function App() {
                 deviceName={device.name}
                 kindLabel={KIND_LABEL[device.kind]}
                 state={state}
+                busy={busy.has(placement.deviceId)}
                 placement={placement}
                 zIndex={TERMINAL_Z + index}
                 onSubmit={(input) => submit(placement.deviceId, input)}
@@ -244,6 +298,7 @@ export function App() {
                 onComplete={(input) => complete(placement.deviceId, input)}
                 onHelp={(input) => help(placement.deviceId, input)}
                 onLeave={() => focusCanvasNode(placement.deviceId)}
+                onInterrupt={() => interrupt(placement.deviceId)}
                 onClose={() => dispatch({ type: "close-terminal", deviceId: placement.deviceId })}
                 onFocus={() => dispatch({ type: "focus-terminal", deviceId: placement.deviceId })}
                 onMove={(x, y) => dispatch({ type: "move-terminal", deviceId: placement.deviceId, x, y })}

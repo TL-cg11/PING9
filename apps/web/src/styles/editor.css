@@ -160,6 +160,7 @@ button { font: inherit; cursor: pointer; }
 .term-body .err { color: #FF9EA1; }
 .term-body .dim { color: #8FA3C8; }
 .term-in { display: flex; gap: 6px; }
+.term-in.busy { height: 0; overflow: hidden; opacity: 0; }
 .term-in input { flex: 1; background: transparent; border: none; outline: none; color: #fff; font: inherit; caret-color: var(--cyan); }
 
 /* inspector */

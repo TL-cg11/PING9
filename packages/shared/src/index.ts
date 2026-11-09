@@ -6,6 +6,7 @@ export * from "./command";
 export * from "./console";
 export * from "./document";
 export * from "./limits";
+export * from "./ping";
 export * from "./port-name";
 export * from "./router-config";
 export * from "./switch-config";
