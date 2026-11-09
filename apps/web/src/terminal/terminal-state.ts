@@ -4,10 +4,11 @@
 
 import type { ConsolePort } from "@ping9/engine";
 import { LIMITS } from "@ping9/shared";
-import type { ConsoleResult } from "@ping9/shared";
+import type { ConsoleResult, OsKind, PingRoundKind } from "@ping9/shared";
 
 import { formatError } from "../messages/errors";
 import { formatNotice } from "../messages/notices";
+import { interruptedLines, pacePing } from "./ping-pacing";
 
 export type TerminalLine =
   /** 사용자가 입력한 줄. 그때의 프롬프트와 함께 남긴다 */
@@ -165,4 +166,54 @@ export async function runLine(port: ConsolePort, state: TerminalState, input: st
   const line = cleanInput(input);
   const echoed = submitted(state, line);
   return received(echoed, await port.exec(line));
+}
+
+/** 회차를 하나씩 보이는 데 필요한 것. 시계와 engine 조회를 밖에서 받아 테스트할 수 있게 한다 */
+export interface PacedRun {
+  /** 줄이 더해질 때마다 부른다 */
+  show(state: TerminalState): void;
+  /** `ms`만큼 기다린다. 그 사이 Ctrl+C로 멈추면 false */
+  wait(ms: number): Promise<boolean>;
+  /** 그 회차 추적의 결과 종류 */
+  kindOf(traceId: number, sequence: number): PingRoundKind;
+  /** 그 추적의 목적지 IP */
+  targetOf(traceId: number): string;
+  /** 통계 줄의 형식 */
+  readonly os: OsKind;
+}
+
+/**
+ * 한 줄을 실행하고, ping처럼 회차가 있는 결과는 실제처럼 회차마다 시간을 두고 보인다 (T1.8.3).
+ * 결과는 engine이 이미 다 계산했다. Ctrl+C로 멈추면 남은 회차를 숨기고 그때까지의 통계를 보인다.
+ * 숨긴 회차의 추적은 engine에 그대로 남는다
+ */
+export async function runLinePaced(
+  port: ConsolePort,
+  state: TerminalState,
+  input: string,
+  run: PacedRun,
+): Promise<TerminalState> {
+  const line = cleanInput(input);
+  const echoed = submitted(state, line);
+  const result = await port.exec(line);
+  const paced = pacePing(result, run.kindOf);
+  if (paced.rounds.length === 0) return received(echoed, result);
+
+  const append = (current: TerminalState, lines: ConsoleResult["lines"]) =>
+    received(current, { lines, prompt: result.prompt });
+  let current = append(echoed, paced.head);
+  run.show(current);
+
+  const shown: PingRoundKind[] = [];
+  for (const round of paced.rounds) {
+    if (round.waitMs > 0 && !(await run.wait(round.waitMs))) {
+      const first = paced.rounds[0]!.lines.at(-1);
+      const targetIp = first?.kind === "trace" ? run.targetOf(first.traceId) : "";
+      return append(current, interruptedLines(run.os, targetIp, shown, round.kind));
+    }
+    current = append(current, round.lines);
+    shown.push(round.kind);
+    run.show(current);
+  }
+  return append(current, paced.tail);
 }

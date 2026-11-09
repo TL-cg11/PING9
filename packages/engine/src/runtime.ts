@@ -2,7 +2,7 @@
 // Document는 Simulator가 들고 있고, Runtime은 매번 getDocument()로 읽는다.
 // 지금은 PC 모델만 있다. Switch 모델은 T1.7.3, Router 모델은 E4에서 더한다.
 
-import { LIMITS } from "@ping9/shared";
+import { LIMITS, pingRoundKind } from "@ping9/shared";
 import type {
   ArpEntryView,
   DeviceKind,
@@ -10,7 +10,6 @@ import type {
   ErrorInfo,
   TopologyDocument,
   Trace,
-  TraceEvent,
   TraceSummary,
 } from "@ping9/shared";
 import { errorInfo } from "@ping9/shared";
@@ -239,27 +238,16 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
   };
 }
 
-/** Trace에서 그 회차의 결과를 읽는다. 시간과 TTL은 받은 응답 이벤트의 값이다 */
+/** Trace에서 그 회차의 결과를 읽는다. 종류는 shared의 규칙(web과 같음), 시간과 TTL은 받은 응답 이벤트의 값이다 */
 function roundOf(trace: Trace, sourceId: string, sequence: number): PingRound {
   const traceId = trace.id;
-  const atSource = (event: TraceEvent) => event.deviceId === sourceId;
-
+  const kind = pingRoundKind(trace, sourceId, sequence);
+  if (kind !== "reply") return { kind, traceId, sequence };
   const reply = trace.events.find(
     (event) =>
-      atSource(event) &&
+      event.deviceId === sourceId &&
       event.reason.code === "ICMP_ECHO_REPLY_RECEIVED" &&
       event.frame.icmp?.sequence === sequence,
   );
-  if (reply !== undefined) {
-    return { kind: "reply", traceId, sequence, timeUs: reply.time, ttl: reply.frame.ipv4?.ttl ?? 0 };
-  }
-
-  const drops = trace.events.filter((event) => atSource(event) && event.action === "drop");
-  if (drops.some((event) => event.reason.code === "NO_IP" || event.reason.code === "NO_GATEWAY")) {
-    return { kind: "unsent", traceId, sequence };
-  }
-  if (drops.some((event) => event.reason.code === "ARP_TIMEOUT")) {
-    return { kind: "unreachable", traceId, sequence };
-  }
-  return { kind: "timeout", traceId, sequence };
+  return { kind, traceId, sequence, timeUs: reply?.time ?? 0, ttl: reply?.frame.ipv4?.ttl ?? 0 };
 }

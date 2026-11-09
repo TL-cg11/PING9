@@ -41,6 +41,7 @@ export function TerminalWindow({
   onComplete,
   onHelp,
   onLeave,
+  onInterrupt,
   onClose,
   onFocus,
   onMove,
@@ -59,6 +60,8 @@ export function TerminalWindow({
   readonly onHelp: (input: string) => void;
   /** Esc. 입력란을 떠나 캔버스의 그 장비로 포커스를 옮긴다. 창은 닫지 않는다 */
   readonly onLeave: () => void;
+  /** Ctrl+C. 멈출 출력이 있었으면 true. false면 키를 그대로 둔다 (선택한 글 복사) */
+  readonly onInterrupt?: () => boolean;
   readonly onClose: () => void;
   readonly onFocus: () => void;
   readonly onMove: (x: number, y: number) => void;
@@ -80,8 +83,16 @@ export function TerminalWindow({
   }, [placement.hidden]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    const action = keyAction(event.key, { shift: event.shiftKey, composing: event.nativeEvent.isComposing });
+    const action = keyAction(event.key, {
+      shift: event.shiftKey,
+      composing: event.nativeEvent.isComposing,
+      ctrl: event.ctrlKey,
+    });
     if (action === null) return;
+    if (action === "interrupt") {
+      if (onInterrupt?.() === true) event.preventDefault();
+      return;
+    }
     // Tab이 포커스를 옮기거나 `?`가 입력란에 들어가지 않게 한다
     event.preventDefault();
 
