@@ -34,6 +34,7 @@ export function TerminalWindow({
   deviceName,
   kindLabel,
   state,
+  busy = false,
   placement,
   zIndex,
   onSubmit,
@@ -49,6 +50,11 @@ export function TerminalWindow({
   readonly deviceName: string;
   readonly kindLabel: "PC" | "Switch" | "Router";
   readonly state: TerminalState;
+  /**
+   * 출력이 이어지는 중 (ping 회차를 하나씩 보이는 중). 입력 줄을 숨긴다.
+   * 입력란은 포커스를 그대로 가져 Ctrl+C를 받는다. 친 글자는 끝난 뒤 보인다
+   */
+  readonly busy?: boolean;
   readonly placement: TerminalPlacement;
   readonly zIndex: number;
   readonly onSubmit: (input: string) => void;
@@ -91,6 +97,11 @@ export function TerminalWindow({
     if (action === null) return;
     if (action === "interrupt") {
       if (onInterrupt?.() === true) event.preventDefault();
+      return;
+    }
+    // 출력 중에는 Ctrl+C만 받는다. Enter로 다음 명령어가 보이지 않게 쌓이지 않게 한다
+    if (busy) {
+      event.preventDefault();
       return;
     }
     // Tab이 포커스를 옮기거나 `?`가 입력란에 들어가지 않게 한다
@@ -178,7 +189,7 @@ export function TerminalWindow({
             <Line key={index} line={line} />
           ))}
         </div>
-        <div className="term-in">
+        <div className={busy ? "term-in busy" : "term-in"}>
           <span className="p">{state.prompt}</span>
           <input
             ref={inputRef}

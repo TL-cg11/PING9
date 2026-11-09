@@ -16,12 +16,13 @@ const STATE: TerminalState = {
   ],
 };
 
-const render = (hidden = false) =>
+const render = (hidden = false, busy = false) =>
   renderToString(
     <TerminalWindow
       deviceName="SW1"
       kindLabel="Switch"
       state={STATE}
+      busy={busy}
       placement={{ deviceId: "x", x: 10, y: 20, hidden }}
       zIndex={21}
       onSubmit={() => {}}
@@ -75,4 +76,10 @@ test("창은 장비 이름의 콘솔 영역이고, 출력은 화면 낭독기가
   expect(html).toContain('<div class="term" data-device-id="x" role="region" aria-label="SW1 콘솔"');
   // 입력란은 기록 밖에 있다. 입력하는 글자를 기록으로 읽지 않는다
   expect(html).toMatch(/<div role="log" aria-live="polite" aria-label="SW1 출력">.*<\/div><div class="term-in">/);
+});
+
+test("출력이 이어지는 중에는 입력 줄을 숨긴다. 입력란은 남아 Ctrl+C를 받는다 (T1.8.3)", () => {
+  expect(render()).toContain('<div class="term-in">');
+  const html = render(false, true);
+  expect(html).toMatch(/<div class="term-in busy"><span class="p">SW1#<\/span><input/);
 });

@@ -168,6 +168,16 @@ export function App() {
 
   // 회차를 하나씩 보이는 중인 터미널. Ctrl+C가 이것을 멈춘다 (T1.8.3)
   const running = useRef(new Map<string, AbortController>());
+  // 회차를 보이는 중인 장비. 그동안 입력 줄을 숨긴다
+  const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
+  const setBusyFor = (deviceId: string, value: boolean) =>
+    setBusy((current) => {
+      if (current.has(deviceId) === value) return current;
+      const next = new Set(current);
+      if (value) next.add(deviceId);
+      else next.delete(deviceId);
+      return next;
+    });
 
   const submit = (deviceId: string, input: string) => {
     void queue.enqueue(deviceId, async () => {
@@ -175,7 +185,12 @@ export function App() {
       if (state === undefined) return;
       const controller = new AbortController();
       running.current.set(deviceId, controller);
-      const show = (next: TerminalState) => updateTerminals((current) => ({ ...current, [deviceId]: next }));
+      const update = (next: TerminalState) => updateTerminals((current) => ({ ...current, [deviceId]: next }));
+      // 회차를 하나씩 보일 때만 불린다. 바로 끝나는 명령어는 입력 줄이 깜빡이지 않는다
+      const show = (next: TerminalState) => {
+        setBusyFor(deviceId, true);
+        update(next);
+      };
       const device = simulator.getSnapshot().document.devices.find((candidate) => candidate.id === deviceId);
       try {
         const next = await runLinePaced(simulator.console(deviceId), state, input, {
@@ -197,9 +212,10 @@ export function App() {
             simulator.getSnapshot().traces.find((summary) => summary.id === traceId)?.targetIp ?? "",
           os: device?.kind === "pc" ? osOf(device.config) : "windows",
         });
-        show(next);
+        update(next);
       } finally {
         running.current.delete(deviceId);
+        setBusyFor(deviceId, false);
       }
     });
   };
@@ -274,6 +290,7 @@ export function App() {
                 deviceName={device.name}
                 kindLabel={KIND_LABEL[device.kind]}
                 state={state}
+                busy={busy.has(placement.deviceId)}
                 placement={placement}
                 zIndex={TERMINAL_Z + index}
                 onSubmit={(input) => submit(placement.deviceId, input)}
