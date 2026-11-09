@@ -4,8 +4,16 @@ import { computeViews } from "../../views";
 import { defineCommand } from "../ios";
 import type { CommandDefinition } from "../ios";
 import { tableLines } from "../ios/table";
+import { routerRunningConfigLines } from "./running-config";
 
 export const ROUTER_SHOW_COMMANDS: readonly CommandDefinition[] = [
+  defineCommand({
+    modes: ["privileged"], devices: ["router"], tokens: ["show", "running-config"],
+    help: "Show the router configuration as commands",
+    run: (_args, context) => context.device.kind === "router"
+      ? { lines: routerRunningConfigLines(context.device).map(text => ({ kind: "text", text })) }
+      : {},
+  }),
   defineCommand({
     modes: ["privileged"],
     devices: ["router"],

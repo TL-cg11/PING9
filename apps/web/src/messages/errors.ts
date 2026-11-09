@@ -56,6 +56,9 @@ export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsBy
   DEVICE_KIND_MISMATCH: ({ expected, actual }) =>
     `${KIND_NAMES[expected]}에서만 할 수 있는 동작이에요 (이 장비는 ${KIND_NAMES[actual]})`,
   PC_ADDRESS_INCOMPLETE: ({ missing }) => (missing === "ip" ? "IP 주소가 빠졌어요" : "서브넷 마스크가 빠졌어요"),
+  PC_ADDRESS_NOT_FOUND: ({ ip }) => `이 PC에는 ${ip} 주소가 없어요`,
+  INTERFACE_NETWORK_OVERLAP: ({ port, otherPort, ip, mask }) =>
+    `${port}의 IP ${ip} (${mask})가 ${otherPort} 네트워크와 겹쳐요. 다른 네트워크를 입력해 주세요`,
   VLAN_NOT_FOUND: ({ vlanId }) => `VLAN ${withSubject(vlanId)} 없어요`,
   DEFAULT_VLAN_READONLY: () => "VLAN 1은 지우거나 이름을 바꿀 수 없어요",
 

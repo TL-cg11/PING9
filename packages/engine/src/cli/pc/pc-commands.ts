@@ -1,4 +1,4 @@
-// PC의 명령 정의 목록 (T1.6.1, FR-24). console.ts가 PC의 콘솔에 이 목록을 쓴다.
+// Windows PC의 명령 정의 목록 (T1.6.1, FR-24). console.ts가 OS가 Windows인 PC의 콘솔에 이 목록을 쓴다 (T0.7).
 // 정의 형태와 해석기는 cli/ios의 것을 그대로 쓴다 (AD-8: 명령 트리 하나).
 // PC에는 모드 전환이 없어 모든 정의가 `user` 모드 하나에만 있고, 프롬프트는 늘 `이름>`이다.
 // `help`와 `?`는 T3.2.2에서 모든 장비 공용으로 만든다.
@@ -93,7 +93,7 @@ const ipParam = param("ip", "ipv4", "IPv4 address");
 const maskParam = param("mask", "mask", "Subnet mask");
 const gatewayParam = param("gateway", "ipv4", "Default gateway");
 
-export const PC_COMMANDS: readonly CommandDefinition[] = [
+export const WINDOWS_PC_COMMANDS: readonly CommandDefinition[] = [
   defineCommand({
     modes: ["user"],
     devices: ["pc"],

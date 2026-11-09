@@ -1,11 +1,13 @@
-// 속성 패널에서 PC에만 있는 구역: IP, 서브넷 마스크, 기본 게이트웨이 (T1.5.2, FR-25).
+// 속성 패널에서 PC에만 있는 구역: OS (T0.7), IP, 서브넷 마스크, 기본 게이트웨이 (T1.5.2, FR-25).
 // "적용" 버튼이나 Enter로 pc/set-ip를 한 번 dispatch한다 (AD-3). 판단은 format/pc-address.ts에 있다.
+// OS는 고르는 즉시 pc/set-os를 dispatch한다. IP의 "적용"과 따로다.
 // 문구는 카탈로그에서 만들어 글자 그대로 넣는다 (AD-14, SEC-11).
 
-import type { Command, DispatchResult, ErrorInfo, Notice, PcDevice } from "@ping9/shared";
+import { OS_KINDS, osOf } from "@ping9/shared";
+import type { Command, DispatchResult, ErrorInfo, Notice, OsKind, PcDevice } from "@ping9/shared";
 import { useId, useState } from "react";
 
-import { applyDraft, draftOf, PC_FIELDS } from "../format/pc-address";
+import { applyDraft, draftOf, OS_NAMES, PC_FIELDS, prefixLabel } from "../format/pc-address";
 import type { FieldErrors, PcDraft, PcField } from "../format/pc-address";
 import { formatError } from "../messages/errors";
 import { formatNotice } from "../messages/notices";
@@ -16,8 +18,30 @@ const LABELS: Readonly<Record<PcField, string>> = {
   gateway: "기본 게이트웨이",
 };
 
-/** IPv4의 가장 긴 형태 `255.255.255.255` */
-const MAX_LENGTH = 15;
+/** OS 고르기. 라디오 버튼이라 화살표 키로 바꿀 수 있다 (NFR-12) */
+export function OsChoice({ os, onChange }: { readonly os: OsKind; readonly onChange: (os: OsKind) => void }) {
+  const name = useId();
+  return (
+    <fieldset className="os-choice">
+      <legend>OS</legend>
+      {OS_KINDS.map((kind) => (
+        <label key={kind}>
+          <input
+            type="radio"
+            name={name}
+            value={kind}
+            checked={os === kind}
+            onChange={() => onChange(kind)}
+          />
+          {OS_NAMES[kind]}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+/** 가장 긴 입력 `255.255.255.255/32` (IP 칸에 길이까지 쓸 수 있다, T0.7) */
+const MAX_LENGTH = 18;
 
 /** 구성 값이 바뀌었는지 비교할 열쇠 */
 const configKey = (device: PcDevice) => PC_FIELDS.map((field) => device.config[field] ?? "").join("|");
@@ -63,6 +87,8 @@ export function PcSettingsView({ draft, errors, general, notices, status, onChan
         const error = errors[field];
         const inputId = `${id}-${field}`;
         const errorId = `${inputId}-err`;
+        // 마스크 칸 옆에 `/24` (T0.7). 비었거나 틀렸으면 없음
+        const prefix = field === "mask" ? prefixLabel(draft) : null;
         return (
           <div key={field} className="field">
             <label htmlFor={inputId}>{LABELS[field]}</label>
@@ -78,6 +104,7 @@ export function PcSettingsView({ draft, errors, general, notices, status, onChan
               aria-describedby={error === undefined ? undefined : errorId}
               onChange={(event) => onChange(field, event.target.value)}
             />
+            {prefix !== null && <span className="prefix">{prefix}</span>}
             {error !== undefined && (
               <div id={errorId} className="field-err">
                 {formatError(error)}
@@ -162,18 +189,28 @@ export function PcSettings({
     }
   };
 
+  const os = osOf(device.config);
+
   return (
-    <PcSettingsView
-      draft={draft}
-      errors={errors}
-      general={general}
-      notices={notices}
-      status={status}
-      onChange={(field, value) => {
-        setStatus(null);
-        setDraft((current) => ({ ...current, [field]: value }));
-      }}
-      onApply={apply}
-    />
+    <>
+      <OsChoice
+        os={os}
+        onChange={(next) => {
+          if (next !== os) onDispatch({ type: "pc/set-os", deviceId: device.id, os: next });
+        }}
+      />
+      <PcSettingsView
+        draft={draft}
+        errors={errors}
+        general={general}
+        notices={notices}
+        status={status}
+        onChange={(field, value) => {
+          setStatus(null);
+          setDraft((current) => ({ ...current, [field]: value }));
+        }}
+        onApply={apply}
+      />
+    </>
   );
 }

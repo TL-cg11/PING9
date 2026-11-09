@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { ErrorCode } from "./codes";
-import { EMPTY_DOCUMENT, PORT_NAMES } from "./document";
+import { DEFAULT_OS, EMPTY_DOCUMENT, PORT_NAMES, osOf } from "./document";
 import { LIMITS } from "./limits";
 import {
   documentByteSize,
@@ -106,6 +106,24 @@ describe("validateDocument: 유효한 문서", () => {
     expect(codeAfter((doc) => void (doc.devices[2]!.config = {} as never))).toBeNull();
   });
 
+  test("PC의 OS를 받아들이고 돌려준 문서에 남긴다 (T0.7)", () => {
+    for (const os of ["windows", "linux"] as const) {
+      const doc = validDocument();
+      (doc.devices[2]!.config as { os?: string }).os = os;
+      expect(validateDocument(doc)).toEqual({ ok: true, document: doc });
+    }
+  });
+
+  test("OS 칸이 없는 PC는 DEFAULT_OS다", () => {
+    expect(osOf({})).toBe(DEFAULT_OS);
+    expect(DEFAULT_OS).toBe("windows");
+    expect(osOf({ os: "linux" })).toBe("linux");
+  });
+
+  test("IP 없이 OS만 있는 PC를 받아들인다", () => {
+    expect(codeAfter((doc) => void (doc.devices[2]!.config = { os: "linux" } as never))).toBeNull();
+  });
+
   test("정의되지 않은 필드는 돌려준 문서에 없다", () => {
     const doc = validDocument() as Doc & { extra?: unknown };
     doc.extra = "x";
@@ -155,6 +173,7 @@ describe("validateDocument: 깨진 문서는 구별되는 코드로 거부한다
     ["PC의 IP가 브로드캐스트 주소", (d) => void (d.devices[2]!.config.ip = "10.0.1.255"), "IP_IS_BROADCAST_ADDRESS"],
     ["PC의 게이트웨이가 다른 네트워크", (d) => void (d.devices[2]!.config.gateway = "10.0.2.1"), "GATEWAY_NOT_IN_NETWORK"],
     ["PC에 IP 없이 마스크만 있음", (d) => void delete (d.devices[2]!.config as { ip?: string }).ip, "DOCUMENT_INVALID_SHAPE"],
+    ["PC의 OS가 정해진 값이 아님", (d) => void ((d.devices[2]!.config as { os?: string }).os = "macos"), "DOCUMENT_INVALID_SHAPE"],
     ["PC에 마스크 없이 IP만 있음", (d) => void delete (d.devices[2]!.config as { mask?: string }).mask, "DOCUMENT_INVALID_SHAPE"],
 
     // Switch

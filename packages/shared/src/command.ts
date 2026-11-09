@@ -3,11 +3,12 @@
 // 장비와 링크의 ID는 web이 crypto.randomUUID()로 만들어 Command에 담는다 (AD-5).
 
 import type { ErrorInfo, Notice } from "./codes";
-import type { DeviceKind, PortRef, Position, SwitchportMode, VlanRange } from "./document";
+import type { DeviceKind, OsKind, PortRef, Position, SwitchportMode, VlanRange } from "./document";
 
 export type Command =
-  // 장비 (FR-9 ~ FR-11). 기본 이름(PC1, SW1, R1)과 기본 구성은 reducer가 붙인다
-  | { readonly type: "device/add"; readonly id: string; readonly kind: DeviceKind; readonly position: Position }
+  // 장비 (FR-9 ~ FR-11). 기본 이름(PC1, SW1, R1)과 기본 구성은 reducer가 붙인다.
+  // `os`는 PC에만 쓴다 (T0.7). 없으면 DEFAULT_OS
+  | { readonly type: "device/add"; readonly id: string; readonly kind: DeviceKind; readonly position: Position; readonly os?: OsKind }
   | { readonly type: "device/move"; readonly deviceId: string; readonly position: Position }
   | { readonly type: "device/rename"; readonly deviceId: string; readonly name: string }
   | { readonly type: "device/remove"; readonly deviceId: string }
@@ -21,6 +22,8 @@ export type Command =
   | { readonly type: "interface/clear-ip"; readonly deviceId: string; readonly port: string }
   // PC의 IP (FR-25). `ip`가 null이면 IP를 지운다. 이때 `mask`와 `gateway`도 null이어야 한다
   | { readonly type: "pc/set-ip"; readonly deviceId: string; readonly ip: string | null; readonly mask: string | null; readonly gateway: string | null }
+  // PC의 OS (T0.7). IP 구성은 그대로 둔다
+  | { readonly type: "pc/set-os"; readonly deviceId: string; readonly os: OsKind }
   // Static route (FR-35)
   | { readonly type: "route/add"; readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string }
   | { readonly type: "route/remove"; readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string }
@@ -50,6 +53,7 @@ const COMMAND_TYPE_SET = {
   "interface/set-ip": true,
   "interface/clear-ip": true,
   "pc/set-ip": true,
+  "pc/set-os": true,
   "route/add": true,
   "route/remove": true,
   "vlan/create": true,

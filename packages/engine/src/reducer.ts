@@ -2,7 +2,7 @@
 // Document를 바꾸는 경로는 여기 하나다. 화면과 CLI는 Command를 만들어 dispatch할 뿐이다.
 //
 // 지금은 뼈대다. Command 처리기는 아래 `handlers`에 하나씩 추가한다:
-//   T1.3.1 device/*   T1.4.1 link/*   T1.5.1 pc/set-ip   E3~E5 나머지
+//   T1.3.1 device/*   T1.4.1 link/*   T1.5.1 pc/set-ip   T0.7 pc/set-os   E3~E5 나머지
 // 처리기는 받은 Document를 고치지 않고 새 객체를 돌려준다.
 // 돌려준 Document는 항상 validateDocument()를 통과해야 한다 (속성 기반 테스트 PBT-1).
 
@@ -11,9 +11,12 @@ import type { Command, CommandOf, CommandType, ErrorInfo, Notice, TopologyDocume
 
 import { describeValue } from "./describe";
 import { addDevice } from "./reducer/device-add";
+import { moveDevice } from "./reducer/device-move";
 import { setInterfaceAdmin } from "./reducer/interface-admin";
 import { addLink, removeDevice, removeLink } from "./reducer/link";
 import { setPcIp } from "./reducer/pc-set-ip";
+import { setPcOs } from "./reducer/pc-set-os";
+import { clearRouterInterfaceIp, setRouterInterfaceIp } from "./reducer/router-interface-ip";
 import {
   setSwitchportAccessVlan,
   setSwitchportAllowedVlans,
@@ -37,11 +40,15 @@ export type CommandHandler<T extends CommandType> = (
 // 처리기의 본문은 reducer/ 폴더의 각자 파일에 두고, 여기에는 자기 Command의 줄만 더한다
 const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
   "device/add": addDevice,
+  "device/move": moveDevice,
   "device/remove": removeDevice,
   "link/add": addLink,
   "link/remove": removeLink,
   "pc/set-ip": setPcIp,
+  "pc/set-os": setPcOs,
   "interface/set-admin": setInterfaceAdmin,
+  "interface/set-ip": setRouterInterfaceIp,
+  "interface/clear-ip": clearRouterInterfaceIp,
   "vlan/create": createVlan,
   "vlan/rename": renameVlan,
   "vlan/remove": removeVlan,
