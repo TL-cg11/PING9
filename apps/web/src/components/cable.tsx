@@ -294,8 +294,8 @@ export function Cable({
           </linearGradient>
         </defs>
       )}
-      {/* 선택했을 때만 보이는 파란 빛 */}
-      <path className="cable-halo" d={geometry.d} strokeWidth={base.edgeWidth + 8} />
+      {/* 선택했을 때만 보이는 파란 빛. 아이콘의 선택 빛(sel-glow)과 같은 색으로 길을 따라 번진다 */}
+      <path className="cable-halo" d={geometry.d} strokeWidth={base.edgeWidth + 14} filter="url(#cable-glow)" />
       <path className={look.down ? "cable-edge segmented" : "cable-edge"} d={road} stroke={edge} strokeWidth={base.edgeWidth} strokeDasharray={dash} />
       {/* 이음목 (시안 C): 길 가장자리가 휘어 타원 테두리에 닿는다. 타원 안쪽은 canvas의 타원이 덮는다 */}
       {joined?.joints.map((joint) => <path key={joint.edge} className="cable-joint" d={joint.edge} fill={edge} />)}

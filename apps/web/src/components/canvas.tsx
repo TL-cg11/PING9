@@ -336,6 +336,10 @@ export function Canvas({
             <stop offset="45%" stopColor="#3B8EF0" stopOpacity="0.28" />
             <stop offset="100%" stopColor="#3B8EF0" stopOpacity="0" />
           </radialGradient>
+          {/* 케이블 선택 빛: 선을 흐리게 번지게 한다. 가로·세로 선은 상자 높이(너비)가 0이라 영역을 좌표로 준다 */}
+          <filter id="cable-glow" filterUnits="userSpaceOnUse" x="-10000" y="-10000" width="20000" height="20000">
+            <feGaussianBlur stdDeviation="7" />
+          </filter>
         </defs>
         <g>
           {document.links.map((link) => {
