@@ -11,7 +11,7 @@ import type {
   TopologyDocument,
 } from "@ping9/shared";
 
-import { connectedRoutes } from "./devices/router/routing";
+import { routingTable } from "./devices/router/routing";
 
 /** 사용자가 켜 둔 포트인지. PC의 포트는 끌 수 없다 */
 function isAdminUp(device: Device, port: string): boolean {
@@ -71,7 +71,7 @@ export function computeViews(document: TopologyDocument): Record<string, DeviceV
         views[device.id] = { kind: "switch", ports, macTable: [] };
         break;
       case "router":
-        views[device.id] = { kind: "router", ports, arpTable: [], routingTable: connectedRoutes(device.config, ports) };
+        views[device.id] = { kind: "router", ports, arpTable: [], routingTable: routingTable(device.config, ports) };
         break;
     }
   }

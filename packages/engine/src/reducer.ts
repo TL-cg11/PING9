@@ -17,6 +17,7 @@ import { addLink, removeDevice, removeLink } from "./reducer/link";
 import { setPcIp } from "./reducer/pc-set-ip";
 import { setPcOs } from "./reducer/pc-set-os";
 import { clearRouterInterfaceIp, setRouterInterfaceIp } from "./reducer/router-interface-ip";
+import { addRoute, removeRoute } from "./reducer/router-route";
 import {
   setSwitchportAccessVlan,
   setSwitchportAllowedVlans,
@@ -49,6 +50,8 @@ const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
   "interface/set-admin": setInterfaceAdmin,
   "interface/set-ip": setRouterInterfaceIp,
   "interface/clear-ip": clearRouterInterfaceIp,
+  "route/add": addRoute,
+  "route/remove": removeRoute,
   "vlan/create": createVlan,
   "vlan/rename": renameVlan,
   "vlan/remove": removeVlan,

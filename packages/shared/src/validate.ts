@@ -7,17 +7,14 @@ import type { ErrorInfo } from "./codes";
 import { isPortName } from "./document";
 import type { DeviceKind, TopologyDocument } from "./document";
 import { CURRENT_SCHEMA_VERSION, LIMITS } from "./limits";
-import { checkRouterInterfaceOverlap } from "./router-config";
+import { checkRouterInterfaceOverlap, checkStaticRoute } from "./router-config";
 import { topologyDocumentSchema, traceSchema } from "./schema";
 import type { ParsedDocument } from "./schema";
 import type { Trace } from "./trace";
 import {
   checkDeviceName,
   checkGateway,
-  checkHostIpv4,
   checkInterfaceAddress,
-  checkIpv4,
-  checkMask,
   checkVlanId,
   checkVlanName,
   isUuid,
@@ -174,8 +171,7 @@ function checkRouterConfig(
     });
   }
   for (const route of config.staticRoutes) {
-    const error =
-      checkIpv4(route.network) ?? checkMask(route.mask) ?? checkHostIpv4(route.nextHop);
+    const error = checkStaticRoute(deviceId, route, config.interfaces);
     if (error) return error;
   }
   return null;

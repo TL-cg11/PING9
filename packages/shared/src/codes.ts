@@ -94,6 +94,9 @@ export interface ErrorParamsByCode {
     readonly ip: string;
     readonly mask: string;
   };
+  ROUTE_NETWORK_NOT_ALIGNED: { readonly network: string; readonly mask: string };
+  ROUTE_NEXT_HOP_IS_SELF: { readonly deviceId: string; readonly nextHop: string };
+  ROUTE_NOT_FOUND: { readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string };
   /** 그 Switch에 없는 VLAN의 이름을 바꾸거나 지우려 함 */
   VLAN_NOT_FOUND: { readonly deviceId: string; readonly vlanId: number };
   /** VLAN 1은 지우거나 이름을 바꿀 수 없음 (FR-31) */
@@ -157,6 +160,9 @@ const ERROR_CODE_SET = {
   PC_ADDRESS_INCOMPLETE: true,
   PC_ADDRESS_NOT_FOUND: true,
   INTERFACE_NETWORK_OVERLAP: true,
+  ROUTE_NETWORK_NOT_ALIGNED: true,
+  ROUTE_NEXT_HOP_IS_SELF: true,
+  ROUTE_NOT_FOUND: true,
   VLAN_NOT_FOUND: true,
   DEFAULT_VLAN_READONLY: true,
   CLI_UNKNOWN_COMMAND: true,

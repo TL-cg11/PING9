@@ -222,6 +222,16 @@ export function parseLine(
     if (better) best = result;
   }
 
+  // ip route와 ip address처럼 접두사가 겹쳐도, 다른 모드에서 완전히 맞는 명령이면 모드 오류다.
+  if (best?.kind === "mismatch" && best.matched > 0) {
+    const elsewhereDefinitions = forDevice.filter(definition => !candidates.includes(definition));
+    const elsewhereWalk = walkWords(elsewhereDefinitions, words, kind);
+    if (elsewhereWalk.ambiguous === undefined && elsewhereDefinitions.some(definition =>
+      attempt(definition, words, elsewhereWalk.keywords, kind).kind === "ok")) {
+      return { ok: false, error: errorInfo("CLI_WRONG_MODE", { token: clip(firstWord.text) }), position: firstWord.position };
+    }
+  }
+
   // 첫 단어부터 틀렸는데 다른 모드에는 있는 명령어라면 모드가 틀린 것이다
   if (best === undefined || (best.kind === "mismatch" && best.matched === 0)) {
     // 뒤의 단어가 맞는지는 보지 않는다. 다른 모드의 명령어를 쳤으면 값이 틀렸어도 모드부터 알린다 (T3.5.1)

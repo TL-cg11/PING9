@@ -3,7 +3,7 @@ import type { PortStatus, RouterConfig } from "@ping9/shared";
 import { describe, expect, test } from "vitest";
 
 import { createSimulator } from "../../simulator";
-import { connectedRoutes } from "./routing";
+import { connectedRoutes, routingTable } from "./routing";
 
 const [GI0, GI1] = PORT_NAMES.router;
 const R1 = "00000000-0000-4000-8000-000000000100";
@@ -11,6 +11,16 @@ const R2 = "00000000-0000-4000-8000-000000000101";
 const LINK = "00000000-0000-4000-8000-000000000200";
 
 describe("직접 연결 경로", () => {
+  test("자기 IP와 네트워크/브로드캐스트 주소는 다음 홉으로 활성화하지 않는다", () => {
+    const config: RouterConfig = {
+      interfaces: { [GI0]: { adminUp: true, ip: "10.0.12.1", mask: "255.255.255.252" } },
+      staticRoutes: ["10.0.12.0", "10.0.12.1", "10.0.12.3", "10.0.12.2"].map((nextHop, i) => ({
+        network: `192.168.${i}.0`, mask: "255.255.255.0", nextHop,
+      })),
+    };
+    expect(routingTable(config, [{ name: GI0, status: "up" }]).filter(route => route.source === "static"))
+      .toEqual([{ source: "static", network: "192.168.3.0", mask: "255.255.255.0", nextHop: "10.0.12.2", port: GI0 }]);
+  });
   test.each<PortStatus>(["admin-down", "no-link", "peer-down"])("%s 포트는 등록하지 않는다", status => {
     const config: RouterConfig = { interfaces: { [GI0]: { adminUp: true, ip: "10.0.12.1", mask: "255.255.255.252" } }, staticRoutes: [] };
     expect(connectedRoutes(config, [{ name: GI0, status }])).toEqual([]);
