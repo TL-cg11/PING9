@@ -8,11 +8,13 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { DEVICE_DRAG_TYPE, MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM, clampCanvasPosition, readDraggedDevice, screenToWorld, zoomViewBox } from "../canvas-interaction";
 import type { CanvasViewBox } from "../canvas-interaction";
-import { linkEnds } from "../format/link-ends";
+import { cableLook } from "../format/cable-look";
+import { RING_DY, RING_RX, RING_RY, linkEnds, ringCenter } from "../format/link-ends";
 import { linkVlan } from "../format/link-vlan";
 import { cidrOf, OS_NAMES } from "../format/pc-address";
-import { vlanColor } from "../format/vlan-color";
 import { nodeKeyAction } from "./canvas-keys";
+import { Cable, CableJointMask, cableGeometry } from "./cable";
+import type { RingCenters } from "./cable";
 import { DeviceIcon } from "./device-icons";
 import { PortPicker } from "./port-picker";
 
@@ -38,33 +40,36 @@ interface NodeDrag {
 /** 화면 낭독기가 읽는 장비 종류 */
 const KIND_NAME: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router" };
 
-/** 링크 가운데에 붙는 알약 모양 표시. 시안의 vlabel과 같은 크기 계산이다 */
-function LinkLabel({
-  x,
-  y,
-  text,
-  vlan,
-}: {
-  readonly x: number;
-  readonly y: number;
-  readonly text: string;
-  readonly vlan: number | "trunk";
+/**
+ * 타원 받침. 안(fill)과 테두리(edge)를 따로 그린다. 테두리는 길이 들어오는 자리를 mask로 지운다 (시안 C).
+ * 드래그 중인 장비는 임시 위치에 그린다
+ */
+function Rings({ places, part, mask }: {
+  readonly places: readonly { readonly id: string; readonly position: Position }[];
+  readonly part: "fill" | "edge";
+  readonly mask?: string;
 }) {
-  const width = text.length * 7 + 16;
-  const color = vlanColor(vlan);
   return (
-    <g className="vlabel">
-      <rect x={x - width / 2} y={y - 10} width={width} height="20" rx="10" fill={color.background} />
-      <text x={x} y={y + 4} textAnchor="middle" fill={color.text}>
-        {text}
-      </text>
+    <g className={`rings ring-${part}`} aria-hidden="true" mask={mask === undefined ? undefined : `url(#${mask})`}>
+      {places.map(({ id, position }) => (
+        <ellipse key={id} cx={position.x} cy={position.y + RING_DY} rx={RING_RX} ry={RING_RY} />
+      ))}
     </g>
   );
 }
 
+/** 링크 하나를 그리는 데 필요한 모양. 케이블과 타원 테두리의 mask가 같이 쓴다 */
+function linkShape(document: TopologyDocument, link: TopologyDocument["links"][number], from: Position, to: Position) {
+  const look = cableLook(document, link);
+  const ends = linkEnds(from, to);
+  const geometry = cableGeometry(ends, look.shape === "bridge");
+  const centers: RingCenters = [ringCenter(from), ringCenter(to)];
+  return { look, ends, geometry, centers };
+}
+
 /**
  * trunk 끝 옆에 그 끝의 허용 목록을 쓴다. 시안처럼 노드 카드 바깥, 선이 뻗는 쪽에 둔다
- * (카드 가운데에서 가로 48, 세로 24).
+ * (카드 가운데에서 가로 48, 세로 36. 넓은 trunk 길 아래).
  */
 function TrunkEndText({
   at,
@@ -78,7 +83,7 @@ function TrunkEndText({
   if (text === undefined) return null;
   const toRight = other.x >= at.x;
   return (
-    <text className="net" x={toRight ? at.x + 48 : at.x - 48} y={at.y + 24} textAnchor={toRight ? "start" : "end"}>
+    <text className="net" x={toRight ? at.x + 48 : at.x - 48} y={at.y + 36} textAnchor={toRight ? "start" : "end"}>
       {text}
     </text>
   );
@@ -152,6 +157,7 @@ export function Canvas({
   const positions = new Map(document.devices.map(device => [device.id,
     device.id === draft?.deviceId ? draft.position : device.position]));
   const pickerDevice = document.devices.find(device => device.id === pickerDeviceId);
+  const places = document.devices.map(device => ({ id: device.id, position: positions.get(device.id)! }));
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -337,7 +343,15 @@ export function Canvas({
             const to = positions.get(link.ends[1].deviceId);
             if (from === undefined || to === undefined) return null;
             const mark = linkVlan(document, link);
-            const middle = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+            const { look, ends, geometry, centers } = linkShape(document, link, from, to);
+            // 포트 이름 자리. 직선은 장비 가운데 사이의 0.28, 다리는 곡선 위의 점이다 (T0.8)
+            const portAt = (t: number) => look.shape === "bridge"
+              ? geometry.at(t < 0.5 ? 0.12 : 0.88)
+              : { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
+            const firstPortAt = portAt(0.28);
+            const secondPortAt = portAt(0.72);
+            // 넓은 trunk 길은 포트 이름을 막힘 ✕보다 위에 쓴다
+            const lift = look.shape === "trunk" ? 30 : 12;
             return (
               <g key={link.id} className={link.id === selectedLinkId ? "link selected" : "link"}
                 role={onSelectLink === undefined ? undefined : "button"}
@@ -352,18 +366,15 @@ export function Canvas({
                   }
                 }}>
                 {/* 선은 아이콘과 이름 위를 지나지 않게 장비 둘레에서 끊는다 (T0.6). 누르는 영역도 같은 선이다 */}
-                {onSelectLink !== undefined && <line className="wire-hit" {...linkEnds(from, to)} />}
-                <line className={mark?.kind === "trunk" ? "wire trunk" : "wire"} {...linkEnds(from, to)} />
-                <text className="wire-port" x={from.x * 0.72 + to.x * 0.28} y={from.y * 0.72 + to.y * 0.28 - 8}
+                {onSelectLink !== undefined && <path className="wire-hit" d={geometry.d} />}
+                <Cable id={link.id} ends={ends} look={look} geometry={geometry} centers={centers} />
+                <text className="wire-port" x={firstPortAt.x} y={firstPortAt.y - lift}
                   textAnchor="middle">{shortPortName(link.ends[0].port)}</text>
-                <text className="wire-port" x={from.x * 0.28 + to.x * 0.72} y={from.y * 0.28 + to.y * 0.72 - 8}
+                <text className="wire-port" x={secondPortAt.x} y={secondPortAt.y - lift}
                   textAnchor="middle">{shortPortName(link.ends[1].port)}</text>
-                {mark?.kind === "access" && (
-                  <LinkLabel x={middle.x} y={middle.y} text={`VLAN ${mark.vlan}`} vlan={mark.vlan} />
-                )}
+                {/* VLAN 번호와 "trunk"는 알약 없이 길 위에 쓴다 (Cable). 허용 목록은 끝 옆에 그대로 둔다 */}
                 {mark?.kind === "trunk" && (
                   <>
-                    <LinkLabel x={middle.x} y={middle.y} text="trunk" vlan="trunk" />
                     <TrunkEndText at={from} other={to} text={mark.ends[0]} />
                     <TrunkEndText at={to} other={from} text={mark.ends[1]} />
                   </>
@@ -372,6 +383,19 @@ export function Canvas({
             );
           })}
         </g>
+        {/* 아이콘 뒤의 좁은 타원 받침 (T0.8, 시안 B-3d). 케이블 위, 아이콘 아래에 그린다.
+            테두리는 길 안쪽이 지나는 자리만 지워 길이 타원 안으로 이어져 보이게 한다 (시안 C) */}
+        <Rings places={places} part="fill" />
+        <mask id="ring-edge-mask" maskUnits="userSpaceOnUse" x={box.x} y={box.y} width={box.width} height={box.height}>
+          <rect x={box.x} y={box.y} width={box.width} height={box.height} fill="#fff" />
+          {document.links.map((link) => {
+            const from = positions.get(link.ends[0].deviceId);
+            const to = positions.get(link.ends[1].deviceId);
+            if (from === undefined || to === undefined) return null;
+            return <CableJointMask key={link.id} {...linkShape(document, link, from, to)} />;
+          })}
+        </mask>
+        <Rings places={places} part="edge" mask="ring-edge-mask" />
         {cableActive && firstPort !== null && cursor !== null && positions.has(firstPort.deviceId) && (
           <line className="wire pending" x1={positions.get(firstPort.deviceId)!.x} y1={positions.get(firstPort.deviceId)!.y}
             x2={cursor.x} y2={cursor.y} />
