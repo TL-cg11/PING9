@@ -1,7 +1,7 @@
 // 가운데 캔버스. 드래그 중 위치만 임시로 그리고, 놓을 때 원본 변경 명령을 보낸다.
 // 노드는 장비 아이콘과 이름이다 (T0.6). 흰 카드는 보이지 않고 클릭 영역으로만 남는다. 캔버스는 자체 상태로 장비 목록을 들고 있지 않다 (AD-4).
 
-import { shortPortName } from "@ping9/shared";
+import { osOf, shortPortName } from "@ping9/shared";
 import type { Device, DeviceKind, PortRef, Position, TopologyDocument } from "@ping9/shared";
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
@@ -10,7 +10,9 @@ import { DEVICE_DRAG_TYPE, MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM, clampCanvasPosition
 import type { CanvasViewBox } from "../canvas-interaction";
 import { linkEnds } from "../format/link-ends";
 import { linkVlan } from "../format/link-vlan";
+import { cidrOf, OS_NAMES } from "../format/pc-address";
 import { vlanColor } from "../format/vlan-color";
+import { nodeKeyAction } from "./canvas-keys";
 import { DeviceIcon } from "./device-icons";
 import { PortPicker } from "./port-picker";
 
@@ -33,6 +35,8 @@ interface NodeDrag {
   position: Position;
   moved: boolean;
 }
+/** 화면 낭독기가 읽는 장비 종류 */
+const KIND_NAME: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router" };
 
 /** 링크 가운데에 붙는 알약 모양 표시. 시안의 vlabel과 같은 크기 계산이다 */
 function LinkLabel({
@@ -379,7 +383,14 @@ export function Canvas({
               className={`${device.id === selectedDeviceId || device.id === draft?.deviceId ? "node sel" : "node"}${
                 device.id === firstPort?.deviceId ? " cable-source" : ""}${device.id === draft?.deviceId ? " dragging" : ""}`}
               transform={`translate(${positions.get(device.id)!.x - HALF_WIDTH},${positions.get(device.id)!.y - ABOVE})`}
-              role="button" tabIndex={0} aria-label={`장비 ${device.name}`}
+              data-device-id={device.id}
+              // 키보드로도 고르고 콘솔을 연다 (T1.6.2, NFR-12). Tab 순서는 Document의 장비 순서다
+              tabIndex={0}
+              role="button"
+              aria-label={`${device.name}, ${KIND_NAME[device.kind]}, ${
+                device.kind === "pc" ? `${OS_NAMES[osOf(device.config)]}, ` : ""
+              }콘솔 열기`}
+              aria-pressed={device.id === selectedDeviceId}
               onPointerDown={event => startMove(event, device)}
               onDragStart={event => event.preventDefault()}
               onClick={() => {
@@ -388,7 +399,14 @@ export function Canvas({
               }}
               onDoubleClick={() => { if (!cableActive && !suppressDoubleClick.current) onOpenTerminal(device.id); }}
               onKeyDown={event => {
-                if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(device.id); }
+                const action = nodeKeyAction(event.key);
+                if (action !== null) {
+                  // Space가 화면을 내리지 않게 한다. 연결 도구가 켜져 있으면 Enter도 클릭처럼 포트 선택으로 간다
+                  event.preventDefault();
+                  if (action === "open" && !cableActive) onOpenTerminal(device.id);
+                  else onSelect(device.id);
+                  return;
+                }
                 const delta = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] }[event.key];
                 if (delta !== undefined && onMoveDevice !== undefined) {
                   event.preventDefault();
@@ -399,13 +417,23 @@ export function Canvas({
               <rect className="card" width="80" height="72" rx="16" />
               {/* 선택했을 때만 보이는 파란 빛. 아이콘 뒤에 그린다 */}
               <circle className="halo" cx="40" cy="36" r="46" />
-              <DeviceIcon kind={device.kind} x={12} y={-2} width={56} height={56} />
+              {/* 키보드 포커스 표시: 아이콘 둘레의 옅은 점선 원. 선택 빛(퍼짐)과 모양이 달라 겹쳐도 구별된다 */}
+              <circle className="focus-ring" cx="40" cy="33" r="31" />
+              <DeviceIcon
+                kind={device.kind}
+                {...(device.kind === "pc" ? { os: osOf(device.config) } : {})}
+                // 56에서 50으로 줄였다. 바닥선(그림의 25.8/32 높이)은 제자리라 이름과의 간격이 그대로다
+                x={15}
+                y={3}
+                width={50}
+                height={50}
+              />
               <text className="lbl" x="40" y="68" textAnchor="middle">
                 {device.name}
               </text>
               {device.kind === "pc" && device.config.ip !== undefined && (
                 <text className="ip" x="40" y="86" textAnchor="middle">
-                  {device.config.ip}
+                  {cidrOf(device.config.ip, device.config.mask)}
                 </text>
               )}
             </g>
@@ -432,7 +460,7 @@ export function Canvas({
       )}
       <div className="hint">
         {cableActive ? "장비를 클릭해 빈 포트를 선택하세요 · Esc로 연결 도구 해제" :
-          "장비를 끌어서 배치·이동하세요 · 더블클릭하면 터미널이 열려요"}
+          "장비를 끌어서 배치·이동하세요 · 더블클릭하거나 Tab으로 골라 Enter를 누르면 터미널이 열려요 · 터미널에서 Esc를 누르면 캔버스로 돌아와요"}
       </div>
     </>
   );

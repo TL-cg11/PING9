@@ -1,6 +1,7 @@
 // 터미널 입력란에서 가로채는 키 (T3.2.3). DOM 없이 테스트할 수 있게 판단만 따로 둔다.
 
-export type KeyAction = "submit" | "history-up" | "history-down" | "complete" | "help";
+/** `leave`는 Esc: 입력란을 떠나 캔버스의 그 장비로 포커스를 옮긴다 (T1.6.2, NFR-12) */
+export type KeyAction = "submit" | "history-up" | "history-down" | "complete" | "help" | "leave";
 
 export interface KeyModifiers {
   readonly shift: boolean;
@@ -32,6 +33,9 @@ export function keyAction(key: string, modifiers: KeyModifiers): KeyAction | nul
       return modifiers.composing || modifiers.shift ? null : "complete";
     case "?":
       return modifiers.composing ? null : "help";
+    case "Escape":
+      // 한글 조합 중의 Esc는 조합 취소로 둔다
+      return modifiers.composing ? null : "leave";
     default:
       return null;
   }

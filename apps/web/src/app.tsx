@@ -10,6 +10,7 @@ import { Inspector } from "./components/inspector";
 import { LinkInspector } from "./components/link-inspector";
 import { Palette } from "./components/palette";
 import { TerminalWindow } from "./components/terminal-window";
+import { focusCanvasNode, focusTerminalInput } from "./focus";
 import { TopBar } from "./components/top-bar";
 import { CABLE_OFF, CABLE_READY, syncCableState } from "./cable-state";
 import type { CableState } from "./cable-state";
@@ -17,7 +18,7 @@ import { availablePorts } from "./format/available-ports";
 import { formatError } from "./messages/errors";
 import { TOPOLOGY_NAME, simulator, useSnapshot } from "./simulator";
 import { createCommandQueue } from "./terminal/command-queue";
-import { completed, historyStep, initialTerminal, runLine, showHelp } from "./terminal/terminal-state";
+import { completed, historyStep, initialTerminal, refreshPrompts, runLine, showHelp } from "./terminal/terminal-state";
 import type { TerminalState } from "./terminal/terminal-state";
 import { INITIAL_UI_STATE, uiReducer } from "./ui-state";
 
@@ -133,9 +134,11 @@ export function App() {
     }),
   );
 
-  // 문서에서 사라진 장비를 가리키는 선택과 터미널을 비운다
+  // 문서에서 사라진 장비를 가리키는 선택과 터미널을 비운다.
+  // 남은 터미널의 프롬프트는 지금 문서의 것으로 맞춘다 (OS나 이름이 바뀌었을 때, T0.7)
   useEffect(() => {
     dispatch({ type: "sync", deviceIds: document.devices.map((device) => device.id) });
+    updateTerminals((current) => refreshPrompts(current, (deviceId) => simulator.console(deviceId).prompt()));
     setSelectedLinkId(current => document.links.some(link => link.id === current) ? current : null);
     setCable(current => syncCableState(current, document));
   }, [document]);
@@ -159,6 +162,8 @@ export function App() {
     );
     dispatch({ type: "select", deviceId });
     dispatch({ type: "open-terminal", deviceId });
+    // 이미 열려 있던 창이어도 입력란으로 간다. 키보드로 콘솔을 오가는 길이다 (T1.6.2)
+    focusTerminalInput(deviceId);
   };
 
   const submit = (deviceId: string, input: string) => {
@@ -238,6 +243,7 @@ export function App() {
                 onHistory={(direction) => stepHistory(placement.deviceId, direction)}
                 onComplete={(input) => complete(placement.deviceId, input)}
                 onHelp={(input) => help(placement.deviceId, input)}
+                onLeave={() => focusCanvasNode(placement.deviceId)}
                 onClose={() => dispatch({ type: "close-terminal", deviceId: placement.deviceId })}
                 onFocus={() => dispatch({ type: "focus-terminal", deviceId: placement.deviceId })}
                 onMove={(x, y) => dispatch({ type: "move-terminal", deviceId: placement.deviceId, x, y })}

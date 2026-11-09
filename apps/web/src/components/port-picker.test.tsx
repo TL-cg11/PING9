@@ -111,6 +111,6 @@ describe("케이블 도구와 선택", () => {
     expect(html).toContain('class="link selected"');
     expect(html.match(/class="wire-port"/g)).toHaveLength(document.links.length * 2);
     expect(html).toContain("R1의 빈 포트");
-    expect(html).toContain('aria-label="장비 R1"');
+    expect(html).toContain('aria-label="R1, Router, 콘솔 열기"');
   });
 });
