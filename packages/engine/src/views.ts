@@ -1,6 +1,5 @@
 // 화면에 보일 값의 계산 (AD-7). 포트 상태는 engine만 계산한다.
-// 지금은 Document만으로 알 수 있는 값(포트 상태)만 채운다. 테이블(ARP, MAC, 라우팅)은
-// 장비 모델이 생기면 DeviceModel.view()가 채운다 (T1.7.3, T1.8.3, T4.x).
+// 포트 상태와 구성에서 계산할 수 있는 경로를 만든다. 동적 ARP/MAC은 장비 모델 연결 뒤 채운다.
 
 import { PORT_NAMES } from "@ping9/shared";
 import type {
@@ -11,6 +10,8 @@ import type {
   PortView,
   TopologyDocument,
 } from "@ping9/shared";
+
+import { connectedRoutes } from "./devices/router/routing";
 
 /** 사용자가 켜 둔 포트인지. PC의 포트는 끌 수 없다 */
 function isAdminUp(device: Device, port: string): boolean {
@@ -70,7 +71,7 @@ export function computeViews(document: TopologyDocument): Record<string, DeviceV
         views[device.id] = { kind: "switch", ports, macTable: [] };
         break;
       case "router":
-        views[device.id] = { kind: "router", ports, arpTable: [], routingTable: [] };
+        views[device.id] = { kind: "router", ports, arpTable: [], routingTable: connectedRoutes(device.config, ports) };
         break;
     }
   }

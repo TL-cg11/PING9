@@ -85,6 +85,13 @@ function networkOf(address: number, prefixLength: number): number {
   return Math.floor(address / size) * size;
 }
 
+/** IP와 마스크에서 네트워크 주소를 계산한다. 잘못된 값은 null이다. */
+export function networkAddress(ip: string, mask: string): string | null {
+  const address = parseIpv4(ip);
+  const length = maskToPrefixLength(mask);
+  return address === null || length === null ? null : formatIpv4(networkOf(address, length));
+}
+
 /** 두 주소가 같은 네트워크에 있는지. 값의 형식이 틀리면 false */
 export function isSameNetwork(a: string, b: string, mask: string): boolean {
   const first = parseIpv4(a);
