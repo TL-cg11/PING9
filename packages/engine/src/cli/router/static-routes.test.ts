@@ -64,8 +64,8 @@ describe("정적 경로 CLI와 활성화", () => {
     sim.dispatch(link); expect(routes()).toEqual([]);
     sim.dispatch({ type: "interface/set-admin", deviceId: R2, port: GI0, adminUp: true });
     expect(routes()).toEqual([
-      { source: "connected", network: "10.0.12.0", mask: "255.255.255.252", port: GI0 },
-      { source: "static", network: "192.168.2.0", mask: "255.255.255.0", nextHop: "10.0.12.2", port: GI0 },
+      { source: "connected", network: "10.0.12.0", mask: "255.255.255.252", port: GI0, distance: 0, metric: 0 },
+      { source: "static", network: "192.168.2.0", mask: "255.255.255.0", nextHop: "10.0.12.2", port: GI0, distance: 1, metric: 0 },
     ]);
     const output = text(await port.exec("show ip route"));
     expect(output).toMatch(/S\s+192\.168\.2\.0\/24/); expect(output).toContain("10.0.12.2"); expect(output).toContain(GI0);

@@ -9,6 +9,7 @@ import type { RoutingEntry } from "./routing";
 const [GI0, GI1] = PORT_NAMES.router;
 const route = (network: string, prefix: number, source: "connected" | "static" = "static", nextHop = "10.0.12.2"): RoutingEntry => ({
   network, mask: prefixLengthToMask(prefix)!, source, port: source === "connected" ? GI0 : GI1,
+  distance: source === "connected" ? 0 : 1, metric: 0,
   ...(source === "static" ? { nextHop } : {}),
 });
 

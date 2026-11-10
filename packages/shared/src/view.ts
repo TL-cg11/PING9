@@ -35,13 +35,17 @@ export interface MacTableEntryView {
 }
 
 export interface RouteEntryView {
-  readonly source: "connected" | "static";
+  readonly source: "connected" | "static" | "rip";
   readonly network: string;
   readonly mask: string;
   /** static 경로일 때 */
   readonly nextHop?: string;
   /** 나가는 인터페이스. static 경로는 직접 연결망으로 다음 홉을 해석한 결과 */
   readonly port?: string;
+  /** AD. Connected 0, Static 1(또는 floating static의 값), RIP 120 (T11.1.1) */
+  readonly distance: number;
+  /** RIP hop 수. Connected·Static은 0 */
+  readonly metric: number;
 }
 
 // 구성 값(IP, VLAN 목록 등)은 Document에 있으므로 여기에 다시 담지 않는다.
