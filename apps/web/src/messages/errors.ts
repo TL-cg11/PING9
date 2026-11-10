@@ -72,6 +72,7 @@ export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsBy
   CLI_INVALID_VALUE: ({ token }) => `이 자리에 쓸 수 없는 값이에요: ${token}`,
   CLI_WRONG_MODE: ({ token }) => `이 모드에서는 쓸 수 없는 명령어예요: ${token}`,
   CLI_LINE_TOO_LONG: ({ limit }) => `한 줄은 ${limit}자까지 입력할 수 있어요`,
+  CLI_UNSUPPORTED_SYNTAX: ({ token }) => `PING9 콘솔에서는 ${token} 기호를 쓸 수 없어요. 한 줄에 명령어 하나만 입력해요`,
 
   // ping
   PING_BROADCAST_UNSUPPORTED: ({ ip }) => `브로드캐스트 주소로는 ping할 수 없어요: ${ip}`,

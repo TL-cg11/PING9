@@ -4,12 +4,13 @@
 // 목록이 없는 종류는 아직 모든 명령어가 알 수 없는 명령어다. 담당이 자기 목록을 아래에 더한다.
 // `complete`와 `help`는 E3(T3.2.x)에서 같은 명령 정의로 계산한다.
 
-import { LIMITS } from "@ping9/shared";
-import type { ConsoleLine, ConsoleResult, Device, DeviceKind, HelpEntry } from "@ping9/shared";
+import { LIMITS, errorInfo, osOf } from "@ping9/shared";
+import type { ConsoleLine, ConsoleResult, Device, DeviceKind, HelpEntry, PcDevice } from "@ping9/shared";
 
 import { iosComplete, iosExec, iosHelp, iosPrompt } from "./cli/ios";
 import type { CommandDefinition, IosConsoleEnv } from "./cli/ios";
-import { pcCommandsFor, pcPrompt } from "./cli/pc";
+import { pcCommandsFor, pcPrompt, unknownCommandText, unsupportedSyntaxAt } from "./cli/pc";
+import { splitWords } from "./cli/ios/parse";
 import { ROUTER_COMMANDS } from "./cli/router";
 import { SWITCH_COMMANDS } from "./cli/switch";
 
@@ -29,6 +30,21 @@ const DEFINITIONS_BY_KIND: Partial<Record<Exclude<DeviceKind, "pc">, readonly Co
   router: ROUTER_COMMANDS,
   switch: SWITCH_COMMANDS,
 };
+
+/**
+ * PC에서 첫 단어가 없는 명령어면 OS 형식의 줄(`ls: command not found`)과 한국어 안내로 바꾼다 (T0.9).
+ * 첫 단어는 맞고 뒤가 틀린 줄은 `^` 표시가 있는 오류 그대로 둔다
+ */
+function pcUnknownCommand(lines: readonly ConsoleLine[], text: string, pc: PcDevice): readonly ConsoleLine[] {
+  const [only] = lines;
+  const first = splitWords(text)[0];
+  if (lines.length !== 1 || only?.kind !== "error" || only.code !== "CLI_UNKNOWN_COMMAND") return lines;
+  if (first === undefined || only.position !== first.position) return lines;
+  return [
+    ...unknownCommandText(osOf(pc.config), only.params.token).map((line): ConsoleLine => ({ kind: "text", text: line })),
+    { kind: "notice", code: "PC_UNKNOWN_COMMAND", params: { token: only.params.token } },
+  ];
+}
 
 function definitionsFor(device: Device): readonly CommandDefinition[] | undefined {
   return device.kind === "pc" ? pcCommandsFor(device) : DEFINITIONS_BY_KIND[device.kind];
@@ -76,11 +92,25 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
         });
       }
 
+      // PC 콘솔은 한 줄에 명령 하나다. 파이프, 리다이렉트, 명령 연결은 실행하지 않는다 (T0.9)
+      if (device.kind === "pc") {
+        const blocked = unsupportedSyntaxAt(text);
+        if (blocked !== undefined) {
+          return result({
+            kind: "error",
+            ...errorInfo("CLI_UNSUPPORTED_SYNTAX", { token: blocked.token }),
+            position: blocked.position,
+          });
+        }
+      }
+
       const definitions = definitionsFor(device);
       if (definitions !== undefined) {
         const executed = iosExec(text, device, definitions, env);
         // iosExec의 프롬프트는 IOS 모드의 것이다. PC는 실행 뒤의 문서로 OS별 프롬프트를 다시 만든다
-        return device.kind === "pc" ? { ...executed, prompt: prompt() } : executed;
+        return device.kind === "pc"
+          ? { lines: pcUnknownCommand(executed.lines, text, device), prompt: prompt() }
+          : executed;
       }
 
       const token = text.trim().split(/\s+/)[0] ?? "";

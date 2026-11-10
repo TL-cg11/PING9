@@ -9,6 +9,7 @@ export const NOTICE_MESSAGES: { readonly [C in NoticeCode]: (params: NoticeParam
   DUPLICATE_IP: ({ ip, others }) =>
     `${withTopic(ip)} ${others.map((other) => other.deviceName).join(", ")}도 쓰고 있어요. 이대로 두면 통신이 제대로 안 될 수 있어요`,
   VLAN_AUTO_CREATED: ({ vlanId }) => `VLAN ${withSubject(vlanId)} 없어서 새로 만들었어요`,
+  PC_UNKNOWN_COMMAND: ({ token }) => `${token} 명령어는 PING9에 없어요. 쓸 수 있는 명령어는 help로 볼 수 있어요`,
 };
 
 export function formatNotice(notice: Notice): string {
