@@ -49,8 +49,10 @@ describe("코드 목록", () => {
     expect(new Set(REASON_CODES).size).toBe(REASON_CODES.length);
   });
 
-  test("Command는 03 문서 3.4절의 MVP 목록과 같다", () => {
-    expect(COMMAND_TYPES).toHaveLength(19);
+  test("Command는 03 문서 3.4절의 MVP 목록 19개와 2차의 RIP 구성 5개다 (T11.2.1)", () => {
+    const rip = ["rip/enable", "rip/disable", "rip/add-network", "rip/remove-network", "rip/set-passive"];
+    expect(COMMAND_TYPES.filter((type) => !rip.includes(type))).toHaveLength(19);
+    expect(COMMAND_TYPES).toEqual(expect.arrayContaining(rip));
     expect(COMMAND_TYPES).toContain("pc/set-ip");
     expect(COMMAND_TYPES).toContain("link/add");
   });

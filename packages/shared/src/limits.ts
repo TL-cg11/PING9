@@ -6,6 +6,8 @@ export const LIMITS = {
   maxLinks: 100,
   /** Router당 Static route 수 (SEC-15) */
   maxStaticRoutesPerRouter: 100,
+  /** Router당 RIP `network` 수. 실제 IOS에는 한도가 없으나 문서 크기를 막는 다른 한도와 같은 취지 (T11.2.1) */
+  maxRipNetworks: 16,
   /** Switch당 VLAN 수 (SEC-15) */
   maxVlansPerSwitch: 64,
   /** trunk 포트 하나의 허용 VLAN 범위 수. 문서에 수치가 없어 VLAN 수 한도와 같게 둠 */
@@ -37,6 +39,7 @@ export type LimitName =
   | "devices"
   | "links"
   | "staticRoutes"
+  | "ripNetworks"
   | "vlans"
   | "allowedVlanRanges";
 

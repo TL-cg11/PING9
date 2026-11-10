@@ -55,9 +55,15 @@ const staticRouteSchema = z.object({
   nextHop: shortString,
 });
 
+const ripConfigSchema = z.object({
+  networks: z.array(shortString),
+  passiveInterfaces: z.array(shortString),
+});
+
 const routerConfigSchema = z.object({
   interfaces: z.record(shortString, routerInterfaceConfigSchema),
   staticRoutes: z.array(staticRouteSchema),
+  rip: ripConfigSchema.optional(),
 });
 
 const deviceBase = { id: shortString, name: shortString, position: positionSchema };

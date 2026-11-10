@@ -17,6 +17,7 @@ import { addLink, removeDevice, removeLink } from "./reducer/link";
 import { setPcIp } from "./reducer/pc-set-ip";
 import { setPcOs } from "./reducer/pc-set-os";
 import { clearRouterInterfaceIp, setRouterInterfaceIp } from "./reducer/router-interface-ip";
+import { addRipNetwork, disableRip, enableRip, removeRipNetwork, setRipPassive } from "./reducer/router-rip";
 import { addRoute, removeRoute } from "./reducer/router-route";
 import {
   setSwitchportAccessVlan,
@@ -52,6 +53,11 @@ const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
   "interface/clear-ip": clearRouterInterfaceIp,
   "route/add": addRoute,
   "route/remove": removeRoute,
+  "rip/enable": enableRip,
+  "rip/disable": disableRip,
+  "rip/add-network": addRipNetwork,
+  "rip/remove-network": removeRipNetwork,
+  "rip/set-passive": setRipPassive,
   "vlan/create": createVlan,
   "vlan/rename": renameVlan,
   "vlan/remove": removeVlan,
