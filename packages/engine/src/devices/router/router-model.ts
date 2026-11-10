@@ -1,4 +1,4 @@
-import { BROADCAST_MAC, PORT_NAMES, UNKNOWN_MAC, checkHostIpv4, checkInterfaceAddress, isIcmpError, isSameNetwork } from "@ping9/shared";
+import { BROADCAST_MAC, PORT_NAMES, RIP_MULTICAST_MAC, UNKNOWN_MAC, checkHostIpv4, checkInterfaceAddress, isIcmpError, isSameNetwork } from "@ping9/shared";
 import type { DeviceView, FrameSnapshot, IcmpErrorType, IcmpMessage, Ipv4Header, Reason, RouterDevice, TopologyDocument } from "@ping9/shared";
 
 import type { Frame, SimContext, TimerRef } from "../../kernel";
@@ -8,8 +8,9 @@ import { deviceRef, findDevice, isAdminUp, portLink, portMac } from "../../topol
 import { computeViews } from "../../views";
 import { transmit } from "../link";
 import type { ConfigChange, DeviceModel } from "../model";
+import { RipModule } from "./rip";
 import { lookupRoute, routingTable } from "./routing";
-import type { RouteDecision } from "./routing";
+import type { RouteDecision, RoutingEntry } from "./routing";
 
 export const ROUTER_TTL = 64;
 
@@ -23,11 +24,17 @@ export class RouterModel implements DeviceModel {
   readonly #getDocument: () => TopologyDocument;
   readonly #arps = new Map<string, ArpModule>();
   readonly #replies = new Set<number>();
+  readonly #rip: RipModule;
 
   constructor(deviceId: string, getDocument: () => TopologyDocument) {
     this.deviceId = deviceId;
     this.#getDocument = getDocument;
     const current = () => this.#device();
+    this.#rip = new RipModule({
+      device: current,
+      document: getDocument,
+      ports: () => computeViews(getDocument())[deviceId]!.ports,
+    });
     for (const port of PORT_NAMES.router) {
       this.#arps.set(port, new ArpModule({
         get device() { return deviceRef(current()); },
@@ -48,7 +55,17 @@ export class RouterModel implements DeviceModel {
   #decision(destination: string): RouteDecision | null {
     const device = this.#device();
     const ports = computeViews(this.#getDocument())[this.deviceId]!.ports;
-    return lookupRoute(routingTable(device.config, ports), destination);
+    return lookupRoute(routingTable(device.config, ports, this.#rip.routes()), destination);
+  }
+
+  /** 지금 쓰는 라우팅 테이블. 배운 RIP 경로를 포함한다 (T11.2.2) */
+  routingTable(): readonly RoutingEntry[] {
+    return routingTable(this.#device().config, computeViews(this.#getDocument())[this.deviceId]!.ports, this.#rip.routes());
+  }
+
+  /** 경로 교환 1회의 시작 (T11.2.2). RIP를 켠 Router만 보낸다 */
+  startRipExchange(ctx: SimContext): void {
+    this.#rip.startExchange(ctx);
   }
 
   onFrame(ctx: SimContext, port: string, frame: Frame): void {
@@ -60,6 +77,11 @@ export class RouterModel implements DeviceModel {
     if (!isAdminUp(device, port)) { drop({ code: "IF_DOWN", params: { device: ref, port } }); return; }
     if (device.config.interfaces[port]?.ip === undefined) { drop({ code: "NO_IP", params: { device: ref } }); return; }
     const mac = frame.snapshot.ethernet.destinationMac;
+    // RIP v2 멀티캐스트와 요청에 대한 응답 (T11.2.2)
+    if (frame.snapshot.rip !== undefined && (mac === RIP_MULTICAST_MAC || mac === portMac(device, port))) {
+      this.#rip.onFrame(ctx, port, frame);
+      return;
+    }
     if (mac !== portMac(device, port) && mac !== BROADCAST_MAC) { drop({ code: "NOT_FOR_ME", params: { device: ref } }); return; }
     const arp = this.#arps.get(port);
     if (frame.snapshot.arp !== undefined) { arp?.onArp(ctx, port, frame); return; }
@@ -146,6 +168,7 @@ export class RouterModel implements DeviceModel {
 
   onTimer(ctx: SimContext, timer: TimerRef): void {
     for (const arp of this.#arps.values()) arp.onTimer(ctx, timer);
+    this.#rip.onTimer(ctx, timer);
   }
 
   startRun(): void {
@@ -178,6 +201,8 @@ export class RouterModel implements DeviceModel {
     const before = routerIn(change.previous, this.deviceId);
     const after = routerIn(change.document, this.deviceId);
     if (before === undefined || after === undefined) return;
+    // RIP 구성이 바뀌면 다음 경로 교환까지 배운 경로를 쓰지 않는다 (T11.2.2 결정 7)
+    if (JSON.stringify(before.config.rip) !== JSON.stringify(after.config.rip)) this.#rip.clear();
     for (const port of PORT_NAMES.router) {
       const old = before.config.interfaces[port]; const now = after.config.interfaces[port];
       const ref = { deviceId: this.deviceId, port };
@@ -196,6 +221,6 @@ export class RouterModel implements DeviceModel {
   view(): DeviceView {
     const base = computeViews(this.#getDocument())[this.deviceId];
     if (base?.kind !== "router") throw new Error("Router view is missing");
-    return { ...base, arpTable: this.arpTable() };
+    return { ...base, arpTable: this.arpTable(), routingTable: this.routingTable() };
   }
 }

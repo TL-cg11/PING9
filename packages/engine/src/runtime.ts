@@ -8,6 +8,7 @@ import type {
   DeviceView,
   ErrorInfo,
   MacTableEntryView,
+  RouteEntryView,
   TopologyDocument,
   Trace,
   TraceSummary,
@@ -59,6 +60,13 @@ export interface Runtime {
   clearArp(deviceId: string, ip?: string): boolean;
   /** Switch가 배운 MAC 주소. Switch가 아니거나 아직 아무것도 지나지 않았으면 빈 목록 */
   macTable(deviceId: string): readonly MacTableEntryView[];
+  /** Router가 지금 쓰는 라우팅 테이블. 배운 RIP 경로를 포함한다 (T11.2.2). Router가 아니면 빈 목록 */
+  routingTable(deviceId: string): readonly RouteEntryView[];
+  /**
+   * 경로 교환 1회 (T11.2.2). RIP를 켠 Router마다 배운 경로를 지우고 Request부터 다시 주고받는다.
+   * RIP를 켠 Router가 없으면 실행하지 않고 null. Trace는 목록에 `kind: "rip"`으로 보관하고, 앞의 RIP Trace를 바꾼다 (T11.2.3)
+   */
+  exchangeRoutes(docVersion: number): Trace | null;
   /** computeViews의 결과에 모델이 가진 테이블을 채운다 */
   fillViews(views: Record<string, DeviceView>): Record<string, DeviceView>;
   traceSummaries(): readonly TraceSummary[];
@@ -229,10 +237,42 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
       return switches.get(deviceId)?.macTable() ?? [];
     },
 
+    routingTable(deviceId) {
+      return routerModel(deviceId)?.routingTable() ?? [];
+    },
+
+    exchangeRoutes(docVersion) {
+      const ripRouters = getDocument().devices.filter(device => device.kind === "router" && device.config.rip !== undefined);
+      if (ripRouters.length === 0) return null;
+      const models = runModels();
+      const trace = kernel.run(deviceRun({
+        docVersion,
+        models,
+        start: (ctx) => {
+          for (const pc of pcs.values()) pc.startRun();
+          for (const router of routers.values()) router.startRun();
+          for (const device of ripRouters) routerModel(device.id)!.startRipExchange(ctx);
+        },
+        outcome: () => "success",
+      }));
+      const learned = ripRouters.reduce((sum, device) =>
+        sum + routerModel(device.id)!.routingTable().filter(route => route.source === "rip").length, 0);
+      // 목록에 RIP Trace는 가장 최근 것 하나만 둔다. 설정을 칠 때마다 ping 기록이 밀려나지 않게 한다 (결정 4)
+      traces = traces.filter(stored => stored.summary.kind !== "rip");
+      store({
+        trace,
+        summary: {
+          id: trace.id, docVersion, kind: "rip", status: trace.result.status, eventCount: trace.events.length,
+          routers: ripRouters.length, learned,
+        },
+      });
+      return trace;
+    },
+
     fillViews(views) {
       for (const [deviceId, model] of routers) {
         const view = views[deviceId];
-        if (view?.kind === "router") views[deviceId] = { ...view, arpTable: model.arpTable() };
+        if (view?.kind === "router") views[deviceId] = { ...view, arpTable: model.arpTable(), routingTable: model.routingTable() };
       }
       for (const [deviceId, model] of pcs) {
         const view = views[deviceId];
