@@ -136,10 +136,10 @@ export function CableJointMask({ ends, look, geometry, centers }: {
 
 /** 모양별 색과 굵기 */
 const STYLE = {
-  road: { edge: "#B9D5F3", core: "#FFFFFF", edgeWidth: 12, coreWidth: 7 },
-  trunk: { edge: "#B9D5F3", core: "#FFFFFF", edgeWidth: 22, coreWidth: 18 },
-  bridge: { edge: "#5CC8A0", core: "#E1F5EC", edgeWidth: 10, coreWidth: 6 },
-  down: { edge: "#D3CEC4", core: "#F3F0EA", edgeWidth: 10, coreWidth: 6 },
+  road: { edge: "#DB5B91", core: "#FCE7F0", edgeWidth: 12, coreWidth: 7 },
+  trunk: { edge: "#DB5B91", core: "#FFF4F8", edgeWidth: 22, coreWidth: 18 },
+  bridge: { edge: "#DB5B91", core: "#FCE7F0", edgeWidth: 10, coreWidth: 6 },
+  down: { edge: "#9CA3AF", core: "#F3F4F6", edgeWidth: 10, coreWidth: 6 },
 } as const;
 
 /**
@@ -283,8 +283,6 @@ export function Cable({
   const lanes = look.down ? undefined : look.lanes;
   const rainbowId = `rainbow-${id}`;
   const { normal } = axes(ends);
-  const angle = uprightAngle(ends);
-  const middle = geometry.at(0.5);
   const joined = cableJoints(ends, centers, geometry, look);
   const road = joined?.d ?? geometry.d;
 
@@ -325,14 +323,24 @@ export function Cable({
       {lanes !== undefined && lanes !== "all" && lanes.map((lane, index) => (
         <LaneLine key={lane.vlan} ends={ends} lane={lane} index={index} />
       ))}
-      {!look.down && look.shape === "road" && look.vlan !== undefined && (
+      {look.down && <Crack ends={ends} geometry={geometry} />}
+    </g>
+  );
+}
+
+
+/** 캔버스의 마지막 글자 레이어에서 따로 그린다. */
+export function CableLabels({ ends, look, geometry }: {
+  readonly ends: LineEnds; readonly look: CableLook; readonly geometry: CableGeometry;
+}) {
+  const angle = uprightAngle(ends);
+  const middle = geometry.at(0.5);
+  return <>      {!look.down && look.shape === "road" && look.vlan !== undefined && (
         <RoadText at={middle} angle={angle} text={`VLAN ${look.vlan}`} color={vlanColor(look.vlan).text} size={10} />
       )}
       {!look.down && look.shape === "trunk" && (
         <RoadText at={middle} angle={angle} text="trunk"
           color={vlanColor("trunk").text} size={8.5} />
       )}
-      {look.down && <Crack ends={ends} geometry={geometry} />}
-    </g>
-  );
+</>;
 }

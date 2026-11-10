@@ -13,7 +13,7 @@ import { RING_DY, RING_RX, RING_RY, linkEnds, ringCenter } from "../format/link-
 import { linkVlan } from "../format/link-vlan";
 import { cidrOf, OS_NAMES } from "../format/pc-address";
 import { nodeKeyAction } from "./canvas-keys";
-import { Cable, CableJointMask, cableGeometry } from "./cable";
+import { Cable, CableJointMask, CableLabels, cableGeometry } from "./cable";
 import type { RingCenters } from "./cable";
 import { DeviceIcon } from "./device-icons";
 import { PortPicker } from "./port-picker";
@@ -141,6 +141,7 @@ export function Canvas({
   readonly onClosePortPicker?: () => void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const viewportSizeRef = useRef<{ width: number; height: number } | null>(null);
   const documentRef = useRef(document);
   documentRef.current = document;
   // 이동/추가할 때 자동 맞춤을 반복하면 장비가 마우스에서 벗어나므로 현재 뷰를 유지한다.
@@ -148,6 +149,13 @@ export function Canvas({
   const { box, zoom } = viewport;
   const viewBox = `${box.x} ${box.y} ${box.width} ${box.height}`;
   const dragRef = useRef<NodeDrag | null>(null);
+  const panRef = useRef<{ pointerId: number; start: Position; box: CanvasViewBox; scale: number; moved: boolean } | null>(null);
+  const [panning, setPanning] = useState(false);
+  const [stack, setStack] = useState<string[]>([]);
+  const raiseDevice = (id: string) => setStack(current => [...current.filter(item => item !== id), id]);
+  // 초기 선택과 키보드/우측 패널에서 바뀐 선택도 앞에 보인다.
+  useEffect(() => { if (selectedDeviceId !== null) raiseDevice(selectedDeviceId); }, [selectedDeviceId]);
+  const orderedDevices = [...document.devices].sort((a, b) => stack.indexOf(a.id) - stack.indexOf(b.id));
   const suppressClick = useRef(false);
   const suppressDoubleClick = useRef(false);
   const [draft, setDraft] = useState<{ readonly deviceId: string; readonly position: Position } | null>(null);
@@ -163,10 +171,26 @@ export function Canvas({
     const svg = svgRef.current;
     if (svg === null || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
-      if (dragRef.current === null) setViewport(current => ({
-        zoom: current.zoom,
-        box: zoomViewBox(viewBoxFor(documentRef.current.devices), svg.getBoundingClientRect(), current.zoom),
-      }));
+      const size = svg.getBoundingClientRect();
+      if (size.width <= 0 || size.height <= 0) return;
+      const previous = viewportSizeRef.current;
+      viewportSizeRef.current = size;
+      dragRef.current = null;
+      panRef.current = null;
+      setDraft(null);
+      setPanning(false);
+      setViewport(current => {
+        if (previous === null) return { zoom: current.zoom,
+          box: zoomViewBox(viewBoxFor(documentRef.current.devices), size, current.zoom) };
+        // 창 크기가 달라져도 사용자가 보던 중심과 배율을 유지한다.
+        const visible = zoomViewBox(current.box, previous, 1);
+        const width = visible.width * size.width / previous.width;
+        const height = visible.height * size.height / previous.height;
+        return { zoom: current.zoom, box: {
+          x: visible.x + (visible.width - width) / 2,
+          y: visible.y + (visible.height - height) / 2, width, height,
+        } };
+      });
     });
     observer.observe(svg);
     return () => observer.disconnect();
@@ -184,6 +208,8 @@ export function Canvas({
 
   const cancelDrag = () => {
     dragRef.current = null;
+    panRef.current = null;
+    setPanning(false);
     setDraft(null);
   };
 
@@ -269,10 +295,19 @@ export function Canvas({
   };
 
   const updateMove = (event: Pick<PointerEvent, "pointerId" | "clientX" | "clientY">) => {
+    const pan = panRef.current;
+    if (pan !== null && pan.pointerId === event.pointerId) {
+      const dx = event.clientX - pan.start.x;
+      const dy = event.clientY - pan.start.y;
+      if (!pan.moved && Math.hypot(dx, dy) < 4) return;
+      pan.moved = true;
+      setViewport(current => ({ ...current, box: { ...pan.box, x: pan.box.x - dx / pan.scale, y: pan.box.y - dy / pan.scale } }));
+      return;
+    }
     const drag = dragRef.current;
     if (drag === null || drag.pointerId !== event.pointerId) return;
     if (!drag.moved && Math.hypot(event.clientX - drag.start.x, event.clientY - drag.start.y) < 4) return;
-    if (!drag.moved) onDeviceDrag?.();
+    if (!drag.moved) { raiseDevice(drag.deviceId); onDeviceDrag?.(); }
     drag.moved = true;
     const position = pointAt({ x: event.clientX, y: event.clientY }, drag.offset);
     if (position === null) return;
@@ -281,6 +316,14 @@ export function Canvas({
   };
 
   const finishMove = (event: PointerEvent) => {
+    const pan = panRef.current;
+    if (pan !== null && pan.pointerId === event.pointerId) {
+      updateMove(event);
+      suppressClick.current = pan.moved;
+      panRef.current = null;
+      setPanning(false);
+      return;
+    }
     const drag = dragRef.current;
     if (drag === null || drag.pointerId !== event.pointerId) return;
     updateMove(event);
@@ -309,7 +352,7 @@ export function Canvas({
 
   return (
     <>
-      <svg ref={svgRef} className={`topo${dragOver ? " drop-target" : ""}${cableActive ? " cable-mode" : ""}`}
+      <svg ref={svgRef} className={`topo${panning ? " panning" : ""}${dragOver ? " drop-target" : ""}${cableActive ? " cable-mode" : ""}`}
         viewBox={viewBox} preserveAspectRatio="xMidYMin meet"
         onDragOver={event => {
           if (onDropDevice === undefined || !event.dataTransfer.types.includes(DEVICE_DRAG_TYPE)) return;
@@ -324,11 +367,25 @@ export function Canvas({
           const position = pointAt({ x: event.clientX, y: event.clientY });
           if (kind !== null && position !== null) onDropDevice?.(kind, position);
         }}
+        onPointerDown={event => {
+          if (event.button !== 0 || event.target !== event.currentTarget || cableActive || paletteDragKind !== null) return;
+          const matrix = event.currentTarget.getScreenCTM();
+          if (!matrix || matrix.a <= 0) return;
+          event.preventDefault();
+          onClosePortPicker?.();
+          suppressClick.current = false;
+          panRef.current = { pointerId: event.pointerId, start: { x: event.clientX, y: event.clientY }, box,
+            scale: matrix.a, moved: false };
+          setPanning(true);
+        }}
         onPointerMove={event => {
           if (cableActive && firstPort !== null && dragRef.current === null) setCursor(pointAt({ x: event.clientX, y: event.clientY }));
         }}
         onPointerLeave={() => setCursor(null)}
-        onClick={event => { if (event.target === event.currentTarget) onClosePortPicker?.(); }}>
+        onClick={event => {
+          if (suppressClick.current && event.target === event.currentTarget) { suppressClick.current = false; return; }
+          if (event.target === event.currentTarget) onClosePortPicker?.();
+        }}>
         <defs>
           {/* 선택 표시: 가운데가 진하고 바깥으로 갈수록 사라지는 파란 빛 */}
           <radialGradient id="sel-glow">
@@ -346,16 +403,7 @@ export function Canvas({
             const from = positions.get(link.ends[0].deviceId);
             const to = positions.get(link.ends[1].deviceId);
             if (from === undefined || to === undefined) return null;
-            const mark = linkVlan(document, link);
             const { look, ends, geometry, centers } = linkShape(document, link, from, to);
-            // 포트 이름 자리. 직선은 장비 가운데 사이의 0.28, 다리는 곡선 위의 점이다 (T0.8)
-            const portAt = (t: number) => look.shape === "bridge"
-              ? geometry.at(t < 0.5 ? 0.12 : 0.88)
-              : { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
-            const firstPortAt = portAt(0.28);
-            const secondPortAt = portAt(0.72);
-            // 넓은 trunk 길은 포트 이름을 막힘 ✕보다 위에 쓴다
-            const lift = look.shape === "trunk" ? 30 : 12;
             return (
               <g key={link.id} className={link.id === selectedLinkId ? "link selected" : "link"}
                 role={onSelectLink === undefined ? undefined : "button"}
@@ -372,17 +420,7 @@ export function Canvas({
                 {/* 선은 아이콘과 이름 위를 지나지 않게 장비 둘레에서 끊는다 (T0.6). 누르는 영역도 같은 선이다 */}
                 {onSelectLink !== undefined && <path className="wire-hit" d={geometry.d} />}
                 <Cable id={link.id} ends={ends} look={look} geometry={geometry} centers={centers} />
-                <text className="wire-port" x={firstPortAt.x} y={firstPortAt.y - lift}
-                  textAnchor="middle">{shortPortName(link.ends[0].port)}</text>
-                <text className="wire-port" x={secondPortAt.x} y={secondPortAt.y - lift}
-                  textAnchor="middle">{shortPortName(link.ends[1].port)}</text>
-                {/* VLAN 번호와 "trunk"는 알약 없이 길 위에 쓴다 (Cable). 허용 목록은 끝 옆에 그대로 둔다 */}
-                {mark?.kind === "trunk" && (
-                  <>
-                    <TrunkEndText at={from} other={to} text={mark.ends[0]} />
-                    <TrunkEndText at={to} other={from} text={mark.ends[1]} />
-                  </>
-                )}
+
               </g>
             );
           })}
@@ -405,14 +443,14 @@ export function Canvas({
             x2={cursor.x} y2={cursor.y} />
         )}
         <g>
-          {document.devices.map((device) => (
+          {orderedDevices.map((device) => (
             <g
               key={device.id}
               className={`${device.id === selectedDeviceId || device.id === draft?.deviceId ? "node sel" : "node"}${
                 device.id === firstPort?.deviceId ? " cable-source" : ""}${device.id === draft?.deviceId ? " dragging" : ""}`}
               transform={`translate(${positions.get(device.id)!.x - HALF_WIDTH},${positions.get(device.id)!.y - ABOVE})`}
               data-device-id={device.id}
-              // 키보드로도 고르고 콘솔을 연다 (T1.6.2, NFR-12). Tab 순서는 Document의 장비 순서다
+              // 키보드로도 고르고 콘솔을 연다 (T1.6.2, NFR-12).
               tabIndex={0}
               role="button"
               aria-label={`${device.name}, ${KIND_NAME[device.kind]}, ${
@@ -423,6 +461,7 @@ export function Canvas({
               onDragStart={event => event.preventDefault()}
               onClick={() => {
                 if (suppressClick.current) { suppressClick.current = false; return; }
+                raiseDevice(device.id);
                 onSelect(device.id);
               }}
               onDoubleClick={() => { if (!cableActive && !suppressDoubleClick.current) onOpenTerminal(device.id); }}
@@ -431,6 +470,7 @@ export function Canvas({
                 if (action !== null) {
                   // Space가 화면을 내리지 않게 한다. 연결 도구가 켜져 있으면 Enter도 클릭처럼 포트 선택으로 간다
                   event.preventDefault();
+                  raiseDevice(device.id);
                   if (action === "open" && !cableActive) onOpenTerminal(device.id);
                   else onSelect(device.id);
                   return;
@@ -456,14 +496,7 @@ export function Canvas({
                 width={50}
                 height={50}
               />
-              <text className="lbl" x="40" y="68" textAnchor="middle">
-                {device.name}
-              </text>
-              {device.kind === "pc" && device.config.ip !== undefined && (
-                <text className="ip" x="40" y="86" textAnchor="middle">
-                  {cidrOf(device.config.ip, device.config.mask)}
-                </text>
-              )}
+
             </g>
           ))}
         </g>
@@ -472,13 +505,40 @@ export function Canvas({
             <DeviceIcon kind={paletteDragKind} width={56} height={56} />
           </g>
         )}
+        <g className="canvas-labels" aria-hidden="true">
+          {document.links.map(link => {
+            const from = positions.get(link.ends[0].deviceId);
+            const to = positions.get(link.ends[1].deviceId);
+            if (!from || !to) return null;
+            const { look, ends, geometry } = linkShape(document, link, from, to);
+            const mark = linkVlan(document, link);
+            const portAt = (t: number) => look.shape === "bridge" ? geometry.at(t < 0.5 ? 0.12 : 0.88)
+              : { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
+            const lift = look.shape === "trunk" ? 30 : 12;
+            return <g key={link.id}>
+              <CableLabels ends={ends} look={look} geometry={geometry} />
+              {[0.28, 0.72].map((t, index) => <text key={t} className="wire-port" x={portAt(t).x} y={portAt(t).y - lift}
+                textAnchor="middle">{shortPortName(link.ends[index]!.port)}</text>)}
+              {mark?.kind === "trunk" && <>
+                <TrunkEndText at={from} other={to} text={mark.ends[0]} />
+                <TrunkEndText at={to} other={from} text={mark.ends[1]} />
+              </>}
+            </g>;
+          })}
+          {orderedDevices.map(device => <g key={device.id} className="device-label"
+            transform={`translate(${positions.get(device.id)!.x - HALF_WIDTH},${positions.get(device.id)!.y - ABOVE})`}>
+            <text className="lbl" x="40" y="68" textAnchor="middle">{device.name}</text>
+            {device.kind === "pc" && device.config.ip !== undefined &&
+              <text className="ip" x="40" y="86" textAnchor="middle">{cidrOf(device.config.ip, device.config.mask)}</text>}
+          </g>)}
+        </g>
       </svg>
       <div className="canvas-zoom" role="group" aria-label="실습 확대·축소">
         <button type="button" aria-label="실습 축소" title="실습 축소" onClick={() => changeZoom(-0.25)}
-          disabled={zoom <= MIN_CANVAS_ZOOM || paletteDragKind !== null || draft !== null}>−</button>
+          disabled={zoom <= MIN_CANVAS_ZOOM || paletteDragKind !== null || draft !== null || panning}>−</button>
         <output aria-label="확대 비율" aria-live="polite">{Math.round(zoom * 100)}%</output>
         <button type="button" aria-label="실습 확대" title="실습 확대" onClick={() => changeZoom(0.25)}
-          disabled={zoom >= MAX_CANVAS_ZOOM || paletteDragKind !== null || draft !== null}>+</button>
+          disabled={zoom >= MAX_CANVAS_ZOOM || paletteDragKind !== null || draft !== null || panning}>+</button>
       </div>
       {cableActive && pickerDevice !== undefined && onPickPort !== undefined && (
         <div className="port-picker-anchor" style={{ left: pickerAt.x, top: pickerAt.y }}>
@@ -488,7 +548,7 @@ export function Canvas({
       )}
       <div className="hint">
         {cableActive ? "장비를 클릭해 빈 포트를 선택하세요 · Esc로 연결 도구 해제" :
-          "장비를 끌어서 배치·이동하세요 · 더블클릭하거나 Tab으로 골라 Enter를 누르면 터미널이 열려요 · 터미널에서 Esc를 누르면 캔버스로 돌아와요"}
+          "빈 곳을 드래그해 화면 이동 · 장비 드래그로 위치 이동 · 더블클릭 또는 Enter로 터미널 열기"}
       </div>
     </>
   );

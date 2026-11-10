@@ -69,3 +69,5 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T5.2.2 Switch 모델: kernel 연결 | [T5.2.2-switch-model.md](T5.2.2-switch-model.md) | 엔진 | SDY | 병합됨 ([PR #36](https://github.com/TL-cg11/PING9/pull/36), 팀원 검토 없이). 계획의 T5.2.2(문구)와 다름: 설계 9절 18번 |
 
 | T4.3.3 Switch·Router 통합 | [T4.3.3-switch-runtime-merge.md](T4.3.3-switch-runtime-merge.md) | 엔진·공통 | ssunyoung2 | 로컬 통합 검증 |
+
+| T0.9 캔버스 이동·표시 순서·터미널 경계 | [T0.9-canvas-navigation.md](T0.9-canvas-navigation.md) | 화면 | ssunyoung2 | 구현·검증 완료, 리뷰 전 |
