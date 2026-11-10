@@ -157,4 +157,8 @@ export type TraceSummary =
       readonly routers: number;
       /** 교환 뒤 모든 Router가 배운 RIP 경로 수의 합 */
       readonly learned: number;
+      /** 앞의 교환과 비교해 새로 배운·사라진·바뀐 RIP 경로 수 (T11.3.1). 목록은 `Simulator.getRouteChanges` */
+      readonly added: number;
+      readonly removed: number;
+      readonly changed: number;
     });

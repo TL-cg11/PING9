@@ -2,7 +2,7 @@
 // engine 테스트와 web 테스트가 같은 자료를 쓰므로, 화면은 engine이 완성되기 전에도 이 자료로 만들 수 있다.
 
 import type { TopologyDocument } from "../document";
-import { threeRouterRipDocument } from "./rip-lab";
+import { fourRouterRipDocument, threeRouterRipDocument } from "./rip-lab";
 import { thirtyDeviceDocument } from "./thirty-devices";
 import { twoPcDocument } from "./two-pc";
 import { twoPcSwitchDocument } from "./two-pc-switch";
@@ -25,6 +25,7 @@ export const EXAMPLE_DOCUMENTS: readonly {
   { name: "장비 30대", document: thirtyDeviceDocument },
   { name: "Switch 2대와 VLAN 2개", document: twoSwitchVlanDocument },
   { name: "Router 3대 RIP", document: threeRouterRipDocument },
+  { name: "Router 4대 RIP 사각형", document: fourRouterRipDocument },
 ];
 
 export { withRouterLabSwitches, switchedStaticRoutingLabDocument } from "./router-lab";

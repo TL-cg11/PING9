@@ -6,6 +6,7 @@ import type {
   Command,
   DispatchResult,
   ErrorInfo,
+  RouteChangeView,
   Snapshot,
   TopologyDocument,
   Trace,
@@ -44,6 +45,11 @@ export interface Simulator {
    * RIP 결과가 바뀔 수 있는 dispatch와 load 뒤에는 저절로 돈다 (T11.2.3). Trace는 목록에 보관한다
    */
   exchangeRoutes(): Trace | null;
+  /**
+   * 그 경로 교환으로 바뀐 RIP 경로 (T11.3.1). 앞의 교환과 비교해 새로 배움(`before` 없음), 사라짐(`after` 없음), 바뀜.
+   * 그 교환의 Trace가 목록에 없거나 ping Trace면 undefined
+   */
+  getRouteChanges(traceId: number): readonly RouteChangeView[] | undefined;
   /** 상태가 바뀔 때마다 불린다. 돌려주는 함수를 부르면 구독이 끝난다 */
   subscribe(listener: () => void): () => void;
 }
@@ -161,6 +167,10 @@ export function createSimulator(): Simulator {
 
     getTrace(traceId) {
       return runtime.getTrace(traceId);
+    },
+
+    getRouteChanges(traceId) {
+      return runtime.routeChanges(traceId);
     },
 
     exchangeRoutes() {
