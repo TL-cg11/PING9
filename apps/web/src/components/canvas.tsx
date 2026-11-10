@@ -611,6 +611,11 @@ export function Canvas({
           </g>)}
         </g>
       </svg>
+      {replays.some(replay => (replay.timeline.omittedHops ?? 0) > 0) && (
+        <div className="replay-hint" role="status">
+          순환 구간 {Math.max(...replays.map(replay => replay.timeline.omittedHops ?? 0))}회 이동을 생략해 재생합니다 · 전체 추적은 유지됩니다
+        </div>
+      )}
       <div className="canvas-zoom" role="group" aria-label="실습 확대·축소">
         <button type="button" aria-label="실습 축소" title="실습 축소" onClick={() => changeZoom(-0.25)}
           disabled={zoom <= MIN_CANVAS_ZOOM || paletteDragKind !== null || draft !== null || panning}>−</button>

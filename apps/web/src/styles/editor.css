@@ -254,3 +254,6 @@ button { font: inherit; cursor: pointer; }
   stroke-width: 3px;
   paint-order: stroke;
 }
+
+.replay-hint { position: absolute; right: 16px; top: 16px; z-index: 5; max-width: calc(100% - 32px);
+  padding: 8px 12px; border-radius: 8px; background: #FFF2D6; color: #79510E; font-size: 12px; pointer-events: none; }

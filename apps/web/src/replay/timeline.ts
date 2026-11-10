@@ -1,7 +1,9 @@
 // 재생 단계를 화면 시간(ms)에 놓는다 (T6.1.2). 가상 시간을 그대로 늘리지 않는다:
 // 펭귄은 케이블 길이와 상관없이 같은 빠르기(WALK_SPEED)로 걷고, ARP 재시도처럼 아무 일 없이 기다린 시간은 PAUSE_MS로 줄인다.
 
-import { LINK_TIME } from "./steps";
+import type { Trace } from "@ping9/shared";
+
+import { firstAttempt, LINK_TIME, replaySteps } from "./steps";
 import type { Fall, Hop, Step } from "./steps";
 
 /** 펭귄이 걷는 빠르기 (캔버스 좌표 / ms). 예시의 케이블(약 220)을 1.1초에 건넌다 */
@@ -44,6 +46,10 @@ export interface Timeline {
   readonly drops: readonly Drop[];
   /** 마지막 펭귄이 도착하거나 넘어짐이 끝날 때까지. 콘솔의 회차 줄은 이때 뜬다 */
   readonly durationMs: number;
+  /** 같은 프레임의 반복 순환에서 화면 재생만 생략한 이동 수 */
+  readonly omittedHops?: number;
+  /** 긴 재생을 제한한 경우 시간 축 배율 */
+  readonly timeScale?: number;
 }
 
 /** `lengthOf`: 링크의 케이블 길이 (캔버스 좌표). 같은 빠르기로 걷도록 걷는 시간을 정한다 */
@@ -73,6 +79,48 @@ export function timelineOf(steps: readonly Step[], lengthOf: (linkId: string) =>
   return { walks, drops: dropsWithEnd, durationMs: end };
 }
 
+/** 회차마다 콘솔을 오래 잠그지 않도록 화면 재생만 제한한다. 원본 Trace는 변경하지 않는다. */
+export const MAX_REPLAY_MS = 15_000;
+
+export function previewTimeline(trace: Trace, lengthOf: (linkId: string) => number | undefined = () => undefined): Timeline {
+  const steps = firstAttempt(replaySteps(trace));
+  const hasLoop = trace.events.some(event => event.reason.code === "TTL_EXPIRED");
+  let omittedHops = 0;
+  let preview = steps;
+  if (hasLoop) {
+    // 같은 frameId가 같은 방향의 링크를 반복 통과한 경우만 축약한다.
+    // 최초 두 번과 마지막 통과, 모든 폐기·오류 귀환 단계는 남긴다.
+    const keyOf = (hop: Hop) => JSON.stringify([trace.events[hop.seq]!.frameId, hop.fromDeviceId, hop.linkId]);
+    const counts = new Map<string, number>();
+    for (const step of steps) for (const hop of step.hops) {
+      const key = keyOf(hop);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    const seen = new Map<string, number>();
+    preview = steps.map(step => ({ ...step, hops: step.hops.filter(hop => {
+      const key = keyOf(hop);
+      const occurrence = (seen.get(key) ?? 0) + 1;
+      seen.set(key, occurrence);
+      const keep = occurrence <= 2 || occurrence === counts.get(key);
+      if (!keep) omittedHops += 1;
+      return keep;
+    }) })).filter(step => step.hops.length > 0 || step.falls.length > 0);
+  }
+  const timeline = timelineOf(preview, lengthOf);
+  const scale = timeline.durationMs > MAX_REPLAY_MS ? MAX_REPLAY_MS / timeline.durationMs : 1;
+  return {
+    ...timeline,
+    ...(omittedHops === 0 ? {} : { omittedHops }),
+    ...(scale === 1 ? {} : {
+      timeScale: scale,
+      durationMs: MAX_REPLAY_MS,
+      walks: timeline.walks.map(walk => ({ ...walk, start: walk.start * scale, duration: walk.duration * scale })),
+      drops: timeline.drops.map(drop => ({ ...drop, start: drop.start * scale,
+        ...(drop.end === undefined ? {} : { end: drop.end * scale }) })),
+    }),
+  };
+}
+
 /** 시각 `elapsed`(재생 시작부터 ms)에 그릴 것 */
 export type Sprite =
   | { readonly type: "walk"; readonly hop: Hop; readonly progress: number; readonly stride: "a" | "b" }
@@ -84,20 +132,21 @@ export type Sprite =
  */
 export function spritesAt(timeline: Timeline, elapsed: number, reduced = false): Sprite[] {
   const sprites: Sprite[] = [];
+  const timeScale = timeline.timeScale ?? 1;
   for (const { hop, start, duration } of timeline.walks) {
     if (elapsed < start || elapsed >= start + duration) continue;
     const progress = reduced ? 1 : (elapsed - start) / duration;
-    const stride = !reduced && Math.floor((elapsed - start) / STRIDE_MS) % 2 === 1 ? "b" : "a";
+    const stride = !reduced && Math.floor((elapsed - start) / (STRIDE_MS * timeScale)) % 2 === 1 ? "b" : "a";
     sprites.push({ type: "walk", hop, progress, stride });
   }
   for (const { fall, start, end } of timeline.drops) {
     if (elapsed < start) continue;
     if (fall.primary) {
       if (end !== undefined && elapsed >= end) continue;
-      const opacity = end === undefined ? 1 : Math.min(1, (end - elapsed) / VANISH_MS);
+      const opacity = end === undefined ? 1 : Math.min(1, (end - elapsed) / (VANISH_MS * timeScale));
       sprites.push({ type: "drop", fall, opacity });
     }
-    else if (elapsed < start + FADE_MS) sprites.push({ type: "fade", fall, opacity: 1 - (elapsed - start) / FADE_MS });
+    else if (elapsed < start + FADE_MS * timeScale) sprites.push({ type: "fade", fall, opacity: 1 - (elapsed - start) / (FADE_MS * timeScale) });
   }
   return sprites;
 }

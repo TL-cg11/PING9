@@ -17,8 +17,7 @@ import { CABLE_OFF, CABLE_READY, syncCableState } from "./cable-state";
 import type { CableState } from "./cable-state";
 import { availablePorts } from "./format/available-ports";
 import { formatError } from "./messages/errors";
-import { firstAttempt, replaySteps } from "./replay/steps";
-import { timelineOf } from "./replay/timeline";
+import { previewTimeline } from "./replay/timeline";
 import { TOPOLOGY_NAME, simulator, useSnapshot } from "./simulator";
 import { createCommandQueue } from "./terminal/command-queue";
 import { completed, historyStep, initialTerminal, refreshPrompts, runLinePaced, showHelp } from "./terminal/terminal-state";
@@ -199,7 +198,7 @@ export function App() {
     const trace = simulator.getTrace(traceId);
     if (trace === undefined) return 0;
     const { document: current } = simulator.getSnapshot();
-    const timeline = timelineOf(firstAttempt(replaySteps(trace)), (linkId) => cableLength(current, linkId));
+    const timeline = previewTimeline(trace, (linkId) => cableLength(current, linkId));
     replayCount.current += 1;
     const startedAt = performance.now();
     // 이 장비의 앞 재생을 바꾸고, 다른 장비에서 재생이 끝나 남아 있던 펭귄(놓침)도 지운다.

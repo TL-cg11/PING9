@@ -77,3 +77,5 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T0.10 터미널 네 면 조절·휠 확대 | [T0.10-terminal-resize-wheel.md](T0.10-terminal-resize-wheel.md) | 화면 | ssunyoung2 | 구현·로컬 검증, 리뷰 전 |
 
 | T0.10 최신 메인 통합 | [T0.10-latest-main-sync.md](T0.10-latest-main-sync.md) | 화면·통합 | ssunyoung2 | 로컬 병합·검증 완료 |
+
+| T4.4.1 Router 자체 순환 ping·재생 지연 수정 | [T4.4.1-router-loop-ping.md](T4.4.1-router-loop-ping.md) | 엔진·화면 | ssunyoung2 | 구현·자동 검증 완료, 리뷰 전 |

@@ -136,12 +136,30 @@ export class RouterModel implements DeviceModel {
     // ICMP 오류에 다시 오류를 만들지 않는다. 브로드캐스트·잘못된 주소에도 응답하지 않는다.
     if (ipv4 === undefined || icmp === undefined || isIcmpError(icmp) || ethernet.destinationMac === BROADCAST_MAC ||
       !this.#unicast(ipv4.sourceIp) || !this.#unicast(ipv4.destinationIp)) return;
+    const device = this.#device();
+    const localPort = PORT_NAMES.router.find(port =>
+      isAdminUp(device, port) && device.config.interfaces[port]?.ip === ipv4.sourceIp);
+    const message: IcmpMessage = { type, sequence: icmp.sequence, original: {
+      sourceIp: ipv4.sourceIp, destinationIp: ipv4.destinationIp, sequence: icmp.sequence,
+    } };
+    if (localPort !== undefined) {
+      // 원래 출발지가 자신이면 ICMP 오류를 로컬 전달한다. 자기 주소를 ARP로 조회하거나 링크로 내보내지 않는다.
+      const frame = ctx.createFrame({
+        ethernet: { sourceMac: portMac(device, localPort), destinationMac: portMac(device, localPort) },
+        ipv4: { sourceIp: ipv4.sourceIp, destinationIp: ipv4.sourceIp, ttl: ROUTER_TTL }, icmp: message,
+      });
+      const params = { device: deviceRef(device), sourceIp: ipv4.sourceIp, targetIp: ipv4.sourceIp, error: type };
+      const sent = ctx.record({ frame, deviceId: device.id, layer: "ICMP", action: "reply", parentSeq,
+        reason: { code: "ICMP_ERROR_SENT", params } });
+      ctx.record({ frame, deviceId: device.id, layer: "ICMP", action: "receive", parentSeq: sent,
+        reason: { code: "ICMP_ERROR_RECEIVED", params } });
+      return;
+    }
     const decision = this.#decision(ipv4.sourceIp);
     if (decision === null) return;
     this.#send(ctx, decision, {
       sourceIp: this.#device().config.interfaces[decision.port]!.ip!, destinationIp: ipv4.sourceIp, ttl: ROUTER_TTL,
-    }, { type, sequence: icmp.sequence, original: { sourceIp: ipv4.sourceIp, destinationIp: ipv4.destinationIp, sequence: icmp.sequence } },
-    "reply", parentSeq);
+    }, message, "reply", parentSeq);
   }
 
   onTimer(ctx: SimContext, timer: TimerRef): void {
