@@ -194,11 +194,7 @@ describe("해석 오류", () => {
     // 해석기는 /bogus를 IP 자리로 본다 (설계안 결정 4: 해석기를 고치지 않음)
     ["옵션 오타", "ipconfig /bogus", { code: "INVALID_IPV4", position: 9 }],
     ["남는 단어", "ipconfig /all extra", { code: "CLI_UNKNOWN_COMMAND", position: 14 }],
-    ["모르는 명령", "foo", { code: "CLI_UNKNOWN_COMMAND", position: 0 }],
-    // PC에는 모드 전환이 없다
-    ["enable", "enable", { code: "CLI_UNKNOWN_COMMAND", position: 0 }],
-    // help는 T3.2.2에서 모든 장비 공용으로 만든다
-    ["help", "help", { code: "CLI_UNKNOWN_COMMAND", position: 0 }],
+    // 첫 단어가 없는 명령어(`foo`, `enable`)는 OS 형식의 줄로 나온다 (T0.9, 아래 "PC 입력 규칙")
   ])("%s", async (_name, line, expected) => {
     const { simulator, port } = open();
     const before = simulator.getSnapshot();

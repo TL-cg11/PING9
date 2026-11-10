@@ -106,6 +106,8 @@ export interface ErrorParamsByCode {
   CLI_INVALID_VALUE: { readonly token: string };
   CLI_WRONG_MODE: { readonly token: string };
   CLI_LINE_TOO_LONG: { readonly limit: number };
+  /** PC 콘솔에 파이프, 리다이렉트, 명령 연결 기호(`|`, `>`, `<`, `;`, `&`, `` ` ``, `$(`)가 있음. 한 줄에 명령 하나다 (T0.9) */
+  CLI_UNSUPPORTED_SYNTAX: { readonly token: string };
 
   // ping (T1.8.3)
   /** 브로드캐스트 주소(255.255.255.255, 자기 네트워크의 브로드캐스트)로 ping. 지원하지 않는다 (MAL-6, NET-9) */
@@ -173,6 +175,7 @@ const ERROR_CODE_SET = {
   CLI_INVALID_VALUE: true,
   CLI_WRONG_MODE: true,
   CLI_LINE_TOO_LONG: true,
+  CLI_UNSUPPORTED_SYNTAX: true,
   PING_BROADCAST_UNSUPPORTED: true,
   PING_COUNT_OUT_OF_RANGE: true,
   PING_DEVICE_UNSUPPORTED: true,
@@ -189,6 +192,8 @@ export interface NoticeParamsByCode {
   DUPLICATE_IP: { readonly ip: string; readonly others: readonly DeviceRef[] };
   /** 없는 VLAN을 포트에 지정해 VLAN이 자동으로 만들어짐 */
   VLAN_AUTO_CREATED: { readonly device: DeviceRef; readonly vlanId: number };
+  /** PC 콘솔에서 첫 단어가 없는 명령어. OS 형식의 줄(`ls: command not found`) 밑에 붙는 한국어 안내 (T0.9) */
+  PC_UNKNOWN_COMMAND: { readonly token: string };
 }
 
 export type NoticeCode = keyof NoticeParamsByCode;
@@ -200,6 +205,7 @@ export type Notice<C extends NoticeCode = NoticeCode> = {
 const NOTICE_CODE_SET = {
   DUPLICATE_IP: true,
   VLAN_AUTO_CREATED: true,
+  PC_UNKNOWN_COMMAND: true,
 } satisfies Record<NoticeCode, true>;
 
 export const NOTICE_CODES = Object.keys(NOTICE_CODE_SET) as readonly NoticeCode[];

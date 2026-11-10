@@ -103,6 +103,8 @@ export interface CommandDefinition {
   readonly tokens: readonly Token[];
   /** `?` 도움말에 보일 영어 설명 */
   readonly help: string;
+  /** 키워드의 대소문자를 구분한다 (Linux PC, T0.9). 없으면 IOS처럼 구분하지 않는다 */
+  readonly caseSensitive?: boolean;
   run(args: CommandArgs, context: CommandContext): CommandOutcome;
 }
 

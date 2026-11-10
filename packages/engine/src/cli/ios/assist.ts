@@ -5,7 +5,7 @@
 import type { DeviceKind, HelpEntry } from "@ping9/shared";
 
 import type { CliMode, CommandDefinition } from "./define";
-import { candidatesFor, definitionsFor, splitWords, walkWords } from "./parse";
+import { candidatesFor, definitionsFor, sameKeyword, splitWords, startsKeyword, walkWords } from "./parse";
 import type { Word } from "./parse";
 
 /** 줄이 여기서 끝나도 될 때 도움말에 나오는 표시. 실제 장비와 같다 */
@@ -45,12 +45,12 @@ function cursorAt(
 
 /** 이 자리에 올 수 있는 키워드와, 키워드마다 그 키워드를 가진 정의들 (정의 목록의 순서) */
 function keywordsAt(cursor: Cursor): Map<string, CommandDefinition[]> {
-  const typed = cursor.partial?.text.toLowerCase() ?? "";
+  const typed = cursor.partial?.text ?? "";
   const found = new Map<string, CommandDefinition[]>();
 
   for (const definition of cursor.alive) {
     const token = definition.tokens[cursor.index];
-    if (typeof token !== "string" || !token.toLowerCase().startsWith(typed)) continue;
+    if (typeof token !== "string" || !startsKeyword(token, typed, definition)) continue;
     found.set(token, [...(found.get(token) ?? []), definition]);
   }
   return found;
@@ -110,12 +110,12 @@ export function completeLine(
   const cursor = cursorAt(line, mode, kind, definitions);
   if (cursor.partial === undefined) return null;
 
-  const typed = cursor.partial.text.toLowerCase();
-  const keywords = [...keywordsAt(cursor).keys()];
+  const typed = cursor.partial.text;
+  const found = [...keywordsAt(cursor)];
   // 해석기와 같은 순서다: 똑같은 키워드가 먼저, 없으면 하나뿐인 접두사 일치
   const keyword =
-    keywords.find((candidate) => candidate.toLowerCase() === typed) ??
-    (keywords.length === 1 ? keywords[0] : undefined);
+    found.find(([candidate, owners]) => owners.some((owner) => sameKeyword(candidate, typed, owner)))?.[0] ??
+    (found.length === 1 ? found[0]?.[0] : undefined);
   if (keyword === undefined) return null;
 
   return `${line.slice(0, cursor.partial.position)}${keyword} `;
