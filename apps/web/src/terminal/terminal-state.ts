@@ -8,7 +8,7 @@ import type { ConsoleResult, OsKind, PingRoundKind } from "@ping9/shared";
 
 import { formatError } from "../messages/errors";
 import { formatNotice } from "../messages/notices";
-import { interruptedLines, pacePing } from "./ping-pacing";
+import { interruptedLines, pacePing, waitAfterStart } from "./ping-pacing";
 
 export type TerminalLine =
   /** 사용자가 입력한 줄. 그때의 프롬프트와 함께 남긴다 */
@@ -180,6 +180,8 @@ export interface PacedRun {
   targetOf(traceId: number): string;
   /** 통계 줄의 형식 */
   readonly os: OsKind;
+  /** 그 회차의 추적을 캔버스에서 재생하고 재생 길이(ms)를 돌려준다 (T6.1.2). 없으면 재생하지 않는다 */
+  play?(traceId: number): number;
 }
 
 /**
@@ -205,12 +207,15 @@ export async function runLinePaced(
   run.show(current);
 
   const shown: PingRoundKind[] = [];
+  const interrupted = (round: (typeof paced.rounds)[number]) => {
+    const first = paced.rounds[0]!.lines.at(-1);
+    const targetIp = first?.kind === "trace" ? run.targetOf(first.traceId) : "";
+    return append(current, interruptedLines(run.os, targetIp, shown, round.kind));
+  };
   for (const round of paced.rounds) {
-    if (round.waitMs > 0 && !(await run.wait(round.waitMs))) {
-      const first = paced.rounds[0]!.lines.at(-1);
-      const targetIp = first?.kind === "trace" ? run.targetOf(first.traceId) : "";
-      return append(current, interruptedLines(run.os, targetIp, shown, round.kind));
-    }
+    if (round.gapMs > 0 && !(await run.wait(round.gapMs))) return interrupted(round);
+    const after = waitAfterStart(round.kind, run.play?.(round.traceId) ?? 0);
+    if (after > 0 && !(await run.wait(after))) return interrupted(round);
     current = append(current, round.lines);
     shown.push(round.kind);
     run.show(current);

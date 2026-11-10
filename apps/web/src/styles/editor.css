@@ -222,3 +222,13 @@ button { font: inherit; cursor: pointer; }
 .pc-form .form-status { margin-top: 8px; font-size: 12px; font-weight: 600; }
 .pc-form .form-status.applied { color: var(--ok); }
 .pc-form .form-status.unchanged { color: var(--navy-60); font-weight: 400; }
+
+/* 펭귄 층 (T6.1.2). 누르기를 가로채지 않는다 */
+.packet-layer { pointer-events: none; }
+.penguin-mark {
+  font: 800 15px system-ui, sans-serif;
+  fill: #1e2a4a;
+  stroke: #fff;
+  stroke-width: 3px;
+  paint-order: stroke;
+}

@@ -3,12 +3,13 @@
 
 import { osOf, pingRoundKind, shortPortName } from "@ping9/shared";
 import type { DeviceKind, ErrorInfo, PortRef, Position } from "@ping9/shared";
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 
-import { Canvas } from "./components/canvas";
+import { Canvas, cableLength } from "./components/canvas";
 import { Inspector } from "./components/inspector";
 import { LinkInspector } from "./components/link-inspector";
 import { Palette } from "./components/palette";
+import type { Replay } from "./components/packet-layer";
 import { TerminalWindow } from "./components/terminal-window";
 import { focusCanvasNode, focusTerminalInput } from "./focus";
 import { TopBar } from "./components/top-bar";
@@ -16,6 +17,8 @@ import { CABLE_OFF, CABLE_READY, syncCableState } from "./cable-state";
 import type { CableState } from "./cable-state";
 import { availablePorts } from "./format/available-ports";
 import { formatError } from "./messages/errors";
+import { firstAttempt, replaySteps } from "./replay/steps";
+import { timelineOf } from "./replay/timeline";
 import { TOPOLOGY_NAME, simulator, useSnapshot } from "./simulator";
 import { createCommandQueue } from "./terminal/command-queue";
 import { completed, historyStep, initialTerminal, refreshPrompts, runLinePaced, showHelp } from "./terminal/terminal-state";
@@ -179,6 +182,43 @@ export function App() {
       return next;
     });
 
+  // 캔버스에서 재생 중인 ping 회차. 장비마다 하나다: 다음 회차나 다음 ping이 앞 것을 바꾼다 (T6.1.2).
+  // 원인 폐기로 넘어진 펭귄은 재생이 끝나도 남고, 어느 장비에서든 다음 회차가 시작되거나 캔버스 빈 곳을 누르면 지운다
+  const [replays, setReplays] = useState<ReadonlyMap<string, Replay>>(new Map());
+  const replayList = useMemo(() => [...replays.values()], [replays]);
+  const replayCount = useRef(0);
+  const setReplayOf = (deviceId: string, replay: Replay | undefined) =>
+    setReplays((current) => {
+      if (replay === undefined && !current.has(deviceId)) return current;
+      const next = new Map(current);
+      if (replay === undefined) next.delete(deviceId);
+      else next.set(deviceId, replay);
+      return next;
+    });
+  const play = (deviceId: string, traceId: number): number => {
+    const trace = simulator.getTrace(traceId);
+    if (trace === undefined) return 0;
+    const { document: current } = simulator.getSnapshot();
+    const timeline = timelineOf(firstAttempt(replaySteps(trace)), (linkId) => cableLength(current, linkId));
+    replayCount.current += 1;
+    const startedAt = performance.now();
+    // 이 장비의 앞 재생을 바꾸고, 다른 장비에서 재생이 끝나 남아 있던 펭귄(놓침)도 지운다.
+    // 다른 장비에서 아직 걷는 중인 재생은 그대로 둔다
+    setReplays((current) => {
+      const next = new Map([...current].filter(([id, replay]) =>
+        id !== deviceId && startedAt - replay.startedAt < replay.timeline.durationMs));
+      next.set(deviceId, { key: `replay-${replayCount.current}`, timeline, startedAt });
+      return next;
+    });
+    return timeline.durationMs;
+  };
+  const clearFinishedReplays = () =>
+    setReplays((current) => {
+      const time = performance.now();
+      const next = new Map([...current].filter(([, replay]) => time - replay.startedAt < replay.timeline.durationMs));
+      return next.size === current.size ? current : next;
+    });
+
   const submit = (deviceId: string, input: string) => {
     void queue.enqueue(deviceId, async () => {
       const state = latest.current[deviceId];
@@ -211,6 +251,7 @@ export function App() {
           targetOf: (traceId) =>
             simulator.getSnapshot().traces.find((summary) => summary.id === traceId)?.targetIp ?? "",
           os: device?.kind === "pc" ? osOf(device.config) : "windows",
+          play: (traceId) => play(deviceId, traceId),
         });
         update(next);
       } finally {
@@ -225,6 +266,8 @@ export function App() {
     const controller = running.current.get(deviceId);
     if (controller === undefined || controller.signal.aborted) return false;
     controller.abort();
+    // 걷던 펭귄도 사라진다
+    setReplayOf(deviceId, undefined);
     return true;
   };
 
@@ -279,6 +322,7 @@ export function App() {
             onDeviceDrag={() => setCable(current => ({ ...current, pickerDeviceId: null }))}
             cableActive={cable.active} firstPort={cable.first} pickerDeviceId={cable.pickerDeviceId}
             onPickPort={pickPort} onClosePortPicker={() => setCable(current => ({ ...current, pickerDeviceId: null }))}
+            replays={replayList} onCanvasClick={clearFinishedReplays}
           />
           {ui.terminals.map((placement, index) => {
             const device = document.devices.find((candidate) => candidate.id === placement.deviceId);

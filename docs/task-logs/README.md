@@ -18,8 +18,8 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T0.4 저장소 공개 전환과 Vercel Git 연동 배포 | [T0.4-public-repo-and-git-deploy.md](T0.4-public-repo-and-git-deploy.md) | 배포 | SDY | 진행 중. 저장소 이전, 공개, Vercel 연결은 끝남 (팀원이 직접 병합했을 때의 배포 확인 남음) |
 | T0.5 운영 첫 화면을 편집기 화면으로 바꾸기 (계획에 없는 새 ID) | [T0.5-app-at-root.md](T0.5-app-at-root.md) | 배포 | SDY | 병합됨 (PR #8, 팀원 검토 없이). T0.3 담당자 확인 필요. 시안은 `/mockup.html`에 남김 |
 | T0.6 장비 아이콘과 선택 표시 (계획에 없는 새 ID) | [T0.6-device-icons.md](T0.6-device-icons.md) | 화면 | yysong1249 | 병합됨 (PR #25, 팀원 검토 없이) |
-| T0.7 Windows·Linux PC (계획에 없는 새 ID. 첫 회의의 목표) | [T0.7-pc-os.md](T0.7-pc-os.md) | 엔진, 화면 | yysong1249 | 검토 대기 |
-| T0.8 케이블 그림 (계획에 없는 새 ID) | [T0.8-cable-look.md](T0.8-cable-look.md) | 화면 | yysong1249 | 검토 대기 ([PR #35](https://github.com/TL-cg11/PING9/pull/35)) |
+| T0.7 Windows·Linux PC (계획에 없는 새 ID. 첫 회의의 목표) | [T0.7-pc-os.md](T0.7-pc-os.md) | 엔진, 화면 | yysong1249 | 병합됨 ([PR #29](https://github.com/TL-cg11/PING9/pull/29)) |
+| T0.8 케이블 그림 (계획에 없는 새 ID) | [T0.8-cable-look.md](T0.8-cable-look.md) | 화면 | yysong1249 | 병합됨 ([PR #35](https://github.com/TL-cg11/PING9/pull/35)). 포트 이름 위치 후속은 T6.1.2 PR |
 | T0.9 PC 콘솔의 입력 규칙과 help (계획에 없는 새 ID. T0.7 후속) | [T0.9-pc-input-rules.md](T0.9-pc-input-rules.md) | 엔진, 공통 | yysong1249 | 검토 대기 ([PR #39](https://github.com/TL-cg11/PING9/pull/39)) |
 | T1.1.1 모노레포와 패키지 뼈대 | [T1.1.1-monorepo-skeleton.md](T1.1.1-monorepo-skeleton.md) | 공통 | SDY | 완료 (검토 없이 병합) |
 | T1.1.3 CI 검사와 운영 배포 | [T1.1.3-ci-and-deploy.md](T1.1.3-ci-and-deploy.md) | 배포 | SDY | 일부 완료. CI 동작 중. Actions 배포는 T0.4에서 없앰 (브랜치 보호 남음) |
@@ -30,15 +30,15 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T1.7.1 가상 시계와 사건 큐 커널 | [T1.7.1-kernel.md](T1.7.1-kernel.md) | 엔진 | ssunyoung2 | 구현·검증 완료, [PR #27](https://github.com/TL-cg11/PING9/pull/27) 팀원 검토 대기 |
 | T1.3.2 장비 드래그 배치·이동과 포트 선택 연결 | [T1.3.2-drag-editor.md](T1.3.2-drag-editor.md) | 화면, 엔진 | ssunyoung2 | 로컬 구현·검증 완료, PR/팀원 검토 대기 |
 | T1.3.2 후속: 실습 확대·축소 버튼 | [T1.3.2-canvas-zoom.md](T1.3.2-canvas-zoom.md) | 화면 | ssunyoung2 | 로컬 구현·검증 완료, PR/팀원 검토 대기 |
-| T1.8.1 ARP 모듈 | [T1.8.1-arp.md](T1.8.1-arp.md) | 엔진 | yysong1249 | 검토 대기. T1.7.2(링크 전달) 없이 가짜 `transmit`으로 검증 |
-| T1.8.2 IPv4 호스트 처리와 ICMP echo | [T1.8.2-ipv4-icmp.md](T1.8.2-ipv4-icmp.md) | 엔진 | yysong1249 | 검토 대기 (PR #32). T1.8.1(PR #30) 위에서. 가짜 `transmit`으로 검증 |
-| T1.8.3 PC 모델과 `ping` 명령어 | [T1.8.3-pc-ping.md](T1.8.3-pc-ping.md) | 엔진 | yysong1249 | 병합됨 ([PR #34](https://github.com/TL-cg11/PING9/pull/34)). 회차를 하나씩 보이기와 Ctrl+C는 [PR #37](https://github.com/TL-cg11/PING9/pull/37) 검토 대기 |
+| T1.8.1 ARP 모듈 | [T1.8.1-arp.md](T1.8.1-arp.md) | 엔진 | yysong1249 | 병합됨 ([PR #30](https://github.com/TL-cg11/PING9/pull/30)) |
+| T1.8.2 IPv4 호스트 처리와 ICMP echo | [T1.8.2-ipv4-icmp.md](T1.8.2-ipv4-icmp.md) | 엔진 | yysong1249 | 병합됨 ([PR #32](https://github.com/TL-cg11/PING9/pull/32)) |
+| T1.8.3 PC 모델과 `ping` 명령어 | [T1.8.3-pc-ping.md](T1.8.3-pc-ping.md) | 엔진 | yysong1249 | 병합됨 ([PR #34](https://github.com/TL-cg11/PING9/pull/34), 회차를 하나씩 보이기와 Ctrl+C는 [PR #37](https://github.com/TL-cg11/PING9/pull/37)) |
 | T1.4.1 링크 생성·삭제 명령 | [T1.4.1-link-commands.md](T1.4.1-link-commands.md) | 엔진 | ssunyoung2 | 문서 명령 로컬 검증 완료. 런타임 훅과 PR 검토 남음 |
 | T1.4.2 케이블 연결·선택·삭제 화면 | [T1.4.2-link-editor.md](T1.4.2-link-editor.md) | 화면 | ssunyoung2 | 선택 창 연결/삭제 로컬 검증 완료. 드래그 연결과 PR 검토 남음 |
 | T1.5.1 reducer `pc/set-ip` | [T1.5.1-pc-set-ip.md](T1.5.1-pc-set-ip.md) | 엔진 | yysong1249 | 완료 (PR #3, SDY가 병합). 오류에 값을 담는 함수는 T5.1.1에서 `describeValue`로 맞춤 (담당자 확인함) |
 | T1.5.2 PC 설정 패널 | [T1.5.2-pc-panel.md](T1.5.2-pc-panel.md) | 화면 | yysong1249 | 병합됨 (PR #13, SDY가 검토하고 병합) |
 | T1.6.1 PC 명령어 (`ipconfig`) | [T1.6.1-pc-commands.md](T1.6.1-pc-commands.md) | 엔진 | yysong1249 | 병합됨 (PR #9, SDY가 검토하고 병합) |
-| T1.6.2 콘솔 화면 (키보드로 열고 나오기) | [T1.6.2-console-screen.md](T1.6.2-console-screen.md) | 화면 | yysong1249 | 검토 대기. xterm과 도크 탭 대신 입력란과 떠 있는 창 (계획과 다름) |
+| T1.6.2 콘솔 화면 (키보드로 열고 나오기) | [T1.6.2-console-screen.md](T1.6.2-console-screen.md) | 화면 | yysong1249 | 병합됨 ([PR #26](https://github.com/TL-cg11/PING9/pull/26)). xterm과 도크 탭 대신 입력란과 떠 있는 창 (계획과 다름) |
 | T3.1.1 명령 트리 확장: 모드와 세션 | [T3.1.1-cli-modes-and-session.md](T3.1.1-cli-modes-and-session.md) | 엔진 | SDY | 병합됨 (PR #4, 팀원 검토 없이) |
 | T3.1.2 Switch 기본 명령어 | [T3.1.2-switch-basic-commands.md](T3.1.2-switch-basic-commands.md) | 엔진 | SDY | 병합됨 (PR #5, 팀원 검토 없이). `hostname`은 `device/rename` 처리기 대기 |
 | T3.2.1 줄임 입력 | [T3.2.1-abbreviations.md](T3.2.1-abbreviations.md) | 엔진 | SDY | 병합됨 (PR #10, 팀원 검토 없이) |
@@ -60,3 +60,5 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T1.7.3 Switch의 전달 규칙 (kernel 없이 되는 부분) | [T1.7.3-switch-forwarding.md](T1.7.3-switch-forwarding.md) | 엔진 | SDY | 일부 병합됨 (PR #16, 팀원 검토 없이). kernel 연결은 T5.2.2 |
 | T1.7.2 Ethernet 포트와 링크 전달 | [T1.7.2-link-transfer.md](T1.7.2-link-transfer.md) | 엔진 | SDY | 병합됨 ([PR #33](https://github.com/TL-cg11/PING9/pull/33), 팀원 검토 없이) |
 | T5.2.2 Switch 모델: kernel 연결 | [T5.2.2-switch-model.md](T5.2.2-switch-model.md) | 엔진 | SDY | 병합됨 ([PR #36](https://github.com/TL-cg11/PING9/pull/36), 팀원 검토 없이). 계획의 T5.2.2(문구)와 다름: 설계 9절 18번 |
+| T6.1.1 재생 단계 계산 | [T6.1.1-replay-steps.md](T6.1.1-replay-steps.md) | 화면 | yysong1249 | 검토 대기 ([PR #38](https://github.com/TL-cg11/PING9/pull/38), T6.1.2와 같은 PR) |
+| T6.1.2 캔버스 위 프레임 그리기 (펭귄) | [T6.1.2-packet-walk.md](T6.1.2-packet-walk.md) | 화면 | yysong1249 | 검토 대기 ([PR #38](https://github.com/TL-cg11/PING9/pull/38)) |
