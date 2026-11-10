@@ -44,21 +44,24 @@ export class Ipv4Host {
     this.#arp = arp;
   }
 
-  /** echo 요청을 보낸다 (ping 한 회차). 보낼 수 없으면 폐기를 기록한다 */
-  sendEcho(ctx: SimContext, port: string, targetIp: string, sequence: number): void {
+  /**
+   * echo 요청을 보낸다 (ping 한 회차). 보낼 수 없으면 폐기를 기록한다.
+   * `ttl`은 traceroute가 hop마다 정한다 (T11.4.1). 없으면 OS의 값
+   */
+  sendEcho(ctx: SimContext, port: string, targetIp: string, sequence: number, ttl = this.#config.ttl): void {
     const { device } = this.#config;
     const address = this.#config.addressOf(port);
     const icmp: IcmpMessage = { type: "echo-request", sequence };
 
     if (address === undefined) {
       // 실제 OS는 패킷을 만들지 않는다. record에 프레임이 필요해서 "보내려던 패킷"을 만든다 (설계 결정 7)
-      this.#dropUnsent(ctx, port, { sourceIp: "", destinationIp: targetIp, ttl: this.#config.ttl }, icmp, {
+      this.#dropUnsent(ctx, port, { sourceIp: "", destinationIp: targetIp, ttl }, icmp, {
         code: "NO_IP", params: { device },
       });
       return;
     }
 
-    const ipv4: Ipv4Header = { sourceIp: address.ip, destinationIp: targetIp, ttl: this.#config.ttl };
+    const ipv4: Ipv4Header = { sourceIp: address.ip, destinationIp: targetIp, ttl };
     const hop = nextHop(address, targetIp);
     if (hop === undefined) {
       this.#dropUnsent(ctx, port, ipv4, icmp, { code: "NO_GATEWAY", params: { device, targetIp } });

@@ -4,8 +4,10 @@ import { defineCommand, param } from "../ios";
 import type { CommandDefinition } from "../ios";
 import { tableLines } from "../ios/table";
 import { loopbackPingLines } from "../pc/ping-output";
+import { iosTracerouteLines } from "./traceroute-output";
 
 const text = (value: string): ConsoleLine => ({ kind: "text", text: value });
+
 export const ROUTER_NETWORK_COMMANDS: readonly CommandDefinition[] = [
   defineCommand({ modes: ["user", "privileged"], devices: ["router"], tokens: ["ping", param("ip", "ipv4", "Destination IPv4 address")],
     help: "Send 4 ICMP echo requests using the routing table",
@@ -27,6 +29,20 @@ export const ROUTER_NETWORK_COMMANDS: readonly CommandDefinition[] = [
       }
       lines.push(text(`Success rate: ${received}/${result.rounds.length}`));
       return { lines };
+    },
+  }),
+  defineCommand({ modes: ["user", "privileged"], devices: ["router"], tokens: ["traceroute", param("ip", "ipv4", "Destination IPv4 address")],
+    help: "Show the routers on the way (up to 30 hops)",
+    // T11.4.1. 자기 인터페이스 주소와 127.x는 링크를 지나지 않는다 (ping과 같은 판단)
+    run: (args, context) => {
+      if (context.device.kind !== "router" || context.runtime === undefined) return {};
+      const target = String(args.ip);
+      if (target.startsWith("127.") || Object.values(context.device.config.interfaces).some(iface => iface.adminUp && iface.ip === target)) {
+        return { lines: iosTracerouteLines(target, { kind: "loopback", targetIp: target }) };
+      }
+      const result = context.runtime.traceroute({ deviceId: context.device.id, targetIp: target, maxHops: 30 });
+      if (!result.ok) return { lines: [{ kind: "error", ...result.error }] };
+      return { lines: iosTracerouteLines(target, result.rounds) };
     },
   }),
   defineCommand({ modes: ["privileged"], devices: ["router"], tokens: ["show", "arp"], help: "Show learned IP, MAC and interface mappings",

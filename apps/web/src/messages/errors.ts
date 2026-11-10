@@ -80,6 +80,9 @@ export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsBy
   // Switch, Router 모두 받침이 없어 "를"이다
   PING_DEVICE_UNSUPPORTED: ({ kind, deviceName }) =>
     `${KIND_NAMES[kind]}(${deviceName})를 지나는 ping은 아직 지원하지 않아요`,
+
+  // traceroute (T11.4.1)
+  TRACEROUTE_HOPS_OUT_OF_RANGE: ({ value, min, max }) => `최대 hop 수는 ${min}~${max}여야 해요: ${value}`,
 };
 
 export function formatError(error: ErrorInfo): string {

@@ -119,6 +119,8 @@ export interface ErrorParamsByCode {
   PING_COUNT_OUT_OF_RANGE: { readonly value: string; readonly min: number; readonly max: number };
   /** ping이 아직 동작 모델이 없는 장비(Switch, Router)를 지나야 함. 그 장비의 모델이 들어오면 사라진다 */
   PING_DEVICE_UNSUPPORTED: { readonly kind: DeviceKind; readonly deviceName: string };
+  /** `tracert -h`·`traceroute -m`의 hop 수가 범위 밖. hop마다 추적이 하나라 기본값 30까지만 받는다 (T11.4.1) */
+  TRACEROUTE_HOPS_OUT_OF_RANGE: { readonly value: string; readonly min: number; readonly max: number };
 }
 
 export type ErrorCode = keyof ErrorParamsByCode;
@@ -185,6 +187,7 @@ const ERROR_CODE_SET = {
   PING_BROADCAST_UNSUPPORTED: true,
   PING_COUNT_OUT_OF_RANGE: true,
   PING_DEVICE_UNSUPPORTED: true,
+  TRACEROUTE_HOPS_OUT_OF_RANGE: true,
 } satisfies Record<ErrorCode, true>;
 
 export const ERROR_CODES = Object.keys(ERROR_CODE_SET) as readonly ErrorCode[];

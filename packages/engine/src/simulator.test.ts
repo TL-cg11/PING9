@@ -309,12 +309,12 @@ describe("console", () => {
     const simulator = createSimulator();
     simulator.load(twoPcDocument);
 
-    // ping은 T1.8.3에서 생겼다. tracert는 아직 없다
-    await expect(simulator.console(TWO_PC.pc1.id).exec("  tracert 192.168.1.2")).resolves.toEqual({
+    // ping은 T1.8.3, tracert는 T11.4.1에서 생겼다. pathping은 없다
+    await expect(simulator.console(TWO_PC.pc1.id).exec("  pathping 192.168.1.2")).resolves.toEqual({
       lines: [
-        { kind: "text", text: "'tracert' is not recognized as an internal or external command," },
+        { kind: "text", text: "'pathping' is not recognized as an internal or external command," },
         { kind: "text", text: "operable program or batch file." },
-        { kind: "notice", code: "PC_UNKNOWN_COMMAND", params: { token: "tracert" } },
+        { kind: "notice", code: "PC_UNKNOWN_COMMAND", params: { token: "pathping" } },
       ],
       prompt: "PC1>",
     });

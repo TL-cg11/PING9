@@ -250,6 +250,7 @@ export function App() {
           },
           targetOf: (traceId) =>
             simulator.getSnapshot().traces.find((summary) => summary.id === traceId)?.targetIp ?? "",
+          isHop: (traceId) => simulator.getSnapshot().traces.find((summary) => summary.id === traceId)?.hop !== undefined,
           os: device?.kind === "pc" ? osOf(device.config) : "windows",
           play: (traceId) => play(deviceId, traceId),
         });

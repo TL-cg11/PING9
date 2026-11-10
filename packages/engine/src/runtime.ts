@@ -24,12 +24,13 @@ import { deviceRef, findDevice } from "./topology";
 
 /** ping 한 회차의 결과. 결과 줄은 OS별 출력(cli/pc/ping-output)이 만든다 */
 export type PingRound =
+  /** ICMP 오류를 받음. 시간은 회차 시작부터 받기까지의 가상 µs (traceroute의 hop 시간, T11.4.1) */
   | { readonly kind: "icmp-error"; readonly traceId: number; readonly sequence: number; readonly sourceIp: string;
-      readonly error: "destination-unreachable" | "time-exceeded" }
+      readonly error: "destination-unreachable" | "time-exceeded"; readonly timeUs: number }
   /** 응답을 받음. 시간은 회차 시작부터 응답을 받기까지의 가상 µs, TTL은 받은 응답의 값 */
   | { readonly kind: "reply"; readonly traceId: number; readonly sequence: number; readonly timeUs: number; readonly ttl: number }
-  /** 출발 PC의 ARP 요청에 응답이 없음 (ARP_TIMEOUT) */
-  | { readonly kind: "unreachable"; readonly traceId: number; readonly sequence: number }
+  /** 출발 장비의 ARP 요청에 응답이 없음 (ARP_TIMEOUT), 또는 출발 Router에 경로가 없음 (NO_ROUTE). 시간은 그 폐기까지 */
+  | { readonly kind: "unreachable"; readonly traceId: number; readonly sequence: number; readonly timeUs: number }
   /** 보냈는데 응답이 오지 않음 */
   | { readonly kind: "timeout"; readonly traceId: number; readonly sequence: number }
   /** 출발 PC가 보내지 못함 (NO_IP, NO_GATEWAY) */
@@ -47,6 +48,13 @@ export interface PingRequest {
   readonly stopOnUnsent: boolean;
 }
 
+export interface TracerouteRequest {
+  readonly deviceId: string;
+  readonly targetIp: string;
+  /** 탐색할 최대 hop 수 */
+  readonly maxHops: number;
+}
+
 export interface Runtime {
   /** 문서를 새로 열었다. kernel 시각과 추적 번호, 모델, 추적 목록을 처음으로 */
   reset(): void;
@@ -54,6 +62,11 @@ export interface Runtime {
   configChanged(previous: TopologyDocument, document: TopologyDocument): boolean;
   /** ping. 회차마다 Trace 하나를 보관한다. PC·Switch·Router를 통과한 추적을 보관한다 */
   ping(request: PingRequest, docVersion: number): PingRun;
+  /**
+   * traceroute (T11.4.1). hop마다 TTL = hop 번호로 echo를 한 번 보내고 Trace 하나를 보관한다. 회차의 sequence가 hop 번호다.
+   * 응답, 경로 없음(`destination-unreachable`), 출발 장비의 실패(`unreachable`, `unsent`)에서 멈춘다
+   */
+  traceroute(request: TracerouteRequest, docVersion: number): PingRun;
   arpTable(deviceId: string): readonly ArpEntryView[];
   /** `arp -d`. IP를 주면 그 항목만. 지운 것이 있으면 true */
   clearArp(deviceId: string, ip?: string): boolean;
@@ -121,6 +134,60 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     traces = [stored, ...traces].slice(0, LIMITS.maxTraces);
   };
 
+  /**
+   * 회차마다 kernel 실행 1회, Trace 하나 (ping, traceroute). `ttlOf`가 있으면 회차의 TTL을 정한다 (T11.4.1).
+   * Trace는 끝난 뒤에 한꺼번에 보관한다
+   */
+  const runRounds = (deviceId: string, targetIp: string, docVersion: number, plan: {
+    readonly count: number;
+    readonly ttlOf?: (sequence: number) => number;
+    readonly stop: (round: PingRound) => boolean;
+  }): PingRun => {
+    const source = findDevice(getDocument(), deviceId);
+    const model = pcModel(deviceId) ?? routerModel(deviceId);
+    if (source === undefined || model === undefined) {
+      return { ok: false, error: errorInfo("DEVICE_NOT_FOUND", { deviceId }) };
+    }
+
+    const rounds: PingRound[] = [];
+    const made: StoredTrace[] = [];
+    for (let sequence = 1; sequence <= plan.count; sequence += 1) {
+      const models = runModels();
+      const ttl = plan.ttlOf?.(sequence);
+      const trace = kernel.run(deviceRun({
+          docVersion,
+          models,
+          start: (ctx) => {
+            for (const pc of pcs.values()) pc.startRun();
+            for (const router of routers.values()) router.startRun();
+            if (model instanceof PcModel) model.ipv4.sendEcho(ctx, PC_PORT, targetIp, sequence, ttl);
+            else model.sendEcho(ctx, targetIp, sequence, ttl);
+          },
+          outcome: () => ((model instanceof PcModel ? model.ipv4.repliesReceived() : model.repliesReceived()).includes(sequence) ? "success" : "failed"),
+        }));
+
+      made.push({
+        trace,
+        summary: {
+          id: trace.id,
+          docVersion,
+          kind: "ping",
+          status: trace.result.status,
+          eventCount: trace.events.length,
+          source: deviceRef(source),
+          targetIp,
+          ...(ttl === undefined ? {} : { hop: sequence }),
+        },
+      });
+      const round = roundOf(trace, deviceId, sequence, targetIp);
+      rounds.push(round);
+      if (plan.stop(round)) break;
+    }
+
+    for (const stored of made) store(stored);
+    return { ok: true, rounds };
+  };
+
   return {
     reset() {
       kernel.reset();
@@ -163,48 +230,19 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     },
 
     ping(request, docVersion) {
-      const document = getDocument();
-      const source = findDevice(document, request.deviceId);
-      const model = pcModel(request.deviceId) ?? routerModel(request.deviceId);
-      if (source === undefined || model === undefined) {
-        return { ok: false, error: errorInfo("DEVICE_NOT_FOUND", { deviceId: request.deviceId }) };
-      }
+      return runRounds(request.deviceId, request.targetIp, docVersion, {
+        count: request.count,
+        stop: (round) => round.kind === "unsent" && request.stopOnUnsent,
+      });
+    },
 
-      const rounds: PingRound[] = [];
-      const made: StoredTrace[] = [];
-      for (let sequence = 1; sequence <= request.count; sequence += 1) {
-        const models = runModels();
-        const trace = kernel.run(deviceRun({
-            docVersion,
-            models,
-            start: (ctx) => {
-              for (const pc of pcs.values()) pc.startRun();
-              for (const router of routers.values()) router.startRun();
-              if (model instanceof PcModel) model.ipv4.sendEcho(ctx, PC_PORT, request.targetIp, sequence);
-              else model.sendEcho(ctx, request.targetIp, sequence);
-            },
-            outcome: () => ((model instanceof PcModel ? model.ipv4.repliesReceived() : model.repliesReceived()).includes(sequence) ? "success" : "failed"),
-          }));
-
-        made.push({
-          trace,
-          summary: {
-            id: trace.id,
-            docVersion,
-            kind: "ping",
-            status: trace.result.status,
-            eventCount: trace.events.length,
-            source: deviceRef(source),
-            targetIp: request.targetIp,
-          },
-        });
-        const round = roundOf(trace, request.deviceId, sequence, request.targetIp);
-        rounds.push(round);
-        if (round.kind === "unsent" && request.stopOnUnsent) break;
-      }
-
-      for (const stored of made) store(stored);
-      return { ok: true, rounds };
+    traceroute(request, docVersion) {
+      return runRounds(request.deviceId, request.targetIp, docVersion, {
+        count: request.maxHops,
+        ttlOf: (hop) => hop,
+        stop: (round) => round.kind !== "timeout" &&
+          !(round.kind === "icmp-error" && round.error === "time-exceeded"),
+      });
     },
 
     arpTable(deviceId) {
@@ -264,9 +302,14 @@ function roundOf(trace: Trace, sourceId: string, sequence: number, targetIp: str
       event.reason.code === "ICMP_ERROR_RECEIVED" && isIcmpError(event.frame.icmp) &&
       event.frame.icmp.original.destinationIp === targetIp && event.frame.icmp.original.sequence === sequence);
     if (failure !== undefined && isIcmpError(failure.frame.icmp)) {
-      return { kind, traceId, sequence, sourceIp: failure.frame.ipv4!.sourceIp, error: failure.frame.icmp.type };
+      return { kind, traceId, sequence, sourceIp: failure.frame.ipv4!.sourceIp, error: failure.frame.icmp.type, timeUs: failure.time };
     }
     return { kind: "timeout", traceId, sequence };
+  }
+  if (kind === "unreachable") {
+    const drop = trace.events.find(event => event.deviceId === sourceId && event.action === "drop" &&
+      (event.reason.code === "ARP_TIMEOUT" || event.reason.code === "NO_ROUTE"));
+    return { kind, traceId, sequence, timeUs: drop?.time ?? 0 };
   }
   if (kind !== "reply") return { kind, traceId, sequence };
   const reply = trace.events.find(
