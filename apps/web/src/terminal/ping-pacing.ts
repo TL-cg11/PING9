@@ -14,8 +14,10 @@ export interface PacedRound {
   /** 회차 줄과 그 추적 줄 */
   readonly lines: readonly ConsoleLine[];
   readonly kind: PingRoundKind;
-  /** 이 회차를 보이기 전에 기다리는 시간 */
-  readonly waitMs: number;
+  /** 이 회차의 추적. 캔버스에서 재생한다 (T6.1.2) */
+  readonly traceId: number;
+  /** 이 회차를 시작하기 전에 쉬는 시간 */
+  readonly gapMs: number;
 }
 
 export interface PacedResult {
@@ -26,10 +28,21 @@ export interface PacedResult {
   readonly tail: readonly ConsoleLine[];
 }
 
-/** 회차가 시작될 때 이미 1초가 지났는가: 첫 회차는 바로, 그 뒤는 1초 뒤. 타임아웃은 4초 기다린 뒤에 보인다 */
-export function waitBefore(index: number, kind: PingRoundKind): number {
-  if (kind === "timeout") return TIMEOUT_WAIT_MS;
+/**
+ * 회차를 시작하기 전에 쉬는 시간: 첫 회차는 바로, 그 뒤는 앞 회차 줄이 뜨고 1초 뒤.
+ * 타임아웃 회차는 쉬지 않고 바로 보낸 뒤 응답을 4초 기다린다 (`waitAfterStart`)
+ */
+export function gapBefore(index: number, kind: PingRoundKind): number {
+  if (kind === "timeout") return 0;
   return index === 0 ? 0 : ROUND_INTERVAL_MS;
+}
+
+/**
+ * 회차를 시작(재생 시작)한 뒤 그 줄을 보일 때까지: 재생이 끝날 때까지 (T6.1.2).
+ * 그래서 줄이 뜨는 순간 = 응답 물고기가 출발 PC에 닿는 순간이다. 타임아웃 회차는 적어도 4초
+ */
+export function waitAfterStart(kind: PingRoundKind, replayMs: number): number {
+  return kind === "timeout" ? Math.max(TIMEOUT_WAIT_MS, replayMs) : replayMs;
 }
 
 /**
@@ -55,7 +68,8 @@ export function pacePing(
     rounds.push({
       lines: roundLine === undefined ? [line] : [roundLine, line],
       kind,
-      waitMs: waitBefore(rounds.length, kind),
+      traceId: line.traceId,
+      gapMs: gapBefore(rounds.length, kind),
     });
     pending = [];
   }

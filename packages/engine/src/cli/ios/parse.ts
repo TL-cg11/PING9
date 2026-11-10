@@ -59,6 +59,21 @@ function readToken(token: ParamToken, text: string, kind: DeviceKind): ParamResu
   return token.read === undefined ? readParam(token, text) : token.read(text, kind);
 }
 
+/** 키워드를 견줄 때의 모양. 대소문자를 구분하는 정의(Linux PC, T0.9)는 그대로, 아니면 소문자 */
+export function keyOf(text: string, definition: CommandDefinition): string {
+  return definition.caseSensitive === true ? text : text.toLowerCase();
+}
+
+/** 친 글이 이 정의의 키워드와 같은가 */
+export function sameKeyword(token: string, text: string, definition: CommandDefinition): boolean {
+  return keyOf(token, definition) === keyOf(text, definition);
+}
+
+/** 이 정의의 키워드가 친 글로 시작하는가 (줄임 입력) */
+export function startsKeyword(token: string, text: string, definition: CommandDefinition): boolean {
+  return keyOf(token, definition).startsWith(keyOf(text, definition));
+}
+
 /**
  * 줄임 입력 (T3.2.1). 단어를 앞에서부터 읽으며 자리마다 어느 키워드인지 정한다.
  * 그 자리에 올 수 있는 키워드 가운데 단어와 똑같은 것이 있으면 그것이고,
@@ -66,7 +81,7 @@ function readToken(token: ParamToken, text: string, kind: DeviceKind): ParamResu
  * 매개변수 자리의 글은 줄임으로 읽지 않는다.
  */
 export interface Walk {
-  /** 자리마다 정해진 키워드(소문자). 키워드로 읽지 못한 자리는 undefined */
+  /** 자리마다 정해진 키워드 (`keyOf`: 대소문자를 구분하지 않는 정의는 소문자). 키워드로 읽지 못한 자리는 undefined */
   readonly keywords: readonly (string | undefined)[];
   /** 여러 키워드로 읽히는 단어 */
   readonly ambiguous?: Word;
@@ -85,32 +100,32 @@ export function walkWords(
 
   for (const [index, word] of words.entries()) {
     if (alive.length === 0) break;
-    const text = word.text.toLowerCase();
 
-    const here = new Set<string>();
+    // 그 자리의 키워드 가운데 단어와 똑같은 것, 단어로 시작하는 것
+    const exact = new Set<string>();
+    const prefixed = new Set<string>();
     let paramAccepts = false;
     for (const definition of alive) {
       const token = definition.tokens[index];
       if (token === undefined) continue;
-      if (typeof token === "string") here.add(token.toLowerCase());
-      else if (readToken(token, word.text, kind).ok) paramAccepts = true;
+      if (typeof token === "string") {
+        if (sameKeyword(token, word.text, definition)) exact.add(keyOf(token, definition));
+        else if (startsKeyword(token, word.text, definition)) prefixed.add(keyOf(token, definition));
+      } else if (readToken(token, word.text, kind).ok) paramAccepts = true;
     }
 
-    let keyword: string | undefined;
-    if (here.has(text)) {
-      keyword = text;
-    } else {
-      const prefixed = [...here].filter((candidate) => candidate.startsWith(text));
-      if (prefixed.length === 1) keyword = prefixed[0];
+    let keyword: string | undefined = [...exact][0];
+    if (keyword === undefined) {
+      if (prefixed.size === 1) keyword = [...prefixed][0];
       // 같은 자리의 매개변수가 이 글을 받으면 값으로 읽는다
-      else if (prefixed.length > 1 && !paramAccepts) return { keywords, ambiguous: word, alive: [] };
+      else if (prefixed.size > 1 && !paramAccepts) return { keywords, ambiguous: word, alive: [] };
     }
     keywords.push(keyword);
 
     alive = alive.filter((definition) => {
       const token = definition.tokens[index];
       if (token === undefined) return false;
-      return typeof token === "string" ? token.toLowerCase() === keyword : readToken(token, word.text, kind).ok;
+      return typeof token === "string" ? keyOf(token, definition) === keyword : readToken(token, word.text, kind).ok;
     });
   }
 
@@ -141,8 +156,8 @@ function attempt(
 
     if (typeof token === "string") {
       // 줄여 쓴 단어는 walkWords가 정한 키워드로 본다
-      const typed = keywords[index] ?? word.text.toLowerCase();
-      if (token.toLowerCase() !== typed) return { kind: "mismatch", matched: index, word };
+      const typed = keywords[index] ?? keyOf(word.text, definition);
+      if (keyOf(token, definition) !== typed) return { kind: "mismatch", matched: index, word };
       continue;
     }
 
@@ -181,10 +196,9 @@ export function candidatesFor(mode: CliMode, forDevice: readonly CommandDefiniti
 
 /** 이 정의들 가운데 첫 단어가 이 글로 시작하는 것이 있는가. 줄여 쓴 글도 같은 명령어로 본다 */
 function startsAny(definitions: readonly CommandDefinition[], word: Word): boolean {
-  const typed = word.text.toLowerCase();
   return definitions.some((definition) => {
     const first = definition.tokens[0];
-    return typeof first === "string" && first.toLowerCase().startsWith(typed);
+    return typeof first === "string" && startsKeyword(first, word.text, definition);
   });
 }
 

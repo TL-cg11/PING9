@@ -119,7 +119,11 @@ describe("다른 장비", () => {
     const { simulator } = open();
 
     expect(await simulator.console(TWO_PC_SWITCH.pc1.id).exec("enable")).toEqual({
-      lines: [{ kind: "error", code: "CLI_UNKNOWN_COMMAND", params: { token: "enable" }, position: 0 }],
+      lines: [
+        { kind: "text", text: "'enable' is not recognized as an internal or external command," },
+        { kind: "text", text: "operable program or batch file." },
+        { kind: "notice", code: "PC_UNKNOWN_COMMAND", params: { token: "enable" } },
+      ],
       prompt: "PC1>",
     });
   });

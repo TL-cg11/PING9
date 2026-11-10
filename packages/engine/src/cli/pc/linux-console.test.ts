@@ -42,7 +42,10 @@ describe("OS에 따라 명령 목록과 프롬프트가 다르다", () => {
   });
 
   test("Linux PC에서 `ipconfig`는 알 수 없는 명령어다", async () => {
-    expect(errorOf(await open().port.exec("ipconfig"))).toMatchObject({ code: "CLI_UNKNOWN_COMMAND" });
+    expect((await open().port.exec("ipconfig")).lines).toEqual([
+      { kind: "text", text: "ipconfig: command not found" },
+      { kind: "notice", code: "PC_UNKNOWN_COMMAND", params: { token: "ipconfig" } },
+    ]);
   });
 
   test("Windows PC에서 `ip addr`는 오류다. `ip`는 `ipconfig`의 줄임으로 읽혀 주소 자리의 오류가 된다", async () => {

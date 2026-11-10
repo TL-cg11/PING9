@@ -5,7 +5,7 @@ import type { PingRoundKind, TopologyDocument } from "@ping9/shared";
 import { TWO_PC, twoPcDocument, twoPcPingConsoleResult } from "@ping9/shared/examples";
 import { describe, expect, test } from "vitest";
 
-import { interruptedLines, pacePing, ROUND_INTERVAL_MS, TIMEOUT_WAIT_MS } from "./ping-pacing";
+import { interruptedLines, pacePing, ROUND_INTERVAL_MS, TIMEOUT_WAIT_MS, waitAfterStart } from "./ping-pacing";
 import { initialTerminal, runLinePaced } from "./terminal-state";
 import type { PacedRun, TerminalState } from "./terminal-state";
 
@@ -27,11 +27,23 @@ describe("pacePing", () => {
     expect(textOf(paced.tail)).toEqual(["", "Ping statistics for 192.168.1.2:", "    Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)"]);
   });
 
-  test("첫 회차는 바로, 그 뒤는 1초, 타임아웃은 4초", () => {
+  test("첫 회차는 바로, 그 뒤는 1초 쉬고 시작. 타임아웃 회차는 쉬지 않는다", () => {
     const kinds: PingRoundKind[] = ["reply", "timeout", "unreachable", "reply"];
     const paced = pacePing(twoPcPingConsoleResult, (_traceId, sequence) => kinds[sequence - 1]!);
 
-    expect(paced.rounds.map((round) => round.waitMs)).toEqual([0, TIMEOUT_WAIT_MS, ROUND_INTERVAL_MS, ROUND_INTERVAL_MS]);
+    expect(paced.rounds.map((round) => round.gapMs)).toEqual([0, 0, ROUND_INTERVAL_MS, ROUND_INTERVAL_MS]);
+  });
+
+  test("회차마다 그 추적 번호를 가진다 (캔버스 재생용)", () => {
+    const paced = pacePing(twoPcPingConsoleResult, allReplies);
+    const traceIds = twoPcPingConsoleResult.lines.flatMap((line) => (line.kind === "trace" ? [line.traceId] : []));
+    expect(paced.rounds.map((round) => round.traceId)).toEqual(traceIds);
+  });
+
+  test("시작 뒤 기다림: 재생 길이만큼. 타임아웃 회차는 적어도 4초", () => {
+    expect(waitAfterStart("reply", 1800)).toBe(1800);
+    expect(waitAfterStart("timeout", 1800)).toBe(TIMEOUT_WAIT_MS);
+    expect(waitAfterStart("timeout", 5400)).toBe(5400);
   });
 
   test("추적 줄이 없는 결과는 회차가 없고 모든 줄이 머리다", () => {
@@ -72,7 +84,8 @@ describe("runLinePaced", () => {
     const port = simulator.console(pc1.id);
     const shown: TerminalState[] = [];
     const waits: number[] = [];
-    const run = (stopAtWait?: number): PacedRun => ({
+    const played: number[] = [];
+    const run = (stopAtWait?: number, replayMs?: number): PacedRun => ({
       show: (state) => shown.push(state),
       wait: async (ms) => {
         waits.push(ms);
@@ -81,8 +94,9 @@ describe("runLinePaced", () => {
       kindOf: (traceId, sequence) => pingRoundKind(simulator.getTrace(traceId)!, pc1.id, sequence),
       targetOf: (traceId) => simulator.getSnapshot().traces.find((trace) => trace.id === traceId)?.targetIp ?? "",
       os: "windows",
+      ...(replayMs === undefined ? {} : { play: (traceId: number) => (played.push(traceId), replayMs) }),
     });
-    return { simulator, port, shown, waits, run };
+    return { simulator, port, shown, waits, run, played };
   }
 
   const outputOf = (state: TerminalState) => state.lines.filter((line) => line.kind !== "input").map((line) => line.text);
@@ -129,6 +143,22 @@ describe("runLinePaced", () => {
     await runLinePaced(port, initialTerminal(port.prompt()), "ping -n 2 192.168.1.130", run());
 
     expect(waits).toEqual([TIMEOUT_WAIT_MS, TIMEOUT_WAIT_MS]);
+  });
+
+  test("재생이 있으면 회차마다 재생을 시작하고, 재생이 끝난 뒤 줄을 보인다 (T6.1.2)", async () => {
+    const { port, waits, run, played, simulator } = setup();
+    await runLinePaced(port, initialTerminal(port.prompt()), "ping -n 2 192.168.1.2", run(undefined, 900));
+
+    // 1회차: 재생 900 / 2회차: 1초 쉼, 재생 900
+    expect(waits).toEqual([900, ROUND_INTERVAL_MS, 900]);
+    expect(played).toEqual(simulator.getSnapshot().traces.map((trace) => trace.id).sort((a, b) => a - b));
+  });
+
+  test("재생을 기다리는 중 Ctrl+C로 멈추면 그 회차는 보이지 않는다", async () => {
+    const { port, run } = setup();
+    const final = await runLinePaced(port, initialTerminal(port.prompt()), "ping -n 2 192.168.1.2", run(1, 900));
+
+    expect(outputOf(final)).toEqual(["Pinging 192.168.1.2 with 32 bytes of data:", "^C"]);
   });
 
   test("회차가 없는 명령어는 기다리지 않는다", async () => {

@@ -14,8 +14,10 @@ import { linkVlan } from "../format/link-vlan";
 import { cidrOf, OS_NAMES } from "../format/pc-address";
 import { nodeKeyAction } from "./canvas-keys";
 import { Cable, CableJointMask, CableLabels, cableGeometry } from "./cable";
-import type { RingCenters } from "./cable";
+import type { CableGeometry, RingCenters } from "./cable";
 import { DeviceIcon } from "./device-icons";
+import { PacketLayer } from "./packet-layer";
+import type { LinkPath, Replay } from "./packet-layer";
 import { PortPicker } from "./port-picker";
 
 /** 시안의 기본 그림 영역 */
@@ -59,12 +61,45 @@ function Rings({ places, part, mask }: {
 }
 
 /** 링크 하나를 그리는 데 필요한 모양. 케이블과 타원 테두리의 mask가 같이 쓴다 */
+/** 포트 이름이 케이블 끝에서 길을 따라 나간 거리. 짧은 케이블은 길이의 1/4까지만 */
+const PORT_LABEL_ALONG = 20;
+/** 포트 이름을 길 가운데에서 바깥으로 띄우는 거리. trunk는 넓은 길 밖으로 */
+const ROAD_PORT_LIFT = 13;
+const TRUNK_PORT_LIFT = 20;
+
+/**
+ * 포트 이름의 자리. `end` 0은 케이블의 시작, 1은 끝이다. 길에 수직으로 띄우되 위쪽(가로에 가까우면 위, 세로에 가까우면 오른쪽)으로.
+ * 글자의 세로 가운데가 그 점에 오도록 아래로 3만큼 내린다 (글자 크기 9)
+ */
+function portLabelAt(geometry: CableGeometry, end: 0 | 1, lift: number): Position {
+  const t = Math.min(PORT_LABEL_ALONG / Math.max(geometry.length, 1), 0.25);
+  const at = geometry.at(end === 0 ? t : 1 - t);
+  const { x: dx, y: dy } = geometry.direction(end === 0 ? t : 1 - t);
+  // 두 수직 방향 중 위쪽(y가 작은 쪽). 똑바로 세로면 오른쪽
+  let nx = dy;
+  let ny = -dx;
+  if (ny > 0 || (ny === 0 && nx < 0)) {
+    nx = -nx;
+    ny = -ny;
+  }
+  return { x: at.x + nx * lift, y: at.y + ny * lift + 3 };
+}
+
 function linkShape(document: TopologyDocument, link: TopologyDocument["links"][number], from: Position, to: Position) {
   const look = cableLook(document, link);
   const ends = linkEnds(from, to);
   const geometry = cableGeometry(ends, look.shape === "bridge");
   const centers: RingCenters = [ringCenter(from), ringCenter(to)];
   return { look, ends, geometry, centers };
+}
+
+/** 링크의 케이블 길이 (캔버스 좌표). 펭귄이 같은 빠르기로 걷도록 재생 시간을 정하는 데 쓴다 (T6.1.2) */
+export function cableLength(document: TopologyDocument, linkId: string): number | undefined {
+  const link = document.links.find(candidate => candidate.id === linkId);
+  const from = link && document.devices.find(device => device.id === link.ends[0].deviceId)?.position;
+  const to = link && document.devices.find(device => device.id === link.ends[1].deviceId)?.position;
+  if (link === undefined || from === undefined || to === undefined) return undefined;
+  return linkShape(document, link, from, to).geometry.length;
 }
 
 /**
@@ -122,6 +157,8 @@ export function Canvas({
   pickerDeviceId = null,
   onPickPort,
   onClosePortPicker,
+  replays = [],
+  onCanvasClick,
 }: {
   readonly document: TopologyDocument;
   readonly selectedDeviceId: string | null;
@@ -139,6 +176,10 @@ export function Canvas({
   readonly pickerDeviceId?: string | null;
   readonly onPickPort?: (end: PortRef) => void;
   readonly onClosePortPicker?: () => void;
+  /** 재생 중이거나 넘어진 채 남은 펭귄 (T6.1.2) */
+  readonly replays?: readonly Replay[];
+  /** 장비와 케이블이 아닌 빈 곳을 눌렀을 때 */
+  readonly onCanvasClick?: () => void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const viewportSizeRef = useRef<{ width: number; height: number } | null>(null);
@@ -166,6 +207,13 @@ export function Canvas({
     device.id === draft?.deviceId ? draft.position : device.position]));
   const pickerDevice = document.devices.find(device => device.id === pickerDeviceId);
   const places = document.devices.map(device => ({ id: device.id, position: positions.get(device.id)! }));
+  const pathOf = (linkId: string): LinkPath | undefined => {
+    const link = document.links.find(candidate => candidate.id === linkId);
+    const from = link && positions.get(link.ends[0].deviceId);
+    const to = link && positions.get(link.ends[1].deviceId);
+    if (link === undefined || from === undefined || to === undefined) return undefined;
+    return { geometry: linkShape(document, link, from, to).geometry, startDeviceId: link.ends[0].deviceId };
+  };
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -407,8 +455,10 @@ export function Canvas({
         }}
         onPointerLeave={() => setCursor(null)}
         onClick={event => {
-          if (suppressClick.current && event.target === event.currentTarget) { suppressClick.current = false; return; }
-          if (event.target === event.currentTarget) onClosePortPicker?.();
+          if (event.target !== event.currentTarget) return;
+          if (suppressClick.current) { suppressClick.current = false; return; }
+          onClosePortPicker?.();
+          onCanvasClick?.();
         }}>
         <defs>
           {/* 선택 표시: 가운데가 진하고 바깥으로 갈수록 사라지는 파란 빛 */}
@@ -428,6 +478,7 @@ export function Canvas({
             const to = positions.get(link.ends[1].deviceId);
             if (from === undefined || to === undefined) return null;
             const { look, ends, geometry, centers } = linkShape(document, link, from, to);
+
             return (
               <g key={link.id} className={link.id === selectedLinkId ? "link selected" : "link"}
                 role={onSelectLink === undefined ? undefined : "button"}
@@ -466,6 +517,8 @@ export function Canvas({
           <line className="wire pending" x1={positions.get(firstPort.deviceId)!.x} y1={positions.get(firstPort.deviceId)!.y}
             x2={cursor.x} y2={cursor.y} />
         )}
+        {/* 펭귄 층: 케이블 위, 장비 아래. 펭귄이 장비 아이콘 밑에서 나와 밑으로 들어간다 (T6.1.2) */}
+        <PacketLayer replays={replays} pathOf={pathOf} positionOf={deviceId => positions.get(deviceId)} />
         <g>
           {orderedDevices.map((device) => (
             <g
@@ -536,13 +589,14 @@ export function Canvas({
             if (!from || !to) return null;
             const { look, ends, geometry } = linkShape(document, link, from, to);
             const mark = linkVlan(document, link);
-            const portAt = (t: number) => look.shape === "bridge" ? geometry.at(t < 0.5 ? 0.12 : 0.88)
-              : { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t };
-            const lift = look.shape === "trunk" ? 30 : 12;
+            const lift = look.shape === "trunk" ? TRUNK_PORT_LIFT : ROAD_PORT_LIFT;
             return <g key={link.id}>
               <CableLabels ends={ends} look={look} geometry={geometry} />
-              {[0.28, 0.72].map((t, index) => <text key={t} className="wire-port" x={portAt(t).x} y={portAt(t).y - lift}
-                textAnchor="middle">{shortPortName(link.ends[index]!.port)}</text>)}
+              {([0, 1] as const).map(index => {
+                const at = portLabelAt(geometry, index, lift);
+                return <text key={index} className="wire-port" x={at.x} y={at.y}
+                  textAnchor="middle">{shortPortName(link.ends[index].port)}</text>;
+              })}
               {mark?.kind === "trunk" && <>
                 <TrunkEndText at={from} other={to} text={mark.ends[0]} />
                 <TrunkEndText at={to} other={from} text={mark.ends[1]} />

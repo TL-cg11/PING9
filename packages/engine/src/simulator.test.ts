@@ -305,13 +305,17 @@ describe("console", () => {
     await expect(port.exec("   ")).resolves.toEqual({ lines: [], prompt: "PC1>" });
   });
 
-  test("없는 명령어는 알 수 없는 명령어이고, 틀린 단어의 위치를 담는다", async () => {
+  test("PC에서 없는 명령어는 OS 형식의 줄과 한국어 안내다 (T0.9)", async () => {
     const simulator = createSimulator();
     simulator.load(twoPcDocument);
 
     // ping은 T1.8.3에서 생겼다. tracert는 아직 없다
     await expect(simulator.console(TWO_PC.pc1.id).exec("  tracert 192.168.1.2")).resolves.toEqual({
-      lines: [{ kind: "error", code: "CLI_UNKNOWN_COMMAND", params: { token: "tracert" }, position: 2 }],
+      lines: [
+        { kind: "text", text: "'tracert' is not recognized as an internal or external command," },
+        { kind: "text", text: "operable program or batch file." },
+        { kind: "notice", code: "PC_UNKNOWN_COMMAND", params: { token: "tracert" } },
+      ],
       prompt: "PC1>",
     });
   });
@@ -321,8 +325,9 @@ describe("console", () => {
     simulator.load(twoPcDocument);
     const port = simulator.console(TWO_PC.pc1.id);
 
+    // 한도까지는 실행한다. 없는 명령어라 안내가 나온다
     await expect(port.exec("x".repeat(LIMITS.maxConsoleLineLength))).resolves.toMatchObject({
-      lines: [{ kind: "error", code: "CLI_UNKNOWN_COMMAND" }],
+      lines: [{ kind: "text" }, { kind: "text" }, { kind: "notice", code: "PC_UNKNOWN_COMMAND" }],
     });
     await expect(port.exec("x".repeat(LIMITS.maxConsoleLineLength + 1))).resolves.toEqual({
       lines: [{ kind: "error", code: "CLI_LINE_TOO_LONG", params: { limit: 512 } }],
