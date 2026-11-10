@@ -6,7 +6,7 @@ import type { Device, DeviceKind, PortRef, Position, TopologyDocument } from "@p
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
-import { DEVICE_DRAG_TYPE, MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM, clampCanvasPosition, readDraggedDevice, screenToWorld, zoomViewBox } from "../canvas-interaction";
+import { DEVICE_DRAG_TYPE, MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM, clampCanvasPosition, readDraggedDevice, screenToWorld, wheelZoom, zoomAtPoint, zoomViewBox } from "../canvas-interaction";
 import type { CanvasViewBox } from "../canvas-interaction";
 import { cableLook } from "../format/cable-look";
 import { RING_DY, RING_RX, RING_RY, linkEnds, ringCenter } from "../format/link-ends";
@@ -205,6 +205,30 @@ export function Canvas({
       return { zoom: next, box: zoomViewBox(current.box, bounds, next / current.zoom) };
     });
   };
+
+  // SVG만 구독하므로 터미널·설정 패널의 휠 스크롤과 섞이지 않는다.
+  // passive:false로 브라우저 스크롤/핀치 대신 지도 확대를 처리한다.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (svg === null) return;
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      if (paletteDragKind !== null || dragRef.current !== null || panRef.current !== null) return;
+      const bounds = svg.getBoundingClientRect();
+      const matrix = svg.getScreenCTM();
+      if (!matrix || bounds.width <= 0 || bounds.height <= 0) return;
+      const world = screenToWorld(matrix, { x: event.clientX, y: event.clientY });
+      if (world === null) return;
+      setViewport(current => {
+        const next = wheelZoom(current.zoom, event.deltaY, event.deltaMode, bounds.height);
+        if (next === current.zoom) return current;
+        return { zoom: next, box: zoomAtPoint(current.box, bounds, next / current.zoom, world,
+          { x: (event.clientX - bounds.left) / bounds.width, y: (event.clientY - bounds.top) / bounds.height }) };
+      });
+    };
+    svg.addEventListener("wheel", wheel, { passive: false });
+    return () => svg.removeEventListener("wheel", wheel);
+  }, [paletteDragKind]);
 
   const cancelDrag = () => {
     dragRef.current = null;
@@ -548,7 +572,7 @@ export function Canvas({
       )}
       <div className="hint">
         {cableActive ? "장비를 클릭해 빈 포트를 선택하세요 · Esc로 연결 도구 해제" :
-          "빈 곳을 드래그해 화면 이동 · 장비 드래그로 위치 이동 · 더블클릭 또는 Enter로 터미널 열기"}
+          "휠로 확대·축소 · 빈 곳 드래그로 화면 이동 · 장비 더블클릭 또는 Enter로 터미널 열기"}
       </div>
     </>
   );

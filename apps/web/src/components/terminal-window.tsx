@@ -5,8 +5,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 
-import { fitWindow } from "../window-bounds";
-import type { WindowRect } from "../window-bounds";
+import { fitWindow, RESIZE_HANDLES, resizeWindow } from "../window-bounds";
+import type { ResizeHandle, WindowRect } from "../window-bounds";
 
 import { helpRequest, keyAction } from "../terminal/keys";
 import type { TerminalLine, TerminalState } from "../terminal/terminal-state";
@@ -87,7 +87,7 @@ export function TerminalWindow({
   const moveRef = useRef(onMove);
   moveRef.current = onMove;
   const gesture = useRef<{
-    pointerId: number; mode: "move" | "resize"; startX: number; startY: number; rect: WindowRect;
+    pointerId: number; mode: "move" | ResizeHandle; startX: number; startY: number; rect: WindowRect;
   } | null>(null);
 
   useLayoutEffect(() => {
@@ -122,11 +122,9 @@ export function TerminalWindow({
         const next = fitWindow({ ...current.rect, x: current.rect.x + dx, y: current.rect.y + dy }, bounds);
         moveRef.current(next.x, next.y);
       } else {
-        const next = fitWindow({ ...current.rect,
-          width: Math.min(current.rect.width + dx, bounds.width - current.rect.x),
-          height: Math.min(current.rect.height + dy, bounds.height - current.rect.y),
-        }, { width: bounds.width - current.rect.x, height: bounds.height - current.rect.y });
+        const next = resizeWindow(current.rect, current.mode, dx, dy, bounds);
         setSize({ width: next.width, height: next.height });
+        moveRef.current(next.x, next.y);
       }
     };
     const stop = () => { gesture.current = null; };
@@ -142,7 +140,7 @@ export function TerminalWindow({
     };
   }, []);
 
-  const startGesture = (event: ReactPointerEvent<HTMLElement>, mode: "move" | "resize") => {
+  const startGesture = (event: ReactPointerEvent<HTMLElement>, mode: "move" | ResizeHandle) => {
     if (event.button !== 0 || (mode === "move" && (event.target as HTMLElement).closest("button"))) return;
     event.preventDefault();
     onFocus();
@@ -259,17 +257,20 @@ export function TerminalWindow({
           />
         </div>
       </div>
-      <button type="button" className="term-resize" aria-label={`${deviceName} 콘솔 크기 조절`}
-        title="드래그 또는 방향키로 크기 조절"
-        onPointerDown={event => startGesture(event, "resize")}
-        onKeyDown={event => {
-          const delta = { ArrowRight: [10, 0], ArrowLeft: [-10, 0], ArrowDown: [0, 10], ArrowUp: [0, -10] }[event.key];
-          if (!delta || !area) return;
-          event.preventDefault();
-          const next = fitWindow({ ...geometry, width: geometry.width + delta[0]!, height: geometry.height + delta[1]! },
-            { width: area.width - geometry.x, height: area.height - geometry.y });
-          setSize({ width: next.width, height: next.height });
-        }} />
+      {(Object.keys(RESIZE_HANDLES) as ResizeHandle[]).map(handle => (
+        <button key={handle} type="button" className={`term-resize resize-${handle}`}
+          aria-label={`${deviceName} 콘솔 ${RESIZE_HANDLES[handle]} 크기 조절`}
+          title={`${RESIZE_HANDLES[handle]} 변 드래그 또는 방향키로 크기 조절`}
+          onPointerDown={event => startGesture(event, handle)}
+          onKeyDown={event => {
+            const delta = { ArrowRight: [10, 0], ArrowLeft: [-10, 0], ArrowDown: [0, 10], ArrowUp: [0, -10] }[event.key];
+            if (!delta || !area) return;
+            event.preventDefault();
+            const next = resizeWindow(geometry, handle, delta[0]!, delta[1]!, area);
+            setSize({ width: next.width, height: next.height });
+            onMove(next.x, next.y);
+          }} />
+      ))}
     </div>
   );
 }

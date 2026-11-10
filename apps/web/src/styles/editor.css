@@ -230,7 +230,17 @@ button { font: inherit; cursor: pointer; }
 .canvas-labels text { stroke: var(--ice-50); stroke-width: 3px; paint-order: stroke; stroke-linejoin: round; }
 .canvas-labels .cable-text { stroke: #fff; }
 .hint { max-width: calc(100% - 200px); }
-.term-resize { position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; border: 0; border-radius: 3px;
-  background: linear-gradient(135deg, transparent 40%, #8FA3C8 41%, #8FA3C8 48%, transparent 49%, transparent 62%, #8FA3C8 63%, #8FA3C8 70%, transparent 71%);
-  cursor: nwse-resize; touch-action: none; }
+.term-resize { position: absolute; border: 0; background: transparent; touch-action: none; z-index: 1; padding: 0; }
+.resize-n, .resize-s { left: 14px; right: 14px; height: 7px; cursor: ns-resize; }
+.resize-n { top: 0; }
+.resize-s { bottom: 0; }
+.resize-w, .resize-e { top: 14px; bottom: 14px; width: 7px; cursor: ew-resize; }
+.resize-w { left: 0; }
+.resize-e { right: 0; }
+.resize-nw, .resize-ne, .resize-sw, .resize-se { width: 14px; height: 14px; }
+.resize-nw { top: 0; left: 0; cursor: nwse-resize; }
+.resize-ne { top: 0; right: 0; cursor: nesw-resize; }
+.resize-sw { bottom: 0; left: 0; cursor: nesw-resize; }
+.resize-se { bottom: 0; right: 0; cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 40%, #8FA3C8 41%, #8FA3C8 48%, transparent 49%, transparent 62%, #8FA3C8 63%, #8FA3C8 70%, transparent 71%); }
 .term-resize:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
