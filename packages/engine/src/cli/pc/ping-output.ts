@@ -37,6 +37,9 @@ export function windowsPingLines(targetIp: string, ownIp: string | undefined, ro
   const lines: ConsoleLine[] = [text(`Pinging ${targetIp} with 32 bytes of data:`)];
   for (const round of rounds) {
     switch (round.kind) {
+      case "icmp-error":
+        lines.push(text(`Reply from ${round.sourceIp}: ${round.error === "time-exceeded" ? "TTL expired in transit." : "Destination net unreachable."}`));
+        break;
       case "reply":
         lines.push(text(`Reply from ${targetIp}: bytes=32 ${windowsTime(round.timeUs)} TTL=${round.ttl}`));
         break;
@@ -68,6 +71,9 @@ export function linuxPingLines(targetIp: string, ownIp: string | undefined, roun
   const lines: ConsoleLine[] = [text(`PING ${targetIp} (${targetIp}) 56(84) bytes of data.`)];
   for (const round of rounds) {
     switch (round.kind) {
+      case "icmp-error":
+        lines.push(text(`From ${round.sourceIp} icmp_seq=${round.sequence} ${round.error === "time-exceeded" ? "Time to live exceeded" : "Destination Net Unreachable"}`));
+        break;
       case "reply":
         lines.push(text(
           `64 bytes from ${targetIp}: icmp_seq=${round.sequence} ttl=${round.ttl} time=${linuxTime(round.timeUs)} ms`,

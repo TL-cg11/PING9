@@ -59,6 +59,9 @@ export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsBy
   PC_ADDRESS_NOT_FOUND: ({ ip }) => `이 PC에는 ${ip} 주소가 없어요`,
   INTERFACE_NETWORK_OVERLAP: ({ port, otherPort, ip, mask }) =>
     `${port}의 IP ${ip} (${mask})가 ${otherPort} 네트워크와 겹쳐요. 다른 네트워크를 입력해 주세요`,
+  ROUTE_NETWORK_NOT_ALIGNED: ({ network, mask }) => `${network}는 ${mask}에 맞는 네트워크 주소가 아니에요`,
+  ROUTE_NEXT_HOP_IS_SELF: ({ nextHop }) => `다음 홉 ${nextHop}은 이 라우터 자신의 IP 주소예요`,
+  ROUTE_NOT_FOUND: ({ network, mask, nextHop }) => `설정된 정적 경로가 없어요: ${network} ${mask} → ${nextHop}`,
   VLAN_NOT_FOUND: ({ vlanId }) => `VLAN ${withSubject(vlanId)} 없어요`,
   DEFAULT_VLAN_READONLY: () => "VLAN 1은 지우거나 이름을 바꿀 수 없어요",
 

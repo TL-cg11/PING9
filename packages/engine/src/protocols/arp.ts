@@ -31,6 +31,8 @@ export interface ArpHost {
  * 프레임은 MAC을 알게 된 뒤에 만든다 (예시 `twoPcPingTrace`의 ICMP frameId가 3이다)
  */
 export interface PendingSend {
+  /** 전달 중인 프레임은 id를 유지한다. 새 요청·응답은 생략한다. */
+  readonly originalFrame?: Frame;
   /** 목적지 MAC을 받아 보낼 프레임 내용을 만든다 */
   build(destinationMac: string): FrameSnapshot;
   /**
@@ -257,7 +259,8 @@ export class ArpModule {
   }
 
   #sendNow(ctx: SimContext, port: string, mac: string, pending: PendingSend, parentSeq: number | undefined): void {
-    const frame = ctx.createFrame(pending.build(mac));
+    const snapshot = pending.build(mac);
+    const frame = pending.originalFrame === undefined ? ctx.createFrame(snapshot) : ctx.updateFrame(pending.originalFrame, snapshot);
     pending.onSend(ctx, frame, parentSeq);
     this.#host.transmit(ctx, port, frame);
   }

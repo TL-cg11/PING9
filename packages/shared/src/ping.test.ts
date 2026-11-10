@@ -48,3 +48,10 @@ describe("pingStatisticsLines", () => {
     ]);
   });
 });
+
+test("ICMP 오류의 통계가 Windows와 Linux, Ctrl+C 공통 계산에 반영된다", () => {
+  expect(textOf(pingStatisticsLines("windows", "10.0.0.2", ["icmp-error", "timeout"])).at(-1))
+    .toContain("Sent = 2, Received = 1, Lost = 1 (50% loss)");
+  expect(textOf(pingStatisticsLines("linux", "10.0.0.2", ["icmp-error", "timeout"])).at(-1))
+    .toBe("2 packets transmitted, 0 received, +1 errors, 100% packet loss");
+});

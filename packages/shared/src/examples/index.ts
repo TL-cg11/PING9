@@ -8,6 +8,7 @@ import { twoPcSwitchDocument } from "./two-pc-switch";
 import { twoSwitchVlanDocument } from "./two-switch-vlan";
 
 export * from "./thirty-devices";
+export * from "./router-lab";
 export * from "./two-pc";
 export * from "./two-pc-switch";
 export * from "./two-switch-vlan";
@@ -22,3 +23,5 @@ export const EXAMPLE_DOCUMENTS: readonly {
   { name: "장비 30대", document: thirtyDeviceDocument },
   { name: "Switch 2대와 VLAN 2개", document: twoSwitchVlanDocument },
 ];
+
+export { withRouterLabSwitches, switchedStaticRoutingLabDocument } from "./router-lab";

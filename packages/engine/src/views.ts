@@ -1,10 +1,10 @@
 // 화면에 보일 값의 계산 (AD-7). 포트 상태는 engine만 계산한다.
-// Document만으로 알 수 있는 값(포트 상태)을 채운다. 테이블(ARP, MAC, 라우팅)은
-// 장비 모델이 가진 동적 상태라 Runtime이 이 결과 위에 채운다 (PC의 ARP는 T1.8.3, Switch의 MAC은 T5.2.2, Router는 E4).
+// Document에서 포트·라우팅 경로를 계산하고 Runtime이 ARP·MAC 테이블을 채운다.
 
 import { PORT_NAMES } from "@ping9/shared";
 import type { Device, DeviceView, PortStatus, PortView, TopologyDocument } from "@ping9/shared";
 
+import { routingTable } from "./devices/router/routing";
 import { findDevice, isAdminUp, portLink } from "./topology";
 import type { PortLink } from "./topology";
 
@@ -41,7 +41,7 @@ export function computeViews(document: TopologyDocument): Record<string, DeviceV
         views[device.id] = { kind: "switch", ports, macTable: [] };
         break;
       case "router":
-        views[device.id] = { kind: "router", ports, arpTable: [], routingTable: [] };
+        views[device.id] = { kind: "router", ports, arpTable: [], routingTable: routingTable(device.config, ports) };
         break;
     }
   }

@@ -52,6 +52,14 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T3.5.2 터미널 창의 오류 위치 표시 | [T3.5.2-terminal-error-marker.md](T3.5.2-terminal-error-marker.md) | 화면 | SDY | 병합됨 (PR #21, 팀원 검토 없이) |
 | T4.1.1 Router 생성과 기본 CLI 연결 | [T4.1.1-router-model.md](T4.1.1-router-model.md) | 엔진, 화면 | ssunyoung2 | 생성·CLI 부분 로컬 검증 완료. 프로토콜 모델 조립과 PR 검토 남음 |
 | T4.1.2 Router 인터페이스 IP 설정 | [T4.1.2-router-ip.md](T4.1.2-router-ip.md) | 엔진, 공통 | ssunyoung2 | 로컬 구현·검증 완료, PR/팀원 검토 대기 |
+| T4.1.3 직접 연결 라우팅 테이블 | [T4.1.3-connected-routes.md](T4.1.3-connected-routes.md) | 엔진, 공통 | ssunyoung2 | 구현·개별 검증 완료, PR/팀원 검토 대기 |
+| T4.2.1 Router 패킷 수신·전달 | [T4.2.1-router-forwarding.md](T4.2.1-router-forwarding.md) | 엔진, 공통 | ssunyoung2 | 로컬 구현·개별 검사 완료, 리뷰 대기 |
+| T4.2.2 Router ping·ARP 명령 | [T4.2.2-router-network-cli.md](T4.2.2-router-network-cli.md) | 엔진 | ssunyoung2 | 로컬 구현·개별 검사 완료, 리뷰 대기 |
+| T4.4.1 Router ICMP 오류 응답 | [T4.4.1-router-icmp-errors.md](T4.4.1-router-icmp-errors.md) | 엔진, 공통 | ssunyoung2 | 로컬 구현·개별 검사 완료, 리뷰 대기 |
+| T4.3.1 정적 경로 설정과 활성화 | [T4.3.1-static-routes.md](T4.3.1-static-routes.md) | 엔진, 공통 | ssunyoung2 | 구현·개별 검증 완료, PR/팀원 검토 대기 |
+| T4.3.2 목적지 경로 선택 | [T4.3.2-route-lookup.md](T4.3.2-route-lookup.md) | 엔진 | ssunyoung2 | 로컬 구현·전체 검증 완료, PR/팀원 검토 대기 |
+| T4.3.2 후속: 전송·PC ping main 통합 | [T4.3.2-runtime-main-merge.md](T4.3.2-runtime-main-merge.md) | 엔진 | ssunyoung2 | 로컬 병합·검증 완료, PR/팀원 검토 대기 |
+| T4.3.3 라우터 실습 통합 검사·안내 | [T4.3.3-router-lab.md](T4.3.3-router-lab.md) | 엔진, 문서 | ssunyoung2 | 요청 범위 로컬 검증 완료, Switch 포함 예시는 후속 |
 | T5.1.1 VLAN 구성 | [T5.1.1-vlan-config.md](T5.1.1-vlan-config.md) | 엔진, 공통 | SDY | 병합됨 (PR #6, 팀원 검토 없이). `shared` 변경은 팀 확인 필요. 직렬화는 T3.4.1에서 |
 | T5.2.1 access 포트와 VLAN 분리 | [T5.2.1-access-ports.md](T5.2.1-access-ports.md) | 엔진, 공통, 화면 | SDY | 병합됨 (PR #17, 팀원 검토 없이). `shared` 변경은 팀 확인 필요. ping으로 확인하는 부분은 kernel 뒤 |
 | T5.3.1 trunk 포트와 허용 목록 | [T5.3.1-trunk-ports.md](T5.3.1-trunk-ports.md) | 엔진, 화면 | SDY | 병합됨 (PR #18, 팀원 검토 없이). ping으로 확인하는 부분은 kernel 뒤 |
@@ -62,3 +70,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T5.2.2 Switch 모델: kernel 연결 | [T5.2.2-switch-model.md](T5.2.2-switch-model.md) | 엔진 | SDY | 병합됨 ([PR #36](https://github.com/TL-cg11/PING9/pull/36), 팀원 검토 없이). 계획의 T5.2.2(문구)와 다름: 설계 9절 18번 |
 | T6.1.1 재생 단계 계산 | [T6.1.1-replay-steps.md](T6.1.1-replay-steps.md) | 화면 | yysong1249 | 검토 대기 ([PR #38](https://github.com/TL-cg11/PING9/pull/38), T6.1.2와 같은 PR) |
 | T6.1.2 캔버스 위 프레임 그리기 (펭귄) | [T6.1.2-packet-walk.md](T6.1.2-packet-walk.md) | 화면 | yysong1249 | 검토 대기 ([PR #38](https://github.com/TL-cg11/PING9/pull/38)) |
+| T4.3.3 Switch·Router 통합 | [T4.3.3-switch-runtime-merge.md](T4.3.3-switch-runtime-merge.md) | 엔진·공통 | ssunyoung2 | 로컬 통합 검증 |

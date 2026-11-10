@@ -40,7 +40,7 @@ export interface RouteEntryView {
   readonly mask: string;
   /** static 경로일 때 */
   readonly nextHop?: string;
-  /** connected 경로일 때 나가는 인터페이스 */
+  /** 나가는 인터페이스. static 경로는 직접 연결망으로 다음 홉을 해석한 결과 */
   readonly port?: string;
 }
 

@@ -3,18 +3,20 @@
 
 import type { ConsoleLine } from "./console";
 import type { OsKind } from "./document";
+import { isIcmpError } from "./trace";
 import type { Trace } from "./trace";
 
 /**
+ * - `icmp-error`: 라우터의 ICMP 도달 불가·TTL 만료 오류를 받음
  * - `reply`: 응답을 받음
  * - `unreachable`: 출발 PC의 ARP 요청에 응답이 없음 (`ARP_TIMEOUT`)
  * - `timeout`: 보냈는데 응답이 오지 않음
  * - `unsent`: 출발 PC가 보내지 못함 (`NO_IP`, `NO_GATEWAY`)
  */
-export type PingRoundKind = "reply" | "unreachable" | "timeout" | "unsent";
+export type PingRoundKind = "reply" | "unreachable" | "timeout" | "unsent" | "icmp-error";
 
 /**
- * 회차의 추적에서 결과 종류를 읽는다. `sourceId`는 ping을 친 PC, `sequence`는 회차 번호(1부터)다.
+ * 회차의 추적에서 결과 종류를 읽는다. `sourceId`는 ping을 친 PC 또는 Router, `sequence`는 회차 번호(1부터)다.
  * `ARP_TIMEOUT`은 첫 폐기가 아니어도 본다: 링크가 없으면 첫 폐기는 ARP 요청의 `NO_LINK`이고 `ARP_TIMEOUT`은 뒤에 온다
  */
 export function pingRoundKind(trace: Trace, sourceId: string, sequence: number): PingRoundKind {
@@ -26,9 +28,11 @@ export function pingRoundKind(trace: Trace, sourceId: string, sequence: number):
   ) {
     return "reply";
   }
+  if (atSource.some(event => event.reason.code === "ICMP_ERROR_RECEIVED" &&
+    isIcmpError(event.frame.icmp) && event.frame.icmp.original.sequence === sequence)) return "icmp-error";
   const drops = atSource.filter((event) => event.action === "drop");
   if (drops.some((event) => event.reason.code === "NO_IP" || event.reason.code === "NO_GATEWAY")) return "unsent";
-  if (drops.some((event) => event.reason.code === "ARP_TIMEOUT")) return "unreachable";
+  if (drops.some((event) => (event.reason.code === "ARP_TIMEOUT" || event.reason.code === "NO_ROUTE"))) return "unreachable";
   return "timeout";
 }
 
@@ -51,7 +55,7 @@ export function pingStatisticsLines(os: OsKind, targetIp: string, rounds: readon
 
   if (os === "linux") {
     const received = count("reply");
-    const errors = count("unreachable");
+    const errors = count("unreachable") + count("icmp-error");
     const loss = sent === 0 ? "0" : percentG(((sent - received) * 100) / sent);
     return [
       text(""),
@@ -60,7 +64,7 @@ export function pingStatisticsLines(os: OsKind, targetIp: string, rounds: readon
     ];
   }
 
-  const received = count("reply") + count("unreachable");
+  const received = count("reply") + count("unreachable") + count("icmp-error");
   const lost = sent - received;
   const loss = sent === 0 ? 0 : Math.floor((lost * 100) / sent);
   return [

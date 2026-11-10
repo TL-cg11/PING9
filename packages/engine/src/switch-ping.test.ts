@@ -105,9 +105,9 @@ describe("PC 2대 + Switch 1대", () => {
   });
 });
 
-describe("아직 모델이 없는 장비(Router) 앞의 Switch", () => {
+describe("IP가 없는 Router 앞의 Switch", () => {
   const { pc1, pc2, sw1 } = TWO_PC_SWITCH;
-  // PC1 – SW1 – R1. PC2 자리에 Router를 둔다. PC1의 ARP 요청이 SW1을 지나 R1에 닿으면 실행이 멈춘다
+  // PC1 – SW1 – R1. Router에 IP가 없어 ARP 응답은 없지만 Switch는 출발 MAC을 학습한다.
   const withRouter: TopologyDocument = {
     ...twoPcSwitchDocument,
     devices: twoPcSwitchDocument.devices.map((device) =>
@@ -130,22 +130,22 @@ describe("아직 모델이 없는 장비(Router) 앞의 Switch", () => {
     })),
   };
 
-  test("멈춘 ping은 Switch가 배운 것도 되돌린다. 화면과 show mac address-table이 모두 비어 있다", async () => {
+  test("ARP 실패에도 Switch가 학습한 MAC과 실패 추적은 유지된다", async () => {
     const simulator = createSimulator();
     expect(simulator.load(withRouter)).toEqual({ ok: true });
-    const before = simulator.getSnapshot();
-
     const result = await ping(simulator, pc1.id, pc2.ip);
 
-    expect(result.lines.some((line) => line.kind === "error" && line.code === "PING_DEVICE_UNSUPPORTED")).toBe(true);
+    expect(result.lines.some((line) => line.kind === "error")).toBe(false);
+    expect(textOf(result).some(line => line.includes("Destination host unreachable"))).toBe(true);
     const after = simulator.getSnapshot();
-    expect(after).toBe(before);
+    expect(after.traces).toHaveLength(1);
+    expect(after.traces[0]?.status).toBe("failed");
     const view = after.views[sw1.id];
-    expect(view?.kind === "switch" && view.macTable).toEqual([]);
+    expect(view?.kind === "switch" && view.macTable.map(entry => entry.port)).toEqual(["FastEthernet0/1"]);
 
     const port = simulator.console(sw1.id);
     await port.exec("enable");
-    expect(textOf(await port.exec("show mac address-table"))).toHaveLength(1);
+    expect(textOf(await port.exec("show mac address-table"))).toHaveLength(2);
   });
 });
 
