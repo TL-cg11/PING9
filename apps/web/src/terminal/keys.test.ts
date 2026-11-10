@@ -57,4 +57,10 @@ describe("keyAction", () => {
     expect(keyAction("c", { shift: false, composing: false })).toBeNull();
     expect(keyAction("c", { shift: false, composing: true, ctrl: true })).toBeNull();
   });
+
+  test("한글 입력 상태의 Ctrl+C(글자 `ㅊ`)도 키 자리 `KeyC`로 알아보고 멈춘다", () => {
+    expect(keyAction("ㅊ", { shift: false, composing: false, ctrl: true, code: "KeyC" })).toBe("interrupt");
+    expect(keyAction("ㅊ", { shift: false, composing: false, code: "KeyC" })).toBeNull();
+    expect(keyAction("ㅊ", { shift: false, composing: false, ctrl: true, code: "KeyX" })).toBeNull();
+  });
 });
