@@ -19,6 +19,7 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T0.5 운영 첫 화면을 편집기 화면으로 바꾸기 (계획에 없는 새 ID) | [T0.5-app-at-root.md](T0.5-app-at-root.md) | 배포 | SDY | 병합됨 (PR #8, 팀원 검토 없이). T0.3 담당자 확인 필요. 시안은 `/mockup.html`에 남김 |
 | T0.6 장비 아이콘과 선택 표시 (계획에 없는 새 ID) | [T0.6-device-icons.md](T0.6-device-icons.md) | 화면 | yysong1249 | 병합됨 (PR #25, 팀원 검토 없이) |
 | T0.7 Windows·Linux PC (계획에 없는 새 ID. 첫 회의의 목표) | [T0.7-pc-os.md](T0.7-pc-os.md) | 엔진, 화면 | yysong1249 | 검토 대기 |
+| T0.8 케이블 그림 (계획에 없는 새 ID) | [T0.8-cable-look.md](T0.8-cable-look.md) | 화면 | yysong1249 | 검토 대기 ([PR #35](https://github.com/TL-cg11/PING9/pull/35)) |
 | T1.1.1 모노레포와 패키지 뼈대 | [T1.1.1-monorepo-skeleton.md](T1.1.1-monorepo-skeleton.md) | 공통 | SDY | 완료 (검토 없이 병합) |
 | T1.1.3 CI 검사와 운영 배포 | [T1.1.3-ci-and-deploy.md](T1.1.3-ci-and-deploy.md) | 배포 | SDY | 일부 완료. CI 동작 중. Actions 배포는 T0.4에서 없앰 (브랜치 보호 남음) |
 | T1.2.1 `shared` 타입과 코드 열거형 | [T1.2.1-shared-types.md](T1.2.1-shared-types.md) | 공통 | SDY | 병합됨 (검토 없이). 팀 합의 필요 |
@@ -30,7 +31,7 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T1.3.2 후속: 실습 확대·축소 버튼 | [T1.3.2-canvas-zoom.md](T1.3.2-canvas-zoom.md) | 화면 | ssunyoung2 | 로컬 구현·검증 완료, PR/팀원 검토 대기 |
 | T1.8.1 ARP 모듈 | [T1.8.1-arp.md](T1.8.1-arp.md) | 엔진 | yysong1249 | 검토 대기. T1.7.2(링크 전달) 없이 가짜 `transmit`으로 검증 |
 | T1.8.2 IPv4 호스트 처리와 ICMP echo | [T1.8.2-ipv4-icmp.md](T1.8.2-ipv4-icmp.md) | 엔진 | yysong1249 | 검토 대기 (PR #32). T1.8.1(PR #30) 위에서. 가짜 `transmit`으로 검증 |
-| T1.8.3 PC 모델과 `ping` 명령어 | [T1.8.3-pc-ping.md](T1.8.3-pc-ping.md) | 엔진 | yysong1249 | 검토 대기 ([PR #34](https://github.com/TL-cg11/PING9/pull/34)). T1.7.2(PR #33) 위에서 |
+| T1.8.3 PC 모델과 `ping` 명령어 | [T1.8.3-pc-ping.md](T1.8.3-pc-ping.md) | 엔진 | yysong1249 | 병합됨 ([PR #34](https://github.com/TL-cg11/PING9/pull/34)). 회차를 하나씩 보이기와 Ctrl+C는 [PR #37](https://github.com/TL-cg11/PING9/pull/37) 검토 대기 |
 | T1.4.1 링크 생성·삭제 명령 | [T1.4.1-link-commands.md](T1.4.1-link-commands.md) | 엔진 | ssunyoung2 | 문서 명령 로컬 검증 완료. 런타임 훅과 PR 검토 남음 |
 | T1.4.2 케이블 연결·선택·삭제 화면 | [T1.4.2-link-editor.md](T1.4.2-link-editor.md) | 화면 | ssunyoung2 | 선택 창 연결/삭제 로컬 검증 완료. 드래그 연결과 PR 검토 남음 |
 | T1.5.1 reducer `pc/set-ip` | [T1.5.1-pc-set-ip.md](T1.5.1-pc-set-ip.md) | 엔진 | yysong1249 | 완료 (PR #3, SDY가 병합). 오류에 값을 담는 함수는 T5.1.1에서 `describeValue`로 맞춤 (담당자 확인함) |
@@ -63,5 +64,8 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T5.3.1 trunk 포트와 허용 목록 | [T5.3.1-trunk-ports.md](T5.3.1-trunk-ports.md) | 엔진, 화면 | SDY | 병합됨 (PR #18, 팀원 검토 없이). ping으로 확인하는 부분은 kernel 뒤 |
 | T5.3.2 `show interfaces trunk` | [T5.3.2-show-interfaces-trunk.md](T5.3.2-show-interfaces-trunk.md) | 엔진 | SDY | 병합됨 (PR #19, 팀원 검토 없이) |
 | T5.4.1 Switch 화면 (계획에 없는 새 ID) | [T5.4.1-switch-screen.md](T5.4.1-switch-screen.md) | 화면 | SDY | 병합됨 (PR #7, 팀원 검토 없이). 운영 첫 화면은 T0.5에서 바꿈 |
-| T1.7.3 Switch의 전달 규칙 (kernel 없이 되는 부분) | [T1.7.3-switch-forwarding.md](T1.7.3-switch-forwarding.md) | 엔진 | SDY | 일부 병합됨 (PR #16, 팀원 검토 없이). kernel 연결 남음 |
+| T1.7.3 Switch의 전달 규칙 (kernel 없이 되는 부분) | [T1.7.3-switch-forwarding.md](T1.7.3-switch-forwarding.md) | 엔진 | SDY | 일부 병합됨 (PR #16, 팀원 검토 없이). kernel 연결은 T5.2.2 |
 | T1.7.2 Ethernet 포트와 링크 전달 | [T1.7.2-link-transfer.md](T1.7.2-link-transfer.md) | 엔진 | SDY | 병합됨 ([PR #33](https://github.com/TL-cg11/PING9/pull/33), 팀원 검토 없이) |
+| T5.2.2 Switch 모델: kernel 연결 | [T5.2.2-switch-model.md](T5.2.2-switch-model.md) | 엔진 | SDY | 병합됨 ([PR #36](https://github.com/TL-cg11/PING9/pull/36), 팀원 검토 없이). 계획의 T5.2.2(문구)와 다름: 설계 9절 18번 |
+
+| T4.3.3 Switch·Router 통합 | [T4.3.3-switch-runtime-merge.md](T4.3.3-switch-runtime-merge.md) | 엔진·공통 | ssunyoung2 | 로컬 통합 검증 |

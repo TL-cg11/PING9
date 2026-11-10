@@ -1,16 +1,15 @@
 // T1.8.3: Runtime. kernel 하나와 장비별 모델, 보관 중인 추적을 들고 있다 (03 문서 3.4절).
 // Document는 Simulator가 들고 있고, Runtime은 매번 getDocument()로 읽는다.
-// PC·Router 모델을 보관한다. Switch 모델은 T1.7.3의 후속이다.
+// PC·Switch·Router 모델을 함께 보관한다.
 
-import { isIcmpError, LIMITS } from "@ping9/shared";
+import { isIcmpError, LIMITS, pingRoundKind } from "@ping9/shared";
 import type {
   ArpEntryView,
-  DeviceKind,
   DeviceView,
   ErrorInfo,
+  MacTableEntryView,
   TopologyDocument,
   Trace,
-  TraceEvent,
   TraceSummary,
 } from "@ping9/shared";
 import { errorInfo } from "@ping9/shared";
@@ -19,6 +18,7 @@ import { PC_PORT, PcModel } from "./devices/pc/pc-model";
 import { deviceRun } from "./devices/link";
 import type { DeviceModel } from "./devices/model";
 import { RouterModel } from "./devices/router/router-model";
+import { SwitchModel } from "./devices/switch/switch-model";
 import { createKernel } from "./kernel";
 import { deviceRef, findDevice } from "./topology";
 
@@ -50,13 +50,15 @@ export interface PingRequest {
 export interface Runtime {
   /** 문서를 새로 열었다. kernel 시각과 추적 번호, 모델, 추적 목록을 처음으로 */
   reset(): void;
-  /** Document가 바뀌었다. 모델에 알리고 사라진 장비의 모델을 버린다. ARP 테이블이 바뀌었으면 true */
+  /** Document가 바뀌었다. 모델에 알리고 사라진 장비의 모델을 버린다. ARP·MAC 테이블이 바뀌었으면 true */
   configChanged(previous: TopologyDocument, document: TopologyDocument): boolean;
-  /** ping. 회차마다 Trace 하나를 보관한다. 아직 모델이 없는 장비를 지나면 오류를 돌려주고 추적을 남기지 않는다 */
+  /** ping. 회차마다 Trace 하나를 보관한다. PC·Switch·Router를 통과한 추적을 보관한다 */
   ping(request: PingRequest, docVersion: number): PingRun;
   arpTable(deviceId: string): readonly ArpEntryView[];
   /** `arp -d`. IP를 주면 그 항목만. 지운 것이 있으면 true */
   clearArp(deviceId: string, ip?: string): boolean;
+  /** Switch가 배운 MAC 주소. Switch가 아니거나 아직 아무것도 지나지 않았으면 빈 목록 */
+  macTable(deviceId: string): readonly MacTableEntryView[];
   /** computeViews의 결과에 모델이 가진 테이블을 채운다 */
   fillViews(views: Record<string, DeviceView>): Record<string, DeviceView>;
   traceSummaries(): readonly TraceSummary[];
@@ -68,47 +70,11 @@ interface StoredTrace {
   readonly summary: TraceSummary;
 }
 
-/** 프레임이 아직 모델이 없는 장비에 도착했다. Runtime이 잡아 PING_DEVICE_UNSUPPORTED로 바꾼다 */
-class UnsupportedDevice extends Error {
-  constructor(
-    readonly kind: Exclude<DeviceKind, "pc">,
-    readonly deviceName: string,
-  ) {
-    super(`No device model for ${kind} ${deviceName} yet`);
-  }
-}
-
-/**
- * 아직 구현하지 않은 장비 자리. 프레임이 도착하면 조용히 버리지 않고 실행을 멈춘다.
- * 조용히 버리면 평범한 실패로 보여 학습자가 자기 설정이 틀렸다고 잘못 배운다 (설계 10절 12)
- */
-class MissingModel implements DeviceModel {
-  constructor(
-    readonly deviceId: string,
-    readonly kind: Exclude<DeviceKind, "pc">,
-    readonly deviceName: string,
-  ) {}
-
-  // 매개변수가 없어도 DeviceModel의 onFrame·onTimer 자리에 맞는다
-  onFrame(): void {
-    throw new UnsupportedDevice(this.kind, this.deviceName);
-  }
-
-  onTimer(): void {
-    throw new UnsupportedDevice(this.kind, this.deviceName);
-  }
-
-  onConfigChanged(): void {}
-
-  view(): DeviceView {
-    throw new Error("MissingModel has no view");
-  }
-}
-
 export function createRuntime(getDocument: () => TopologyDocument): Runtime {
   const kernel = createKernel();
   const pcs = new Map<string, PcModel>();
   const routers = new Map<string, RouterModel>();
+  const switches = new Map<string, SwitchModel>();
   // 가장 최근 것이 앞. 최대 LIMITS.maxTraces개
   let traces: readonly StoredTrace[] = [];
 
@@ -125,20 +91,28 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
   const routerModel = (deviceId: string): RouterModel | undefined => {
     let model = routers.get(deviceId);
     if (model === undefined && findDevice(getDocument(), deviceId)?.kind === "router") {
-      model = new RouterModel(deviceId, getDocument); routers.set(deviceId, model);
+      model = new RouterModel(deviceId, getDocument);
+      routers.set(deviceId, model);
     }
     return model;
   };
 
-  /** 이번 실행에 쓸 장비별 모델. Switch는 아직 MissingModel이다 */
+  const switchModel = (deviceId: string): SwitchModel | undefined => {
+    let model = switches.get(deviceId);
+    if (model === undefined && findDevice(getDocument(), deviceId)?.kind === "switch") {
+      model = new SwitchModel(deviceId, getDocument, () => kernel.now());
+      switches.set(deviceId, model);
+    }
+    return model;
+  };
+
+  /** 이번 실행에 쓸 PC·Switch·Router 모델 */
   const runModels = (): Map<string, DeviceModel> => {
     const models = new Map<string, DeviceModel>();
     for (const device of getDocument().devices) {
       if (device.kind === "pc") models.set(device.id, pcModel(device.id)!);
-      else if (device.kind === "router") {
-        models.set(device.id, routerModel(device.id)!);
-      }
-      else models.set(device.id, new MissingModel(device.id, device.kind, device.name));
+      else if (device.kind === "router") models.set(device.id, routerModel(device.id)!);
+      else models.set(device.id, switchModel(device.id)!);
     }
     return models;
   };
@@ -152,6 +126,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
       kernel.reset();
       pcs.clear();
       routers.clear();
+      switches.clear();
       traces = [];
     },
 
@@ -174,6 +149,16 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
         model.onConfigChanged({ previous, document });
         changed ||= model.arp.view().length !== before.length;
       }
+      for (const [deviceId, model] of switches) {
+        if (findDevice(document, deviceId)?.kind !== "switch") {
+          switches.delete(deviceId);
+          changed ||= model.macTable().length > 0;
+          continue;
+        }
+        const before = model.macTable();
+        model.onConfigChanged({ previous, document });
+        changed ||= model.macTable().length !== before.length;
+      }
       return changed;
     },
 
@@ -189,9 +174,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
       const made: StoredTrace[] = [];
       for (let sequence = 1; sequence <= request.count; sequence += 1) {
         const models = runModels();
-        let trace: Trace;
-        try {
-          trace = kernel.run(deviceRun({
+        const trace = kernel.run(deviceRun({
             docVersion,
             models,
             start: (ctx) => {
@@ -202,14 +185,6 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
             },
             outcome: () => ((model instanceof PcModel ? model.ipv4.repliesReceived() : model.repliesReceived()).includes(sequence) ? "success" : "failed"),
           }));
-        } catch (error) {
-          if (!(error instanceof UnsupportedDevice)) throw error;
-          // 이번 ping의 추적은 하나도 남기지 않는다. 앞 회차가 있었어도 결과가 반쪽이라 보이지 않는다
-          return {
-            ok: false,
-            error: errorInfo("PING_DEVICE_UNSUPPORTED", { kind: error.kind, deviceName: error.deviceName }),
-          };
-        }
 
         made.push({
           trace,
@@ -250,6 +225,10 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
       return before.length > 0;
     },
 
+    macTable(deviceId) {
+      return switches.get(deviceId)?.macTable() ?? [];
+    },
+
     fillViews(views) {
       for (const [deviceId, model] of routers) {
         const view = views[deviceId];
@@ -258,6 +237,10 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
       for (const [deviceId, model] of pcs) {
         const view = views[deviceId];
         if (view?.kind === "pc") views[deviceId] = { ...view, arpTable: model.arp.view() };
+      }
+      for (const [deviceId, model] of switches) {
+        const view = views[deviceId];
+        if (view?.kind === "switch") views[deviceId] = { ...view, macTable: model.macTable() };
       }
       return views;
     },
@@ -272,33 +255,25 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
   };
 }
 
-/** Trace에서 그 회차의 결과를 읽는다. 시간과 TTL은 받은 응답 이벤트의 값이다 */
+/** Trace에서 그 회차의 결과를 읽는다. 종류는 web과 같은 shared 규칙을 쓴다 */
 function roundOf(trace: Trace, sourceId: string, sequence: number, targetIp: string): PingRound {
   const traceId = trace.id;
-  const atSource = (event: TraceEvent) => event.deviceId === sourceId;
-
+  const kind = pingRoundKind(trace, sourceId, sequence);
+  if (kind === "icmp-error") {
+    const failure = trace.events.find(event => event.deviceId === sourceId &&
+      event.reason.code === "ICMP_ERROR_RECEIVED" && isIcmpError(event.frame.icmp) &&
+      event.frame.icmp.original.destinationIp === targetIp && event.frame.icmp.original.sequence === sequence);
+    if (failure !== undefined && isIcmpError(failure.frame.icmp)) {
+      return { kind, traceId, sequence, sourceIp: failure.frame.ipv4!.sourceIp, error: failure.frame.icmp.type };
+    }
+    return { kind: "timeout", traceId, sequence };
+  }
+  if (kind !== "reply") return { kind, traceId, sequence };
   const reply = trace.events.find(
     (event) =>
-      atSource(event) &&
+      event.deviceId === sourceId &&
       event.reason.code === "ICMP_ECHO_REPLY_RECEIVED" &&
       event.frame.icmp?.sequence === sequence,
   );
-  if (reply !== undefined) {
-    return { kind: "reply", traceId, sequence, timeUs: reply.time, ttl: reply.frame.ipv4?.ttl ?? 0 };
-  }
-
-  const failure = trace.events.find(event => atSource(event) && event.reason.code === "ICMP_ERROR_RECEIVED" &&
-    isIcmpError(event.frame.icmp) && event.frame.icmp.original.destinationIp === targetIp && event.frame.icmp.original.sequence === sequence);
-  if (failure !== undefined && isIcmpError(failure.frame.icmp)) {
-    return { kind: "icmp-error", traceId, sequence, sourceIp: failure.frame.ipv4!.sourceIp, error: failure.frame.icmp.type };
-  }
-
-  const drops = trace.events.filter((event) => atSource(event) && event.action === "drop");
-  if (drops.some((event) => event.reason.code === "NO_IP" || event.reason.code === "NO_GATEWAY")) {
-    return { kind: "unsent", traceId, sequence };
-  }
-  if (drops.some((event) => event.reason.code === "ARP_TIMEOUT" || event.reason.code === "NO_ROUTE")) {
-    return { kind: "unreachable", traceId, sequence };
-  }
-  return { kind: "timeout", traceId, sequence };
+  return { kind: "reply", traceId, sequence, timeUs: reply?.time ?? 0, ttl: reply?.frame.ipv4?.ttl ?? 0 };
 }

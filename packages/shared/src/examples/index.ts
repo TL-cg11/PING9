@@ -23,3 +23,5 @@ export const EXAMPLE_DOCUMENTS: readonly {
   { name: "장비 30대", document: thirtyDeviceDocument },
   { name: "Switch 2대와 VLAN 2개", document: twoSwitchVlanDocument },
 ];
+
+export { withRouterLabSwitches, switchedStaticRoutingLabDocument } from "./router-lab";

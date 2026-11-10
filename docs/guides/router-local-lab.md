@@ -216,3 +216,19 @@ pnpm check:secrets
 ```
 
 첫 명령은 라우터 기능 중심 검사, 두 번째는 lint·타입·전체 테스트·빌드, 세 번째는 저장소 비밀값 형태 검사다. 실제 Chrome에서도 한 Router를 거치는 ping 4/4, TTL=127, 손실 0%를 확인했다. 두 Router의 양방향 정적 경로 통신은 CLI 구성부터 시작하는 자동 통합 검사로 검증했다.
+
+
+## 최신 메인 통합 후 Switch 경유 실습
+
+2026-11-10 통합에서 Switch 모델을 Router Runtime과 함께 등록했다.
+기존 PC·Router의 IP·게이트웨이는 유지하고, 직접 연결 케이블을 제거한 뒤 양쪽 LAN에 Switch를 한 대씩 넣는다.
+각 Switch의 Fa0/1은 PC, Fa0/2는 Router LAN 포트에 연결한다. 두 포트는 access VLAN 1이고 켜져 있어야 한다.
+PC 양방향 ping과 Router의 show arp, Switch의 show mac address-table로 확인한다.
+Switch는 TTL을 감소시키지 않으므로 Router 1대 구성은 PC 응답 TTL 127, Router 2대 구성은 126이다.
+최신 메인에서 가져온 peer-down 판정 때문에 반대편 포트가 꺼져 있으면 Router 경로도 비활성화된다.
+
+자동 통합 검사:
+
+```bash
+pnpm --filter @ping9/engine exec vitest run src/devices/router/switched-router-lab.test.ts
+```

@@ -1,12 +1,17 @@
 // 터미널 입력란에서 가로채는 키 (T3.2.3). DOM 없이 테스트할 수 있게 판단만 따로 둔다.
 
-/** `leave`는 Esc: 입력란을 떠나 캔버스의 그 장비로 포커스를 옮긴다 (T1.6.2, NFR-12) */
-export type KeyAction = "submit" | "history-up" | "history-down" | "complete" | "help" | "leave";
+/**
+ * `leave`는 Esc: 입력란을 떠나 캔버스의 그 장비로 포커스를 옮긴다 (T1.6.2, NFR-12).
+ * `interrupt`는 Ctrl+C: 출력 중인 ping을 멈춘다 (T1.8.3). 출력 중이 아니면 부르는 쪽이 복사로 둔다
+ */
+export type KeyAction = "submit" | "history-up" | "history-down" | "complete" | "help" | "leave" | "interrupt";
 
 export interface KeyModifiers {
   readonly shift: boolean;
   /** 한글처럼 글자를 조합하는 중인가. 조합을 끝내는 키 입력을 명령으로 읽으면 안 된다 */
   readonly composing: boolean;
+  /** Ctrl 키. macOS의 Cmd+C(복사)는 Ctrl이 아니다 */
+  readonly ctrl?: boolean;
 }
 
 /**
@@ -36,6 +41,9 @@ export function keyAction(key: string, modifiers: KeyModifiers): KeyAction | nul
     case "Escape":
       // 한글 조합 중의 Esc는 조합 취소로 둔다
       return modifiers.composing ? null : "leave";
+    case "c":
+    case "C":
+      return modifiers.ctrl === true && !modifiers.composing ? "interrupt" : null;
     default:
       return null;
   }

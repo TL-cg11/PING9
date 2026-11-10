@@ -286,26 +286,36 @@ describe("거부와 자기 주소", () => {
   });
 });
 
-describe("모델이 아직 없는 장비 (설계 10절 12)", () => {
-  test("Switch를 지나면 오류 한 줄이고 추적을 남기지 않는다", async () => {
-    const { simulator, port } = open(twoPcSwitchDocument, TWO_PC_SWITCH.pc1.id);
+describe("IP가 없고 꺼진 Router 앞의 PC", () => {
+  // IP가 없고 포트가 꺼진 Router는 PC의 ARP에 응답하지 않는다.
+  const ROUTER_ID = TWO_PC_SWITCH.sw1.id;
+  const viaRouter: TopologyDocument = {
+    ...twoPcSwitchDocument,
+    devices: twoPcSwitchDocument.devices.map((device) =>
+      device.id === ROUTER_ID
+        ? { ...device, kind: "router", name: "R1", config: { interfaces: {}, staticRoutes: [] } }
+        : device,
+    ),
+    links: twoPcSwitchDocument.links.map((link, index) => ({
+      ...link,
+      ends: [link.ends[0], { deviceId: ROUTER_ID, port: `GigabitEthernet0/${index}` }],
+    })),
+  };
+
+  test("꺼진 Router는 ARP에 응답하지 않고 정상 실패 추적을 남긴다", async () => {
+    const { simulator, port } = open(viaRouter, TWO_PC_SWITCH.pc1.id);
     const result = await port.exec("ping 192.168.1.2");
-    expect(result.lines).toEqual([
-      {
-        kind: "error",
-        code: "PING_DEVICE_UNSUPPORTED",
-        params: { kind: "switch", deviceName: TWO_PC_SWITCH.sw1.name },
-      },
-    ]);
-    expect(simulator.getSnapshot().traces).toEqual([]);
+    expect(texts(result)).toContain("Reply from 192.168.1.1: Destination host unreachable.");
+    expect(result.lines.some(line => line.kind === "error")).toBe(false);
+    expect(simulator.getSnapshot().traces).toHaveLength(4);
   });
 
   test("그 뒤에도 다른 ping은 된다", async () => {
-    const { simulator, port } = open(twoPcSwitchDocument, TWO_PC_SWITCH.pc1.id);
+    const { simulator, port } = open(viaRouter, TWO_PC_SWITCH.pc1.id);
     await port.exec("ping 192.168.1.2");
-    // 같은 PC에서 자기 주소, IP가 없는 경우처럼 Switch에 닿지 않는 ping
+    // 같은 PC에서 자기 주소, IP가 없는 경우처럼 Router에 닿지 않는 ping
     expect(texts(await port.exec("ping -n 1 10.0.0.1"))).toContain("PING: transmit failed. General failure.");
-    expect(simulator.getSnapshot().traces).toHaveLength(1);
+    expect(simulator.getSnapshot().traces).toHaveLength(5);
   });
 });
 

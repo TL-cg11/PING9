@@ -44,3 +44,28 @@ export const staticRoutingLabDocument: TopologyDocument = {
     { id: ROUTER_LAB.rightLink, ends: [{ deviceId: ROUTER_LAB.r2, port: GI1 }, { deviceId: pc2.id, port: "Ethernet0" }] },
   ],
 };
+
+/** 양 끝 LAN에 Switch를 넣는다. Router 1대·2대 실습에서 같은 배선을 쓴다. */
+export function withRouterLabSwitches(base: TopologyDocument): TopologyDocument {
+  const sw1 = "00000000-0000-4000-8000-000000001005";
+  const sw2 = "00000000-0000-4000-8000-000000001006";
+  return {
+    ...base,
+    devices: [...base.devices, ...[sw1, sw2].map((id, index) => ({
+      id, name: `SW${index + 1}`, kind: "switch" as const, position: { x: 210 + index * 440, y: 180 },
+      config: { vlans: [{ id: 1, name: "default" }], ports: {} },
+    }))],
+    links: base.links.flatMap((link, index) => {
+      const pcEnd = link.ends.find(end => end.deviceId === ROUTER_LAB.pc1 || end.deviceId === ROUTER_LAB.pc2);
+      if (pcEnd === undefined) return [link];
+      const routerEnd = link.ends.find(end => end !== pcEnd)!;
+      const switchId = pcEnd.deviceId === ROUTER_LAB.pc1 ? sw1 : sw2;
+      return [
+        { ...link, ends: [pcEnd, { deviceId: switchId, port: "FastEthernet0/1" }] as const },
+        { id: `00000000-0000-4000-8000-00000000120${index}`,
+          ends: [{ deviceId: switchId, port: "FastEthernet0/2" }, routerEnd] as const },
+      ];
+    }),
+  };
+}
+export const switchedStaticRoutingLabDocument = withRouterLabSwitches(staticRoutingLabDocument);

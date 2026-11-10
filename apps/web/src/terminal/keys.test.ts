@@ -50,4 +50,11 @@ describe("keyAction", () => {
       expect(keyAction(key, { shift: false, composing: true })).toBeNull();
     }
   });
+
+  test("Ctrl+C는 멈춤이다. Ctrl 없는 c와 macOS의 Cmd+C(복사)는 가로채지 않는다 (T1.8.3)", () => {
+    expect(keyAction("c", { shift: false, composing: false, ctrl: true })).toBe("interrupt");
+    expect(keyAction("C", { shift: true, composing: false, ctrl: true })).toBe("interrupt");
+    expect(keyAction("c", { shift: false, composing: false })).toBeNull();
+    expect(keyAction("c", { shift: false, composing: true, ctrl: true })).toBeNull();
+  });
 });
