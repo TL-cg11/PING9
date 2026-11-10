@@ -59,5 +59,5 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T1.7.3 Switch의 전달 규칙 (kernel 없이 되는 부분) | [T1.7.3-switch-forwarding.md](T1.7.3-switch-forwarding.md) | 엔진 | SDY | 일부 병합됨 (PR #16, 팀원 검토 없이). kernel 연결은 T5.2.2 |
 | T1.7.2 Ethernet 포트와 링크 전달 | [T1.7.2-link-transfer.md](T1.7.2-link-transfer.md) | 엔진 | SDY | 병합됨 ([PR #33](https://github.com/TL-cg11/PING9/pull/33), 팀원 검토 없이) |
 | T5.2.2 Switch 모델: kernel 연결 | [T5.2.2-switch-model.md](T5.2.2-switch-model.md) | 엔진 | SDY | 병합됨 ([PR #36](https://github.com/TL-cg11/PING9/pull/36), 팀원 검토 없이). 계획의 T5.2.2(문구)와 다름: 설계 9절 18번 |
-| T6.1.1 재생 단계 계산 | [T6.1.1-replay-steps.md](T6.1.1-replay-steps.md) | 화면 | yysong1249 | 검토 대기 (T6.1.2와 같은 PR) |
-| T6.1.2 캔버스 위 프레임 그리기 (펭귄) | [T6.1.2-packet-walk.md](T6.1.2-packet-walk.md) | 화면 | yysong1249 | 검토 대기 |
+| T6.1.1 재생 단계 계산 | [T6.1.1-replay-steps.md](T6.1.1-replay-steps.md) | 화면 | yysong1249 | 검토 대기 ([PR #38](https://github.com/TL-cg11/PING9/pull/38), T6.1.2와 같은 PR) |
+| T6.1.2 캔버스 위 프레임 그리기 (펭귄) | [T6.1.2-packet-walk.md](T6.1.2-packet-walk.md) | 화면 | yysong1249 | 검토 대기 ([PR #38](https://github.com/TL-cg11/PING9/pull/38)) |
