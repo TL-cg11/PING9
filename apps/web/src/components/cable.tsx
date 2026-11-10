@@ -136,10 +136,10 @@ export function CableJointMask({ ends, look, geometry, centers }: {
 
 /** 모양별 색과 굵기 */
 const STYLE = {
-  road: { edge: "#DB5B91", core: "#FCE7F0", edgeWidth: 12, coreWidth: 7 },
-  trunk: { edge: "#DB5B91", core: "#FFF4F8", edgeWidth: 22, coreWidth: 18 },
-  bridge: { edge: "#DB5B91", core: "#FCE7F0", edgeWidth: 10, coreWidth: 6 },
-  down: { edge: "#9CA3AF", core: "#F3F4F6", edgeWidth: 10, coreWidth: 6 },
+  road: { edge: "#B9D5F3", core: "#FFFFFF", edgeWidth: 12, coreWidth: 7 },
+  trunk: { edge: "#B9D5F3", core: "#FFFFFF", edgeWidth: 22, coreWidth: 18 },
+  bridge: { edge: "#5CC8A0", core: "#E1F5EC", edgeWidth: 10, coreWidth: 6 },
+  down: { edge: "#D3CEC4", core: "#F3F0EA", edgeWidth: 10, coreWidth: 6 },
 } as const;
 
 /**
