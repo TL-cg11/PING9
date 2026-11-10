@@ -72,10 +72,10 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T6.1.2 캔버스 위 프레임 그리기 (펭귄) | [T6.1.2-packet-walk.md](T6.1.2-packet-walk.md) | 화면 | yysong1249 | 검토 대기 ([PR #38](https://github.com/TL-cg11/PING9/pull/38)) |
 | T4.3.3 Switch·Router 통합 | [T4.3.3-switch-runtime-merge.md](T4.3.3-switch-runtime-merge.md) | 엔진·공통 | ssunyoung2 | 로컬 통합 검증 |
 
-| T0.9 캔버스 이동·표시 순서·터미널 경계 | [T0.9-canvas-navigation.md](T0.9-canvas-navigation.md) | 화면 | ssunyoung2 | 구현·검증 완료, 리뷰 전 |
+| T0.9 캔버스 이동·표시 순서·터미널 경계 | [T0.9-canvas-navigation.md](T0.9-canvas-navigation.md) | 화면 | ssunyoung2 | [PR #46](https://github.com/TL-cg11/PING9/pull/46) 리뷰 대기 |
 
-| T0.10 터미널 네 면 조절·휠 확대 | [T0.10-terminal-resize-wheel.md](T0.10-terminal-resize-wheel.md) | 화면 | ssunyoung2 | 구현·로컬 검증, 리뷰 전 |
+| T0.10 터미널 네 면 조절·휠 확대 | [T0.10-terminal-resize-wheel.md](T0.10-terminal-resize-wheel.md) | 화면 | ssunyoung2 | [PR #46](https://github.com/TL-cg11/PING9/pull/46) 리뷰 대기 |
 
-| T0.10 최신 메인 통합 | [T0.10-latest-main-sync.md](T0.10-latest-main-sync.md) | 화면·통합 | ssunyoung2 | 로컬 병합·검증 완료 |
+| T0.10 최신 메인 통합 | [T0.10-latest-main-sync.md](T0.10-latest-main-sync.md) | 화면·통합 | ssunyoung2 | [PR #46](https://github.com/TL-cg11/PING9/pull/46) 리뷰 대기 |
 
-| T4.4.1 Router 자체 순환 ping·재생 지연 수정 | [T4.4.1-router-loop-ping.md](T4.4.1-router-loop-ping.md) | 엔진·화면 | ssunyoung2 | 구현·자동 검증 완료, 리뷰 전 |
+| T4.4.1 Router 자체 순환 ping·재생 지연 수정 | [T4.4.1-router-loop-ping.md](T4.4.1-router-loop-ping.md) | 엔진·화면 | ssunyoung2 | [PR #46](https://github.com/TL-cg11/PING9/pull/46) 리뷰 대기 |
