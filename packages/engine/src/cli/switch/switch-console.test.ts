@@ -63,11 +63,20 @@ describe("모드 전환", () => {
 });
 
 describe("hostname", () => {
-  test("device/rename을 dispatch한다 (처리기가 없는 동안은 그 오류가 그대로 나온다)", async () => {
+  test("device/rename을 dispatch해 이름과 프롬프트를 바꾼다 (T1.3.3)", async () => {
     const { port } = open();
 
     expect(await run(port, "enable", "configure terminal", "hostname CORE")).toEqual({
-      lines: [{ kind: "error", code: "UNKNOWN_COMMAND", params: { type: "device/rename" } }],
+      lines: [],
+      prompt: "CORE(config)#",
+    });
+  });
+
+  test("다른 장비가 쓰는 이름이면 reducer의 오류가 그대로 나오고 이름은 그대로다", async () => {
+    const { port } = open();
+
+    expect(await run(port, "enable", "configure terminal", "hostname PC1")).toEqual({
+      lines: [{ kind: "error", code: "DUPLICATE_DEVICE_NAME", params: { name: "PC1" } }],
       prompt: "SW1(config)#",
     });
   });

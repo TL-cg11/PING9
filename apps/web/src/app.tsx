@@ -4,8 +4,10 @@
 import { osOf, pingRoundKind, shortPortName } from "@ping9/shared";
 import type { DeviceKind, ErrorInfo, PortRef, Position } from "@ping9/shared";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { Canvas, cableLength } from "./components/canvas";
+import { isRemoveKey, removeKeyAction } from "./components/canvas-keys";
 import { Inspector } from "./components/inspector";
 import { LinkInspector } from "./components/link-inspector";
 import { Palette } from "./components/palette";
@@ -15,6 +17,7 @@ import { focusCanvasNode, focusTerminalInput } from "./focus";
 import { TopBar } from "./components/top-bar";
 import { CABLE_OFF, CABLE_READY, syncCableState } from "./cable-state";
 import type { CableState } from "./cable-state";
+import type { DragCancelState } from "./canvas-interaction";
 import { availablePorts } from "./format/available-ports";
 import { formatError } from "./messages/errors";
 import { previewTimeline } from "./replay/timeline";
@@ -42,6 +45,11 @@ export function App() {
   const [actionError, setActionError] = useState<ErrorInfo | null>(null);
   const [cable, setCable] = useState<CableState>(CABLE_OFF);
   const [dragKind, setDragKind] = useState<DeviceKind | null>(null);
+  // 끌던 것을 왼쪽 장비 목록에 놓으면 취소된다 (T0.12). 캔버스가 목록의 자리를 보고 상태를 알려 준다
+  const paletteRef = useRef<HTMLElement>(null);
+  const [dragCancel, setDragCancel] = useState<DragCancelState>("idle");
+  // 케이블이 연결된 장비를 지우기 전에 한 번 더 묻는 중인 장비 (T1.4.3)
+  const [removeAsk, setRemoveAsk] = useState<string | null>(null);
   const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
   const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null);
   const selectedLink = document.links.find(link => link.id === selectedLinkId);
@@ -95,6 +103,24 @@ export function App() {
     if (cable.active) setCable(current => ({ ...current, pickerDeviceId: deviceId }));
   };
 
+  const selectLink = (linkId: string) => {
+    setSelectedLinkId(linkId);
+    setCable(current => ({ ...current, pickerDeviceId: null }));
+    dispatch({ type: "select", deviceId: null });
+  };
+
+  /**
+   * 캔버스는 끌기를 위해 누르기의 기본 동작을 막아서, 눌러도 포커스가 전에 있던 곳에 남는다 (T1.3.3).
+   * 속성 패널의 입력은 캔버스 어디를 눌러도 끝낸다 (이름 입력란은 벗어날 때 적용한다).
+   * 장비나 케이블을 누르면 터미널 입력란이나 다른 장비에 있던 포커스도 뗀다. 안 그러면 Delete가 방금 고른 것에 닿지 않는다
+   */
+  const releaseFocus = (event: ReactPointerEvent<HTMLElement>) => {
+    const active = window.document.activeElement;
+    if (!(active instanceof HTMLElement || active instanceof SVGElement) || active === window.document.body) return;
+    const pressed = event.target instanceof Element ? event.target.closest("g.node, g.link") : null;
+    if (active.closest(".inspector") !== null || (pressed !== null && !pressed.contains(active))) active.blur();
+  };
+
   const moveDevice = (deviceId: string, position: Position) => {
     const result = simulator.dispatch({ type: "device/move", deviceId, position });
     setActionError(result.ok ? null : result.error);
@@ -136,11 +162,15 @@ export function App() {
     }),
   );
 
-  // 문서에서 사라진 장비를 가리키는 선택과 터미널을 비운다.
+  // 문서에서 사라진 장비를 가리키는 선택과 터미널을 비운다. 지운 장비의 화면 기록도 버린다 (T1.3.3).
   // 남은 터미널의 프롬프트는 지금 문서의 것으로 맞춘다 (OS나 이름이 바뀌었을 때, T0.7)
   useEffect(() => {
-    dispatch({ type: "sync", deviceIds: document.devices.map((device) => device.id) });
-    updateTerminals((current) => refreshPrompts(current, (deviceId) => simulator.console(deviceId).prompt()));
+    const alive = new Set(document.devices.map((device) => device.id));
+    dispatch({ type: "sync", deviceIds: [...alive] });
+    updateTerminals((current) => refreshPrompts(
+      Object.keys(current).every((deviceId) => alive.has(deviceId)) ? current
+        : Object.fromEntries(Object.entries(current).filter(([deviceId]) => alive.has(deviceId))),
+      (deviceId) => simulator.console(deviceId).prompt()));
     setSelectedLinkId(current => document.links.some(link => link.id === current) ? current : null);
     setCable(current => syncCableState(current, document));
   }, [document]);
@@ -148,7 +178,7 @@ export function App() {
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      setCable(CABLE_OFF); setDragKind(null); setConnectionMessage(null);
+      setCable(CABLE_OFF); setDragKind(null); setConnectionMessage(null); setRemoveAsk(null);
     };
     window.addEventListener("keydown", escape);
     return () => window.removeEventListener("keydown", escape);
@@ -224,7 +254,9 @@ export function App() {
       if (state === undefined) return;
       const controller = new AbortController();
       running.current.set(deviceId, controller);
-      const update = (next: TerminalState) => updateTerminals((current) => ({ ...current, [deviceId]: next }));
+      // 실행하는 사이에 장비가 지워졌으면 그 터미널의 기록을 되살리지 않는다 (T1.3.3)
+      const update = (next: TerminalState) =>
+        updateTerminals((current) => (current[deviceId] === undefined ? current : { ...current, [deviceId]: next }));
       // 회차를 하나씩 보일 때만 불린다. 바로 끝나는 명령어는 입력 줄이 깜빡이지 않는다
       const show = (next: TerminalState) => {
         setBusyFor(deviceId, true);
@@ -266,6 +298,53 @@ export function App() {
     });
   };
 
+  const removeDevice = (deviceId: string) => {
+    // 그 장비에서 회차를 보이던 ping을 멈춘다
+    running.current.get(deviceId)?.abort();
+    const result = simulator.dispatch({ type: "device/remove", deviceId });
+    setRemoveAsk(null);
+    setActionError(result.ok ? null : result.error);
+    // 지운 장비나 그 케이블 위를 걷던 펭귄이 남지 않게 한다
+    if (result.ok) setReplays(new Map());
+  };
+
+  /** 삭제 버튼이나 Delete 키. 케이블이 연결된 장비는 속성 패널에서 한 번 더 묻는다 (T1.4.3, FR-11) */
+  const requestRemove = (deviceId: string) => {
+    if (!document.links.some((link) => link.ends.some((end) => end.deviceId === deviceId))) return removeDevice(deviceId);
+    setSelectedLinkId(null);
+    dispatch({ type: "select", deviceId });
+    setRemoveAsk(deviceId);
+  };
+
+  // 다른 것을 고르면 묻던 것을 그만둔다
+  useEffect(() => {
+    setRemoveAsk((current) => (current === ui.selectedDeviceId && selectedLinkId === null ? current : null));
+  }, [ui.selectedDeviceId, selectedLinkId]);
+
+  // Delete·Backspace: 고른 장비나 케이블을 지운다. 포커스가 고르지 않은 것에 있으면 그것을 먼저 고른다 (T1.3.3).
+  // 입력란과 터미널 안에서는 글자를 지우는 키라서 건드리지 않는다
+  useEffect(() => {
+    const onDelete = (event: KeyboardEvent) => {
+      if (!isRemoveKey(event) || cable.active || dragKind !== null || dragCancel !== "idle") return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest("input, textarea, select, [contenteditable], .term") != null) return;
+      const action = removeKeyAction({
+        focusedDeviceId: target?.closest("g.node")?.getAttribute("data-device-id") ?? null,
+        focusedLinkId: target?.closest("g.link")?.getAttribute("data-link-id") ?? null,
+        selectedDeviceId: ui.selectedDeviceId,
+        selectedLinkId: selectedLink?.id ?? null,
+      });
+      if (action === null) return;
+      event.preventDefault();
+      if (action.type === "select-device") selectDevice(action.deviceId);
+      else if (action.type === "remove-device") requestRemove(action.deviceId);
+      else if (action.type === "select-link") selectLink(action.linkId);
+      else removeSelectedLink();
+    };
+    window.addEventListener("keydown", onDelete);
+    return () => window.removeEventListener("keydown", onDelete);
+  });
+
   /** Ctrl+C. 회차를 보이는 중이면 멈추고 true */
   const interrupt = (deviceId: string): boolean => {
     const controller = running.current.get(deviceId);
@@ -303,11 +382,12 @@ export function App() {
       <main className="work">
         <Palette deviceCount={document.devices.length} linkCount={document.links.length} cableActive={cable.active}
           onConnect={() => { setCable(cable.active ? CABLE_OFF : CABLE_READY); setConnectionMessage(null); setActionError(null); }}
-          onDeviceDragStart={kind => { setDragKind(kind); setCable(CABLE_OFF); setConnectionMessage(null); }} />
-        <section className="canvas">
+          onDeviceDragStart={kind => { setDragKind(kind); setCable(CABLE_OFF); setConnectionMessage(null); }}
+          dragCancel={dragCancel} zoneRef={paletteRef} />
+        <section className="canvas" onPointerDownCapture={releaseFocus}>
           {actionError !== null && <div className="canvas-error" role="alert">{formatError(actionError)}</div>}
           {(dragKind !== null || cable.active) && <div className="edit-banner" role="status">
-            <span>{dragKind !== null ? `${KIND_LABEL[dragKind]}를 원하는 위치에 놓으세요` :
+            <span>{dragKind !== null ? `${KIND_LABEL[dragKind]}를 원하는 위치에 놓으세요 · 왼쪽 목록에 다시 놓으면 취소` :
               connectionMessage ?? (cable.first === null ? "케이블 선택됨 · 첫 번째 장비를 클릭해 포트를 고르세요" :
                 `${document.devices.find(device => device.id === cable.first?.deviceId)?.name ?? "장비"} ${shortPortName(cable.first.port)} 선택됨 · 두 번째 장비를 클릭하세요`)}</span>
             {cable.active && <button type="button" onClick={() => setCable(CABLE_OFF)}>연결 도구 해제</button>}
@@ -318,16 +398,14 @@ export function App() {
             onSelect={selectDevice}
             onOpenTerminal={openTerminal}
             selectedLinkId={selectedLinkId}
-            onSelectLink={linkId => {
-              setSelectedLinkId(linkId); setCable(current => ({ ...current, pickerDeviceId: null }));
-              dispatch({ type: "select", deviceId: null });
-            }}
+            onSelectLink={selectLink}
             onDropDevice={addDevice} onMoveDevice={moveDevice}
             paletteDragKind={dragKind} onPaletteDragEnd={() => setDragKind(null)}
             onDeviceDrag={() => setCable(current => ({ ...current, pickerDeviceId: null }))}
             cableActive={cable.active} firstPort={cable.first} pickerDeviceId={cable.pickerDeviceId}
             onPickPort={pickPort} onClosePortPicker={() => setCable(current => ({ ...current, pickerDeviceId: null }))}
             replays={replayList} onCanvasClick={clearFinishedReplays}
+            cancelZoneRef={paletteRef} onCancelZone={setDragCancel}
           />
           {ui.terminals.map((placement, index) => {
             const device = document.devices.find((candidate) => candidate.id === placement.deviceId);
@@ -360,6 +438,10 @@ export function App() {
           deviceId={ui.selectedDeviceId}
           onOpenTerminal={openTerminal}
           onDispatch={simulator.dispatch}
+          onRemove={requestRemove}
+          removeAsk={removeAsk !== null && removeAsk === ui.selectedDeviceId}
+          onConfirmRemove={() => { if (removeAsk !== null) removeDevice(removeAsk); }}
+          onCancelRemove={() => setRemoveAsk(null)}
         />}
       </main>
     </div>

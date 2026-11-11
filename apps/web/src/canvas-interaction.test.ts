@@ -1,7 +1,22 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 
-import { clampCanvasPosition, readDraggedDevice, screenToWorld, wheelZoom, zoomAtPoint, zoomViewBox } from "./canvas-interaction";
+import { clampCanvasPosition, containsPoint, readDraggedDevice, screenToWorld, wheelZoom, zoomAtPoint, zoomViewBox } from "./canvas-interaction";
+
+describe("끌던 것을 놓으면 취소되는 영역 (T0.12)", () => {
+  const palette = { left: 0, top: 64, right: 112, bottom: 800 };
+  test.each([{ x: 0, y: 64 }, { x: 56, y: 300 }, { x: 112, y: 800 }])("영역 안과 테두리의 점 %j는 안이다", point => {
+    expect(containsPoint(palette, point)).toBe(true);
+  });
+  test.each([{ x: 113, y: 300 }, { x: 56, y: 63 }, { x: -1, y: 300 }, { x: 56, y: 801 }])("영역 밖의 점 %j는 밖이다", point => {
+    expect(containsPoint(palette, point)).toBe(false);
+  });
+  test("영역이 없거나 넓이가 없으면 어떤 점도 밖이다", () => {
+    expect(containsPoint(null, { x: 0, y: 0 })).toBe(false);
+    expect(containsPoint(undefined, { x: 0, y: 0 })).toBe(false);
+    expect(containsPoint({ left: 0, top: 0, right: 0, bottom: 0 }, { x: 0, y: 0 })).toBe(false);
+  });
+});
 
 describe("드래그 장비와 좌표", () => {
   test.each(["pc", "switch", "router"])("장비 %s는 읽을 수 있다", kind => {
