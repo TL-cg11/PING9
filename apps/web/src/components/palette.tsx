@@ -1,6 +1,6 @@
 // 왼쪽 장비 목록. 시안의 <aside class="palette">와 같은 마크업이고, 아이콘은 T0.6의 장비 아이콘이다.
 // 장비는 끌어 놓기로만 추가하고, 케이블 버튼은 연결 도구를 선택/해제한다.
-// 끌던 것을 이 목록에 다시 놓으면 취소된다 (T0.12). 놓았는지는 캔버스가 `zoneRef`의 자리로 판단한다.
+// 여기서 끌어 간 새 장비를 이 목록에 다시 놓으면 추가되지 않는다 (T0.12). 놓았는지는 캔버스가 `zoneRef`의 자리로 판단한다.
 
 import { LIMITS } from "@ping9/shared";
 import type { DeviceKind } from "@ping9/shared";
@@ -23,7 +23,7 @@ export function Palette({ deviceCount, linkCount = 0, onConnect, cableActive = f
   readonly onConnect: () => void;
   readonly cableActive?: boolean;
   readonly onDeviceDragStart?: (kind: DeviceKind) => void;
-  /** 끌기와 취소 영역의 상태 (T0.12) */
+  /** 새 장비 끌기와 취소 영역의 상태 (T0.12) */
   readonly dragCancel?: DragCancelState;
   readonly zoneRef?: RefObject<HTMLElement | null>;
 }) {

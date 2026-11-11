@@ -17,7 +17,7 @@ export interface CanvasViewBox {
   readonly width: number; readonly height: number;
 }
 
-/** 끌던 것을 놓으면 취소되는 영역(왼쪽 장비 목록)에 대한 상태. armed는 끄는 중, over는 그 영역 위 (T0.12) */
+/** 새 장비를 놓으면 취소되는 영역(왼쪽 장비 목록)에 대한 상태. armed는 새 장비를 끄는 중, over는 그 영역 위 (T0.12) */
 export type DragCancelState = "idle" | "armed" | "over";
 
 /** 화면 좌표의 점이 사각형 안(테두리 포함)에 있는가. 사각형이 없거나 넓이가 없으면 false */

@@ -51,7 +51,7 @@ button { font: inherit; cursor: pointer; }
 .placement-preview { pointer-events: none; opacity: .65; }
 .device-tool svg { pointer-events: none; }
 .palette-note { font-size: 11px; line-height: 1.4; text-align: center; color: var(--navy-60); }
-/* 끌던 것을 장비 목록에 다시 놓으면 취소된다 (T0.12). 끄는 동안 안내를 바꾸고, 목록 위에 오면 표시한다 */
+/* 목록에서 끌어 온 새 장비를 장비 목록에 다시 놓으면 취소된다 (T0.12). 끄는 동안 안내를 바꾸고, 목록 위에 오면 표시한다 */
 .palette.cancel-armed .palette-note { color: var(--sky-700); font-weight: 600; }
 .palette.cancel-over { background: var(--danger-bg); outline: 2px dashed var(--danger); outline-offset: -6px; }
 .palette.cancel-over .palette-note { color: var(--danger); font-weight: 700; }
