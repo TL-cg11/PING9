@@ -35,6 +35,7 @@ export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsBy
   // 문서 전체
   DOCUMENT_TOO_LARGE: ({ size, limit }) => `문서가 너무 커요 (${size}바이트, 한도 ${limit}바이트)`,
   DOCUMENT_INVALID_JSON: () => "JSON으로 읽을 수 없는 파일이에요",
+  IMPORT_NOT_EXPORT_FILE: () => "PING9에서 내보낸 파일이 아니에요",
   DOCUMENT_FORBIDDEN_KEY: ({ key }) => `문서에 쓸 수 없는 키가 있어요: ${key}`,
   DOCUMENT_TOO_DEEP: ({ limit }) => `문서의 중첩이 너무 깊어요 (한도 ${limit}단계)`,
   DOCUMENT_UNSUPPORTED_VERSION: ({ current }) => `이 버전의 문서는 열 수 없어요 (지원 버전 ${current})`,

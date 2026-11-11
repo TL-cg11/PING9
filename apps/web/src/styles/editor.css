@@ -29,7 +29,9 @@ button { font: inherit; cursor: pointer; }
 .crumb .name { font-weight: 600; }
 
 .spacer { flex: 1; }
+.file-actions { display: flex; gap: 8px; }
 .ghost { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: #fff; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.3); padding: 7px 14px; border-radius: 10px; }
+.ghost:disabled { opacity: .55; cursor: not-allowed; }
 .mode { display: flex; background: rgba(0,0,0,.18); border-radius: 12px; padding: 3px; }
 .mode button { border: none; background: transparent; color: rgba(255,255,255,.8); padding: 7px 14px; border-radius: 9px; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 .mode button.on { background: #fff; color: var(--sky-700); }
@@ -309,3 +311,16 @@ button { font: inherit; cursor: pointer; }
 
 .replay-hint { position: absolute; right: 16px; top: 16px; z-index: 5; max-width: calc(100% - 32px);
   padding: 8px 12px; border-radius: 8px; background: #FFF2D6; color: #79510E; font-size: 12px; pointer-events: none; }
+
+/* 확인 창 (T7.1.2) */
+.confirm-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: #0D203566; }
+.confirm-dialog { width: min(440px, calc(100vw - 32px)); padding: 20px 22px; border-radius: 14px; background: #fff; color: var(--navy); box-shadow: 0 12px 32px #0D203540; }
+.confirm-dialog strong { font-size: 16px; }
+.confirm-body { margin: 10px 0 16px; font-size: 13px; line-height: 1.6; color: var(--navy-60); }
+.confirm-body p { margin: 0; }
+.confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.confirm-actions button { padding: 8px 14px; border: none; border-radius: 9px; background: var(--ice-50); color: var(--navy); font-size: 13px; font-weight: 700; }
+.confirm-actions button.primary { background: var(--sky-700); color: #fff; }
+/* 가져오기 실패. 닫을 때까지 보인다 (FR-45) */
+.import-error { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 7; display: flex; align-items: center; gap: 10px; max-width: calc(100% - 24px); padding: 10px 14px; border: 1px solid #F3B8AE; border-radius: 10px; background: var(--danger-bg); color: #8A1F12; font-size: 13px; box-shadow: 0 3px 12px #E5484D1F; }
+.import-error button { flex: none; border: none; background: transparent; color: inherit; font-size: 16px; font-weight: 700; line-height: 1; }
