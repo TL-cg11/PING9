@@ -283,8 +283,6 @@ export function Cable({
   const lanes = look.down ? undefined : look.lanes;
   const rainbowId = `rainbow-${id}`;
   const { normal } = axes(ends);
-  const angle = uprightAngle(ends);
-  const middle = geometry.at(0.5);
   const joined = cableJoints(ends, centers, geometry, look);
   const road = joined?.d ?? geometry.d;
 
@@ -325,14 +323,24 @@ export function Cable({
       {lanes !== undefined && lanes !== "all" && lanes.map((lane, index) => (
         <LaneLine key={lane.vlan} ends={ends} lane={lane} index={index} />
       ))}
-      {!look.down && look.shape === "road" && look.vlan !== undefined && (
+      {look.down && <Crack ends={ends} geometry={geometry} />}
+    </g>
+  );
+}
+
+
+/** 캔버스의 마지막 글자 레이어에서 따로 그린다. */
+export function CableLabels({ ends, look, geometry }: {
+  readonly ends: LineEnds; readonly look: CableLook; readonly geometry: CableGeometry;
+}) {
+  const angle = uprightAngle(ends);
+  const middle = geometry.at(0.5);
+  return <>      {!look.down && look.shape === "road" && look.vlan !== undefined && (
         <RoadText at={middle} angle={angle} text={`VLAN ${look.vlan}`} color={vlanColor(look.vlan).text} size={10} />
       )}
       {!look.down && look.shape === "trunk" && (
         <RoadText at={middle} angle={angle} text="trunk"
           color={vlanColor("trunk").text} size={8.5} />
       )}
-      {look.down && <Crack ends={ends} geometry={geometry} />}
-    </g>
-  );
+</>;
 }

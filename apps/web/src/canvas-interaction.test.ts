@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 
-import { clampCanvasPosition, readDraggedDevice, screenToWorld, zoomViewBox } from "./canvas-interaction";
+import { clampCanvasPosition, readDraggedDevice, screenToWorld, wheelZoom, zoomAtPoint, zoomViewBox } from "./canvas-interaction";
 
 describe("드래그 장비와 좌표", () => {
   test.each(["pc", "switch", "router"])("장비 %s는 읽을 수 있다", kind => {
@@ -64,4 +64,24 @@ describe("실습 확대·축소", () => {
     expect(zoomViewBox(box, { width: 800, height: 500 }, NaN)).toBe(box);
     expect(zoomViewBox(box, { width: 800, height: 500 }, 0)).toBe(box);
   });
+});
+
+test("휠 단위와 확대·축소 한도를 지킨다", () => {
+  expect(wheelZoom(1, -50, 0, 600)).toBeGreaterThan(1);
+  expect(wheelZoom(1, 50, 0, 600)).toBeLessThan(1);
+  expect(wheelZoom(1, 1, 1, 600)).toBe(wheelZoom(1, 16, 0, 600));
+  expect(wheelZoom(1, 1, 2, 600)).toBe(wheelZoom(1, 600, 0, 600));
+  expect(wheelZoom(3, -1000, 0, 600)).toBe(3);
+  expect(wheelZoom(0.25, 1000, 0, 600)).toBe(0.25);
+});
+
+test("휠 확대 후에도 포인터 아래 지도 좌표는 같은 화면 위치다", () => {
+  const box = { x: -100, y: 50, width: 800, height: 400 };
+  const size = { width: 1200, height: 900 };
+  const fraction = { x: 0.2, y: 0.7 };
+  // xMidYMin meet의 실제 보이는 영역은 x=-100..700, y=50..650이다.
+  const world = { x: 60, y: 470 };
+  const next = zoomAtPoint(box, size, 1.5, world, fraction);
+  expect(next.x + fraction.x * next.width).toBeCloseTo(world.x);
+  expect(next.y + fraction.y * next.height).toBeCloseTo(world.y);
 });

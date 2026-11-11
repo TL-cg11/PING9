@@ -35,10 +35,10 @@ export function Palette({ deviceCount, linkCount = 0, onConnect, cableActive = f
       <button type="button" className={cableActive ? "tool cable-tool active" : "tool cable-tool"}
         aria-label="케이블 연결" aria-pressed={cableActive} onClick={onConnect}
         disabled={!cableActive && (deviceCount < 2 || linkCount >= LIMITS.maxLinks)}>
-        <svg viewBox="0 0 32 32" fill="none" stroke="#1565D8" strokeWidth="2" strokeLinecap="round">
+        <svg viewBox="0 0 32 32" fill="none" stroke="#DB5B91" strokeWidth="2" strokeLinecap="round">
           <path d="M6 24c6 0 6-16 20-16" />
-          <circle cx="6" cy="24" r="2.5" fill="#1565D8" />
-          <circle cx="26" cy="8" r="2.5" fill="#1565D8" />
+          <circle cx="6" cy="24" r="2.5" fill="#DB5B91" />
+          <circle cx="26" cy="8" r="2.5" fill="#DB5B91" />
         </svg>
         케이블{cableActive && <span className="tool-selected">선택됨</span>}
       </button>

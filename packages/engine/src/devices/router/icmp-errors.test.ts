@@ -59,6 +59,27 @@ describe("라우터 ICMP 오류", () => {
     expect(trace.events.find(event => event.reason.code === "ICMP_ERROR_RECEIVED")?.frame.icmp?.type).toBe("time-exceeded");
   });
 
+  test.each([LAB.r1, LAB.r2])("Router %s 자체에서 시작한 순환 ping도 TTL 오류를 로컬 수신하고 자기 IP에 ARP하지 않는다", async sourceId => {
+    const sim = open();
+    route(sim, LAB.r1, "8.8.8.0", "255.255.255.0", "10.0.12.2");
+    route(sim, LAB.r2, "8.8.8.0", "255.255.255.0", "10.0.12.1");
+    await sim.console(sourceId).exec("enable");
+    const result = await sim.console(sourceId).exec("ping 8.8.8.8");
+    expect(text(result).match(/TTL expired in transit\./g)).toHaveLength(4);
+    expect(text(result)).not.toContain("Destination unreachable.");
+    const sourceIp = sourceId === LAB.r1 ? "10.0.12.1" : "10.0.12.2";
+    expect(sim.getSnapshot().traces).toHaveLength(4);
+    for (const summary of sim.getSnapshot().traces) {
+      const trace = sim.getTrace(summary.id)!;
+      expect(validateTrace(trace).ok).toBe(true);
+      expect(trace.result.status).toBe("failed");
+      expect(trace.events.some(event => event.deviceId === sourceId && event.frame.arp?.operation === "request" && event.frame.arp.targetIp === sourceIp)).toBe(false);
+      expect(trace.events.some(event => event.reason.code === "ARP_TIMEOUT")).toBe(false);
+      expect(trace.events.filter(event => event.reason.code === "ICMP_ERROR_RECEIVED")).toHaveLength(1);
+      expect(trace.events.find(event => event.reason.code === "ICMP_ERROR_RECEIVED")?.frame.icmp?.type).toBe("time-exceeded");
+    }
+  });
+
   test("ICMP 오류 패킷 자체가 순환해도 또 다른 ICMP 오류를 만들지 않는다", async () => {
     const sim = open();
     route(sim, LAB.r1, "8.8.8.0", "255.255.255.0", "10.0.12.2");

@@ -2,8 +2,11 @@
 // 장비 종류를 모른다. 받은 상태를 그리고 입력을 위로 올릴 뿐이라 PC, Switch, Router가 함께 쓴다.
 // 글은 React의 글자 노드로만 넣는다. HTML로 해석되는 길이 없다 (SEC-11).
 
-import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
+
+import { fitWindow, RESIZE_HANDLES, resizeWindow } from "../window-bounds";
+import type { ResizeHandle, WindowRect } from "../window-bounds";
 
 import { helpRequest, keyAction } from "../terminal/keys";
 import type { TerminalLine, TerminalState } from "../terminal/terminal-state";
@@ -77,6 +80,73 @@ export function TerminalWindow({
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const [area, setArea] = useState<{ width: number; height: number } | null>(null);
+  const [size, setSize] = useState({ width: 400, height: 230 });
+  const geometry = area === null ? { ...size, x: placement.x, y: placement.y }
+    : fitWindow({ ...size, x: placement.x, y: placement.y }, area);
+  const moveRef = useRef(onMove);
+  moveRef.current = onMove;
+  const gesture = useRef<{
+    pointerId: number; mode: "move" | ResizeHandle; startX: number; startY: number; rect: WindowRect;
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    const parent = windowRef.current?.parentElement;
+    if (!parent || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const { width, height } = parent.getBoundingClientRect();
+      setArea({ width, height });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(parent);
+    return () => observer.disconnect();
+  }, []);
+
+  // 브라우저 크기 변경이나 재열기 때 오래된 창 위치도 영역 안으로 복구한다.
+  useEffect(() => {
+    if (area !== null && (geometry.x !== placement.x || geometry.y !== placement.y)) {
+      moveRef.current(geometry.x, geometry.y);
+    }
+  }, [area, geometry.x, geometry.y, placement.x, placement.y]);
+
+  useEffect(() => {
+    const move = (event: PointerEvent) => {
+      const current = gesture.current;
+      const parent = windowRef.current?.parentElement;
+      if (!current || current.pointerId !== event.pointerId || !parent) return;
+      const bounds = parent.getBoundingClientRect();
+      const dx = event.clientX - current.startX;
+      const dy = event.clientY - current.startY;
+      if (current.mode === "move") {
+        const next = fitWindow({ ...current.rect, x: current.rect.x + dx, y: current.rect.y + dy }, bounds);
+        moveRef.current(next.x, next.y);
+      } else {
+        const next = resizeWindow(current.rect, current.mode, dx, dy, bounds);
+        setSize({ width: next.width, height: next.height });
+        moveRef.current(next.x, next.y);
+      }
+    };
+    const stop = () => { gesture.current = null; };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+    window.addEventListener("blur", stop);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      window.removeEventListener("blur", stop);
+    };
+  }, []);
+
+  const startGesture = (event: ReactPointerEvent<HTMLElement>, mode: "move" | ResizeHandle) => {
+    if (event.button !== 0 || (mode === "move" && (event.target as HTMLElement).closest("button"))) return;
+    event.preventDefault();
+    onFocus();
+    gesture.current = { pointerId: event.pointerId, mode, startX: event.clientX, startY: event.clientY, rect: geometry };
+  };
+
   // 줄이 더해지면 맨 아래를 보여 준다
   useEffect(() => {
     const body = bodyRef.current;
@@ -131,30 +201,6 @@ export function TerminalWindow({
     }
   };
 
-  // 제목 막대를 끌면 캔버스 안에서 움직인다 (시안의 wireTerm과 같은 범위)
-  const startDrag = (event: ReactMouseEvent<HTMLDivElement>) => {
-    const element = windowRef.current;
-    const canvas = element?.parentElement;
-    if (element === null || canvas === null || canvas === undefined) return;
-    if ((event.target as HTMLElement).closest(".t-x") !== null) return;
-
-    const windowBox = element.getBoundingClientRect();
-    const canvasBox = canvas.getBoundingClientRect();
-    const offsetX = event.clientX - windowBox.left;
-    const offsetY = event.clientY - windowBox.top;
-
-    const move = (moveEvent: MouseEvent) => {
-      const x = Math.max(0, Math.min(canvasBox.width - 80, moveEvent.clientX - canvasBox.left - offsetX));
-      const y = Math.max(0, Math.min(canvasBox.height - 40, moveEvent.clientY - canvasBox.top - offsetY));
-      onMove(x, y);
-    };
-    const stop = () => {
-      document.removeEventListener("mousemove", move);
-      document.removeEventListener("mouseup", stop);
-    };
-    document.addEventListener("mousemove", move);
-    document.addEventListener("mouseup", stop);
-  };
 
   return (
     <div
@@ -163,10 +209,10 @@ export function TerminalWindow({
       data-device-id={placement.deviceId}
       role="region"
       aria-label={`${deviceName} 콘솔`}
-      style={{ left: placement.x, top: placement.y, zIndex }}
+      style={{ left: geometry.x, top: geometry.y, width: geometry.width, height: geometry.height, zIndex }}
       onMouseDown={onFocus}
     >
-      <div className="term-bar" onMouseDown={startDrag}>
+      <div className="term-bar" onPointerDown={event => startGesture(event, "move")}>
         <span className="t-name">{deviceName}</span>
         <span className="t-chip">{kindLabel}</span>
         {/* Safari는 기본 설정에서 Tab이 버튼을 건너뛴다. tabIndex를 적어 Shift+Tab으로 닿게 한다 (NFR-12) */}
@@ -212,6 +258,20 @@ export function TerminalWindow({
           />
         </div>
       </div>
+      {(Object.keys(RESIZE_HANDLES) as ResizeHandle[]).map(handle => (
+        <button key={handle} type="button" className={`term-resize resize-${handle}`}
+          aria-label={`${deviceName} 콘솔 ${RESIZE_HANDLES[handle]} 크기 조절`}
+          title={`${RESIZE_HANDLES[handle]} 변 드래그 또는 방향키로 크기 조절`}
+          onPointerDown={event => startGesture(event, handle)}
+          onKeyDown={event => {
+            const delta = { ArrowRight: [10, 0], ArrowLeft: [-10, 0], ArrowDown: [0, 10], ArrowUp: [0, -10] }[event.key];
+            if (!delta || !area) return;
+            event.preventDefault();
+            const next = resizeWindow(geometry, handle, delta[0]!, delta[1]!, area);
+            setSize({ width: next.width, height: next.height });
+            onMove(next.x, next.y);
+          }} />
+      ))}
     </div>
   );
 }
