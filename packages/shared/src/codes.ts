@@ -97,6 +97,17 @@ export interface ErrorParamsByCode {
   ROUTE_NETWORK_NOT_ALIGNED: { readonly network: string; readonly mask: string };
   ROUTE_NEXT_HOP_IS_SELF: { readonly deviceId: string; readonly nextHop: string };
   ROUTE_NOT_FOUND: { readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string };
+  // RIP (T11.2.1)
+  /** `router rip` 전에 RIP 구성을 바꾸려 함 */
+  RIP_NOT_ENABLED: { readonly deviceId: string };
+  /** RIP `network`에 넣을 수 없는 주소 (D·E 클래스, 0.x, 127.x, 클래스풀 네트워크가 아님) */
+  RIP_NETWORK_INVALID: { readonly network: string };
+  /** `no network`로 RIP에 없는 네트워크를 지우려 함 */
+  RIP_NETWORK_NOT_FOUND: { readonly deviceId: string; readonly network: string };
+  /** `version 1`. PING9은 RIP v2만 */
+  RIP_VERSION_UNSUPPORTED: { readonly version: number };
+  /** `auto-summary`. PING9은 늘 no auto-summary */
+  RIP_AUTO_SUMMARY_UNSUPPORTED: Record<string, never>;
   /** 그 Switch에 없는 VLAN의 이름을 바꾸거나 지우려 함 */
   VLAN_NOT_FOUND: { readonly deviceId: string; readonly vlanId: number };
   /** VLAN 1은 지우거나 이름을 바꿀 수 없음 (FR-31) */
@@ -173,6 +184,11 @@ const ERROR_CODE_SET = {
   ROUTE_NETWORK_NOT_ALIGNED: true,
   ROUTE_NEXT_HOP_IS_SELF: true,
   ROUTE_NOT_FOUND: true,
+  RIP_NOT_ENABLED: true,
+  RIP_NETWORK_INVALID: true,
+  RIP_NETWORK_NOT_FOUND: true,
+  RIP_VERSION_UNSUPPORTED: true,
+  RIP_AUTO_SUMMARY_UNSUPPORTED: true,
   VLAN_NOT_FOUND: true,
   DEFAULT_VLAN_READONLY: true,
   CLI_UNKNOWN_COMMAND: true,

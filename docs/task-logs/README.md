@@ -71,3 +71,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T6.1.1 재생 단계 계산 | [T6.1.1-replay-steps.md](T6.1.1-replay-steps.md) | 화면 | yysong1249 | 검토 대기 ([PR #38](https://github.com/TL-cg11/PING9/pull/38), T6.1.2와 같은 PR) |
 | T6.1.2 캔버스 위 프레임 그리기 (펭귄) | [T6.1.2-packet-walk.md](T6.1.2-packet-walk.md) | 화면 | yysong1249 | 검토 대기 ([PR #38](https://github.com/TL-cg11/PING9/pull/38)) |
 | T4.3.3 Switch·Router 통합 | [T4.3.3-switch-runtime-merge.md](T4.3.3-switch-runtime-merge.md) | 엔진·공통 | ssunyoung2 | 로컬 통합 검증 |
+| T11.2.1 RIP 구성과 명령어 | [T11.2.1-rip-config.md](T11.2.1-rip-config.md) | 엔진, 공통 | yysong1249 | 검토 대기 ([PR #41](https://github.com/TL-cg11/PING9/pull/41)) |

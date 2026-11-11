@@ -27,6 +27,12 @@ export type Command =
   // Static route (FR-35)
   | { readonly type: "route/add"; readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string }
   | { readonly type: "route/remove"; readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string }
+  // RIP 구성 (T11.2.1). `network`는 reducer가 클래스풀로 맞춘다
+  | { readonly type: "rip/enable"; readonly deviceId: string }
+  | { readonly type: "rip/disable"; readonly deviceId: string }
+  | { readonly type: "rip/add-network"; readonly deviceId: string; readonly network: string }
+  | { readonly type: "rip/remove-network"; readonly deviceId: string; readonly network: string }
+  | { readonly type: "rip/set-passive"; readonly deviceId: string; readonly port: string; readonly passive: boolean }
   // VLAN (FR-31)
   | { readonly type: "vlan/create"; readonly deviceId: string; readonly vlanId: number; readonly name?: string }
   | { readonly type: "vlan/rename"; readonly deviceId: string; readonly vlanId: number; readonly name: string }
@@ -56,6 +62,11 @@ const COMMAND_TYPE_SET = {
   "pc/set-os": true,
   "route/add": true,
   "route/remove": true,
+  "rip/enable": true,
+  "rip/disable": true,
+  "rip/add-network": true,
+  "rip/remove-network": true,
+  "rip/set-passive": true,
   "vlan/create": true,
   "vlan/rename": true,
   "vlan/remove": true,

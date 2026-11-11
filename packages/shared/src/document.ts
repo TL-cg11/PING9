@@ -108,10 +108,20 @@ export interface StaticRoute {
   readonly nextHop: string;
 }
 
+/** RIP 구성 (T11.2.1). version 2, no auto-summary로 고정이라 저장하지 않는다 */
+export interface RipConfig {
+  /** `network`로 넣은 주소. 클래스풀 네트워크(A: /8, B: /16, C: /24)로 맞춰 저장. 작은 주소부터 */
+  readonly networks: readonly string[];
+  /** 보내지 않고 듣기만 하는 인터페이스. 포트 순서대로 */
+  readonly passiveInterfaces: readonly string[];
+}
+
 /** Router 구성. `interfaces`에 없는 인터페이스는 설정된 적이 없는 것이다 */
 export interface RouterConfig {
   readonly interfaces: Readonly<Record<string, RouterInterfaceConfig>>;
   readonly staticRoutes: readonly StaticRoute[];
+  /** 없으면 RIP를 쓰지 않음. `router rip`로 생기고 `no router rip`로 사라진다 (T11.2.1) */
+  readonly rip?: RipConfig;
 }
 
 interface DeviceBase {

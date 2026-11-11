@@ -2,8 +2,9 @@
 import { errorInfo } from "./codes";
 import type { ErrorInfo } from "./codes";
 import { PORT_NAMES } from "./document";
-import type { RouterConfig, RouterInterfaceConfig, StaticRoute } from "./document";
-import { checkHostIpv4, checkIpv4, checkMask, networkAddress, networksOverlap } from "./values";
+import type { RipConfig, RouterConfig, RouterInterfaceConfig, StaticRoute } from "./document";
+import { LIMITS } from "./limits";
+import { checkHostIpv4, checkIpv4, checkMask, formatIpv4, networkAddress, networksOverlap, parseIpv4 } from "./values";
 
 /** CLI/dispatch와 문서 불러오기에 같은 규칙을 쓴다. 도달 불가는 설정 자체를 거부하지 않는다. */
 export function checkStaticRoute(deviceId: string, route: StaticRoute, interfaces: RouterConfig["interfaces"]): ErrorInfo | null {
@@ -29,7 +30,44 @@ export function normalizeRouterConfig(config: RouterConfig): RouterConfig {
       }];
     })),
     staticRoutes: config.staticRoutes,
+    ...(config.rip === undefined ? {} : { rip: normalizeRipConfig(config.rip) }),
   };
+}
+
+/**
+ * RIP `network`에 넣은 주소의 클래스풀 네트워크 (T11.2.1). 실제 IOS처럼 A는 /8, B는 /16, C는 /24로 맞춘다.
+ * 0.x, 127.x(loopback), D·E 클래스(224 이상)와 IPv4가 아닌 글은 null
+ */
+export function classfulNetwork(value: string): string | null {
+  const address = parseIpv4(value);
+  if (address === null) return null;
+  const first = Math.floor(address / 0x1000000);
+  if (first === 0 || first === 127 || first >= 224) return null;
+  const size = first < 128 ? 0x1000000 : first < 192 ? 0x10000 : 0x100;
+  return formatIpv4(address - (address % size));
+}
+
+/** 네트워크는 작은 주소부터, passive 인터페이스는 포트 순서대로. 겹침은 하나로 */
+export function normalizeRipConfig(rip: RipConfig): RipConfig {
+  const networks = [...new Set(rip.networks)].sort((a, b) => (parseIpv4(a) ?? 0) - (parseIpv4(b) ?? 0));
+  const passiveInterfaces = PORT_NAMES.router.filter(port => rip.passiveInterfaces.includes(port));
+  return { networks, passiveInterfaces };
+}
+
+/** 문서 불러오기와 reducer가 같은 규칙을 쓴다. 클래스풀 네트워크만, 겹침 없이, 한도까지. passive는 Router 포트만 */
+export function checkRipConfig(deviceId: string, rip: RipConfig): ErrorInfo | null {
+  if (rip.networks.length > LIMITS.maxRipNetworks) {
+    return errorInfo("LIMIT_EXCEEDED", { limit: "ripNetworks", max: LIMITS.maxRipNetworks });
+  }
+  for (const network of rip.networks) {
+    if (classfulNetwork(network) !== network) return errorInfo("RIP_NETWORK_INVALID", { network });
+  }
+  for (const port of rip.passiveInterfaces) {
+    if (!(PORT_NAMES.router as readonly string[]).includes(port)) {
+      return errorInfo("UNKNOWN_PORT", { deviceId, kind: "router", port });
+    }
+  }
+  return null;
 }
 
 /** 주소 자체의 검증 뒤 사용한다. 꺼진 인터페이스도 겹침 검사 대상이다. */

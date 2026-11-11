@@ -15,7 +15,7 @@ import type { ArpEntryView, MacTableEntryView } from "@ping9/shared";
 
 import type { PingRequest, PingRun } from "../../runtime";
 
-export type CliMode = "user" | "privileged" | "config" | "config-if" | "config-vlan";
+export type CliMode = "user" | "privileged" | "config" | "config-if" | "config-vlan" | "config-router";
 
 /**
  * 매개변수의 종류. `word`는 빈칸 없는 글, `vlan-id`는 1~4094의 수,
