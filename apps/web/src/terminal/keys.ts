@@ -12,6 +12,8 @@ export interface KeyModifiers {
   readonly composing: boolean;
   /** Ctrl 키. macOS의 Cmd+C(복사)는 Ctrl이 아니다 */
   readonly ctrl?: boolean;
+  /** 눌린 키의 자리 (`KeyboardEvent.code`). 한글 입력 상태에서도 C 자리는 `KeyC`다 */
+  readonly code?: string;
 }
 
 /**
@@ -41,10 +43,9 @@ export function keyAction(key: string, modifiers: KeyModifiers): KeyAction | nul
     case "Escape":
       // 한글 조합 중의 Esc는 조합 취소로 둔다
       return modifiers.composing ? null : "leave";
-    case "c":
-    case "C":
-      return modifiers.ctrl === true && !modifiers.composing ? "interrupt" : null;
     default:
-      return null;
+      // Ctrl+C는 글자가 아니라 키 자리로 본다. 한글 입력 상태면 글자가 `ㅊ`로 온다
+      return modifiers.ctrl === true && !modifiers.composing &&
+        (modifiers.code === "KeyC" || key === "c" || key === "C") ? "interrupt" : null;
   }
 }

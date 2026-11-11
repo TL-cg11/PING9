@@ -93,6 +93,7 @@ export function TerminalWindow({
       shift: event.shiftKey,
       composing: event.nativeEvent.isComposing,
       ctrl: event.ctrlKey,
+      code: event.code,
     });
     if (action === null) return;
     if (action === "interrupt") {
