@@ -45,7 +45,7 @@ export function App() {
   const [actionError, setActionError] = useState<ErrorInfo | null>(null);
   const [cable, setCable] = useState<CableState>(CABLE_OFF);
   const [dragKind, setDragKind] = useState<DeviceKind | null>(null);
-  // 끌던 것을 왼쪽 장비 목록에 놓으면 취소된다 (T0.12). 캔버스가 목록의 자리를 보고 상태를 알려 준다
+  // 목록에서 끌어 온 새 장비를 왼쪽 장비 목록에 다시 놓으면 취소된다 (T0.12). 캔버스가 목록의 자리를 보고 상태를 알려 준다
   const paletteRef = useRef<HTMLElement>(null);
   const [dragCancel, setDragCancel] = useState<DragCancelState>("idle");
   // 케이블이 연결된 장비를 지우기 전에 한 번 더 묻는 중인 장비 (T1.4.3)
@@ -325,7 +325,7 @@ export function App() {
   // 입력란과 터미널 안에서는 글자를 지우는 키라서 건드리지 않는다
   useEffect(() => {
     const onDelete = (event: KeyboardEvent) => {
-      if (!isRemoveKey(event) || cable.active || dragKind !== null || dragCancel !== "idle") return;
+      if (!isRemoveKey(event) || cable.active || dragKind !== null) return;
       const target = event.target instanceof Element ? event.target : null;
       if (target?.closest("input, textarea, select, [contenteditable], .term") != null) return;
       const action = removeKeyAction({
