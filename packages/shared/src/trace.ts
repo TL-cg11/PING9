@@ -2,7 +2,7 @@
 
 import type { DeviceRef, DropReason, Reason } from "./codes";
 
-export const TRACE_LAYERS = ["L2", "ARP", "L3", "ICMP"] as const;
+export const TRACE_LAYERS = ["L2", "ARP", "L3", "ICMP", "RIP"] as const;
 export type TraceLayer = (typeof TRACE_LAYERS)[number];
 
 export const TRACE_ACTIONS = ["create", "receive", "learn", "forward", "reply", "drop"] as const;
@@ -39,6 +39,34 @@ export interface Ipv4Header {
   readonly ttl: number;
 }
 
+/** UDP 헤더. 지금은 RIP(520)만 쓴다 (T11.2.2, E11 결정 2). 포트별 처리는 E8.1이 넓힌다 */
+export interface UdpHeader {
+  readonly sourcePort: number;
+  readonly destinationPort: number;
+}
+
+/** RIP v2 경로 항목. metric은 1~16 (16은 닿지 않음) */
+export interface RipEntry {
+  readonly network: string;
+  readonly mask: string;
+  readonly metric: number;
+}
+
+/** RIP v2 패킷. request는 항목 없이 "전체 경로를 보내 달라"는 뜻이다 */
+export interface RipPacket {
+  readonly command: "request" | "response";
+  readonly entries: readonly RipEntry[];
+}
+
+/** RIP v2 멀티캐스트 목적지 */
+export const RIP_MULTICAST_IP = "224.0.0.9";
+export const RIP_MULTICAST_MAC = "01:00:5e:00:00:09";
+export const RIP_UDP_PORT = 520;
+/** 닿지 않음을 뜻하는 metric */
+export const RIP_INFINITY = 16;
+/** 한 패킷에 담는 경로 수 (실제 RIP와 같음) */
+export const RIP_MAX_ENTRIES = 25;
+
 export const ICMP_TYPES = ["echo-request", "echo-reply", "destination-unreachable", "time-exceeded"] as const;
 export type IcmpType = (typeof ICMP_TYPES)[number];
 
@@ -61,6 +89,9 @@ export interface FrameSnapshot {
   readonly arp?: ArpPacket;
   readonly ipv4?: Ipv4Header;
   readonly icmp?: IcmpMessage;
+  /** RIP 프레임일 때 (T11.2.2) */
+  readonly udp?: UdpHeader;
+  readonly rip?: RipPacket;
 }
 
 /** 이벤트 하나는 프레임 하나가 한 곳에 있는 순간이다. flooding으로 N개 포트에 나가면 이벤트도 N개다 */
@@ -103,14 +134,31 @@ export interface Trace {
 }
 
 /** 추적 선택 목록에 보일 요약. Snapshot에 최근 20개가 담긴다 */
-export interface TraceSummary {
+interface TraceSummaryBase {
   readonly id: number;
   readonly docVersion: number;
-  readonly kind: "ping";
   readonly status: TraceStatus;
   readonly eventCount: number;
-  /** 통신을 시작한 장비 */
-  readonly source: DeviceRef;
-  /** 목적지 IP */
-  readonly targetIp: string;
 }
+
+/** 추적 목록의 한 줄. ping 회차 또는 경로 교환 (T11.2.3) */
+export type TraceSummary =
+  | (TraceSummaryBase & {
+      readonly kind: "ping";
+      /** 통신을 시작한 장비 */
+      readonly source: DeviceRef;
+      /** 목적지 IP */
+      readonly targetIp: string;
+    })
+  | (TraceSummaryBase & {
+      /** RIP 경로 교환 1회. 목록에는 가장 최근 것 하나만 있다 */
+      readonly kind: "rip";
+      /** 교환에 참여한 RIP Router 수 */
+      readonly routers: number;
+      /** 교환 뒤 모든 Router가 배운 RIP 경로 수의 합 */
+      readonly learned: number;
+      /** 앞의 교환과 비교해 새로 배운·사라진·바뀐 RIP 경로 수 (T11.3.1). 목록은 `Simulator.getRouteChanges` */
+      readonly added: number;
+      readonly removed: number;
+      readonly changed: number;
+    });

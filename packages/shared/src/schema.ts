@@ -53,11 +53,18 @@ const staticRouteSchema = z.object({
   network: shortString,
   mask: shortString,
   nextHop: shortString,
+  distance: integer.optional(),
+});
+
+const ripConfigSchema = z.object({
+  networks: z.array(shortString),
+  passiveInterfaces: z.array(shortString),
 });
 
 const routerConfigSchema = z.object({
   interfaces: z.record(shortString, routerInterfaceConfigSchema),
   staticRoutes: z.array(staticRouteSchema),
+  rip: ripConfigSchema.optional(),
 });
 
 const deviceBase = { id: shortString, name: shortString, position: positionSchema };
@@ -109,6 +116,11 @@ const frameSnapshotSchema = z.object({
     z.object({ type: z.enum(["destination-unreachable", "time-exceeded"]), sequence: integer,
       original: z.object({ sourceIp: shortString, destinationIp: shortString, sequence: integer }) }),
   ]).optional(),
+  udp: z.object({ sourcePort: integer, destinationPort: integer }).optional(),
+  rip: z.object({
+    command: z.enum(["request", "response"]),
+    entries: z.array(z.object({ network: shortString, mask: shortString, metric: integer })).max(25),
+  }).optional(),
 });
 
 const traceEventSchema = z.object({

@@ -12,6 +12,7 @@ const EXIT_TO: Readonly<Record<CliMode, CliMode>> = {
   config: "privileged",
   "config-if": "config",
   "config-vlan": "config",
+  "config-router": "config",
 };
 
 export const BASE_COMMANDS: readonly CommandDefinition[] = [
@@ -34,13 +35,13 @@ export const BASE_COMMANDS: readonly CommandDefinition[] = [
     run: () => ({ session: { mode: "config" } }),
   }),
   defineCommand({
-    modes: ["user", "privileged", "config", "config-if", "config-vlan"],
+    modes: ["user", "privileged", "config", "config-if", "config-vlan", "config-router"],
     tokens: ["exit"],
     help: "Leave the current mode",
     run: (_args, context) => ({ session: { mode: EXIT_TO[context.session.mode] } }),
   }),
   defineCommand({
-    modes: ["privileged", "config", "config-if", "config-vlan"],
+    modes: ["privileged", "config", "config-if", "config-vlan", "config-router"],
     tokens: ["end"],
     help: "Return to privileged mode",
     run: () => ({ session: { mode: "privileged" } }),

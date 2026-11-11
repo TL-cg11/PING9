@@ -1,6 +1,7 @@
 // 화면에 보일 값. engine이 계산하고 web은 읽기만 한다 (AD-4, AD-7, AD-16).
 // 출처: 03 문서 3.4절 "공개 인터페이스"의 Snapshot, "DeviceModel"의 포트 상태 표, 02 문서 FR-43, FR-44.
 
+import type { DeviceRef } from "./codes";
 import type { TopologyDocument } from "./document";
 import type { TraceSummary } from "./trace";
 
@@ -35,13 +36,36 @@ export interface MacTableEntryView {
 }
 
 export interface RouteEntryView {
-  readonly source: "connected" | "static";
+  readonly source: "connected" | "static" | "rip";
   readonly network: string;
   readonly mask: string;
   /** static 경로일 때 */
   readonly nextHop?: string;
   /** 나가는 인터페이스. static 경로는 직접 연결망으로 다음 홉을 해석한 결과 */
   readonly port?: string;
+  /** AD. Connected 0, Static 1(또는 floating static의 값), RIP 120 (T11.1.1) */
+  readonly distance: number;
+  /** RIP hop 수. Connected·Static은 0 */
+  readonly metric: number;
+}
+
+/** RIP 경로 하나의 다음 홉, 나가는 인터페이스, metric */
+export interface RipRouteHop {
+  readonly nextHop: string;
+  readonly port: string;
+  readonly metric: number;
+}
+
+/**
+ * 경로 교환 1회로 바뀐 RIP 경로 하나 (T11.3.1). 교환 전과 뒤의 라우팅 테이블을 비교한다.
+ * `before`가 없으면 새로 배움, `after`가 없으면 사라짐, 둘 다 있으면 다음 홉·인터페이스·metric이 바뀜
+ */
+export interface RouteChangeView {
+  readonly device: DeviceRef;
+  readonly network: string;
+  readonly mask: string;
+  readonly before?: RipRouteHop;
+  readonly after?: RipRouteHop;
 }
 
 // 구성 값(IP, VLAN 목록 등)은 Document에 있으므로 여기에 다시 담지 않는다.

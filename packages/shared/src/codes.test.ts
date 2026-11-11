@@ -25,7 +25,7 @@ describe("코드 목록", () => {
   });
 
   // VLAN_INACTIVE는 FR-47의 표에 없다. 포트의 VLAN이 지워진 경우를 따로 나타내려고 T5.2.1에서 더했다
-  test("폐기 사유는 02 문서 FR-47의 표에 VLAN_INACTIVE를 더한 것이다", () => {
+  test("폐기 사유는 02 문서 FR-47의 표에 VLAN_INACTIVE와 RIP_SOURCE_NOT_ON_LINK(T11.2.2)를 더한 것이다", () => {
     expect([...DROP_REASONS].sort()).toEqual(
       [
         "ARP_TIMEOUT",
@@ -36,6 +36,7 @@ describe("코드 목록", () => {
         "NO_IP",
         "NO_LINK",
         "NO_ROUTE",
+        "RIP_SOURCE_NOT_ON_LINK",
         "TRUNK_NOT_ALLOWED",
         "TTL_EXPIRED",
         "VLAN_BLOCKED",
@@ -49,8 +50,10 @@ describe("코드 목록", () => {
     expect(new Set(REASON_CODES).size).toBe(REASON_CODES.length);
   });
 
-  test("Command는 03 문서 3.4절의 MVP 목록과 같다", () => {
-    expect(COMMAND_TYPES).toHaveLength(19);
+  test("Command는 03 문서 3.4절의 MVP 목록 19개와 2차의 RIP 구성 5개다 (T11.2.1)", () => {
+    const rip = ["rip/enable", "rip/disable", "rip/add-network", "rip/remove-network", "rip/set-passive"];
+    expect(COMMAND_TYPES.filter((type) => !rip.includes(type))).toHaveLength(19);
+    expect(COMMAND_TYPES).toEqual(expect.arrayContaining(rip));
     expect(COMMAND_TYPES).toContain("pc/set-ip");
     expect(COMMAND_TYPES).toContain("link/add");
   });

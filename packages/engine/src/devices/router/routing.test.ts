@@ -19,7 +19,7 @@ describe("직접 연결 경로", () => {
       })),
     };
     expect(routingTable(config, [{ name: GI0, status: "up" }]).filter(route => route.source === "static"))
-      .toEqual([{ source: "static", network: "192.168.3.0", mask: "255.255.255.0", nextHop: "10.0.12.2", port: GI0 }]);
+      .toEqual([{ source: "static", network: "192.168.3.0", mask: "255.255.255.0", nextHop: "10.0.12.2", port: GI0, distance: 1, metric: 0 }]);
   });
   test.each<PortStatus>(["admin-down", "no-link", "peer-down"])("%s 포트는 등록하지 않는다", status => {
     const config: RouterConfig = { interfaces: { [GI0]: { adminUp: true, ip: "10.0.12.1", mask: "255.255.255.252" } }, staticRoutes: [] };
@@ -38,7 +38,7 @@ describe("직접 연결 경로", () => {
     ["200.1.2.3", "128.0.0.0", "128.0.0.0"],
   ])("%s %s의 네트워크를 %s로 계산한다", (ip, mask, network) => {
     expect(connectedRoutes({ interfaces: { [GI0]: { adminUp: true, ip, mask } }, staticRoutes: [] }, [{ name: GI0, status: "up" }]))
-      .toEqual([{ source: "connected", network, mask, port: GI0 }]);
+      .toEqual([{ source: "connected", network, mask, port: GI0, distance: 0, metric: 0 }]);
   });
 
   test("CLI·명령·load로 포트와 IP가 바뀌면 스냅샷과 show ip route도 갱신된다", async () => {
@@ -58,7 +58,7 @@ describe("직접 연결 경로", () => {
     expect(routes()).toEqual([]); // 상대 포트 꺼짐
     sim.dispatch({ type: "interface/set-admin", deviceId: R2, port: GI0, adminUp: true });
     const before = sim.getSnapshot();
-    expect(routes()).toEqual([{ source: "connected", network: "10.0.12.0", mask: "255.255.255.252", port: GI0 }]);
+    expect(routes()).toEqual([{ source: "connected", network: "10.0.12.0", mask: "255.255.255.252", port: GI0, distance: 0, metric: 0 }]);
     const text = (await port.exec("show ip route")).lines.map(line => line.kind === "text" ? line.text : "").join("\n");
     expect(text).toContain("10.0.12.0/30"); expect(text).toContain(GI0);
     expect((await port.exec("show ip interface brief")).lines).toContainEqual(expect.objectContaining({ text: expect.stringContaining("10.0.12.1") }));

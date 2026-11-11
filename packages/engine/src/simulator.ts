@@ -6,6 +6,7 @@ import type {
   Command,
   DispatchResult,
   ErrorInfo,
+  RouteChangeView,
   Snapshot,
   TopologyDocument,
   Trace,
@@ -17,6 +18,7 @@ import { createConsolePort } from "./console";
 import type { ConsolePort } from "./console";
 import { deepFreeze } from "./freeze";
 import { reduce } from "./reducer";
+import { hasRipRouter, needsRouteExchange } from "./routing-inputs";
 import { createRuntime } from "./runtime";
 import { computeViews } from "./views";
 
@@ -38,6 +40,16 @@ export interface Simulator {
   getSnapshot(): Snapshot;
   /** 보관 중인 추적. 없으면 undefined */
   getTrace(traceId: number): Trace | undefined;
+  /**
+   * 경로 교환 1회 (T11.2.2). RIP를 켠 Router끼리 경로를 처음부터 다시 주고받는다. RIP Router가 없으면 null.
+   * RIP 결과가 바뀔 수 있는 dispatch와 load 뒤에는 저절로 돈다 (T11.2.3). Trace는 목록에 보관한다
+   */
+  exchangeRoutes(): Trace | null;
+  /**
+   * 그 경로 교환으로 바뀐 RIP 경로 (T11.3.1). 앞의 교환과 비교해 새로 배움(`before` 없음), 사라짐(`after` 없음), 바뀜.
+   * 그 교환의 Trace가 목록에 없거나 ping Trace면 undefined
+   */
+  getRouteChanges(traceId: number): readonly RouteChangeView[] | undefined;
   /** 상태가 바뀔 때마다 불린다. 돌려주는 함수를 부르면 구독이 끝난다 */
   subscribe(listener: () => void): () => void;
 }
@@ -70,6 +82,8 @@ export function createSimulator(): Simulator {
     // IP나 링크가 바뀐 PC의 ARP 테이블과 VLAN·링크가 바뀐 Switch 포트의 MAC 항목을 비운다.
     // 실제로 지워졌을 때만 Runtime이 바뀐 것이다
     if (runtime.configChanged(previous, document)) runtimeVersion += 1;
+    // RIP 결과가 바뀔 수 있으면 경로 교환 1회 (T11.2.3). dispatch 하나에 많아야 1회
+    if (needsRouteExchange(previous, document) && runtime.exchangeRoutes(docVersion) !== null) runtimeVersion += 1;
     changed();
     return { ok: true, notices: result.notices };
   };
@@ -88,6 +102,12 @@ export function createSimulator(): Simulator {
     },
     arpTable: (deviceId) => runtime.arpTable(deviceId),
     macTable: (deviceId) => runtime.macTable(deviceId),
+    routingTable: (deviceId) => runtime.routingTable(deviceId),
+    exchangeRoutes() {
+      const trace = runtime.exchangeRoutes(docVersion);
+      if (trace !== null) runtimeChanged();
+      return trace !== null;
+    },
     clearArp(deviceId, ip) {
       const cleared = runtime.clearArp(deviceId, ip);
       if (cleared) runtimeChanged();
@@ -117,6 +137,8 @@ export function createSimulator(): Simulator {
       runtimeVersion += 1;
       runtime.reset();
       sessions.clear();
+      // 배운 경로는 저장하지 않는다. 열자마자 다시 배운다 (T11.2.3 결정 2)
+      if (hasRipRouter(document)) runtime.exchangeRoutes(docVersion);
       changed();
       return { ok: true };
     },
@@ -145,6 +167,16 @@ export function createSimulator(): Simulator {
 
     getTrace(traceId) {
       return runtime.getTrace(traceId);
+    },
+
+    getRouteChanges(traceId) {
+      return runtime.routeChanges(traceId);
+    },
+
+    exchangeRoutes() {
+      const trace = runtime.exchangeRoutes(docVersion);
+      if (trace !== null) runtimeChanged();
+      return trace;
     },
 
     subscribe(listener) {
