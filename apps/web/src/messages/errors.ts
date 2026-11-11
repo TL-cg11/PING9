@@ -12,6 +12,7 @@ const LIMIT_MESSAGES: Readonly<Record<LimitName, (max: number) => string>> = {
   devices: (max) => `장비는 토폴로지 하나에 ${max}대까지 놓을 수 있어요`,
   links: (max) => `링크는 토폴로지 하나에 ${max}개까지 만들 수 있어요`,
   staticRoutes: (max) => `Static route는 Router 하나에 ${max}개까지 넣을 수 있어요`,
+  ripNetworks: (max) => `RIP network는 Router 하나에 ${max}개까지 넣을 수 있어요`,
   vlans: (max) => `VLAN은 Switch 하나에 ${max}개까지 만들 수 있어요`,
   allowedVlanRanges: (max) => `trunk 허용 목록의 범위는 포트 하나에 ${max}개까지 쓸 수 있어요`,
 };
@@ -61,7 +62,13 @@ export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsBy
     `${port}의 IP ${ip} (${mask})가 ${otherPort} 네트워크와 겹쳐요. 다른 네트워크를 입력해 주세요`,
   ROUTE_NETWORK_NOT_ALIGNED: ({ network, mask }) => `${network}는 ${mask}에 맞는 네트워크 주소가 아니에요`,
   ROUTE_NEXT_HOP_IS_SELF: ({ nextHop }) => `다음 홉 ${nextHop}은 이 라우터 자신의 IP 주소예요`,
+  ROUTE_DISTANCE_INVALID: ({ value }) => `경로의 거리(AD) 값은 1부터 255까지예요: ${value}`,
   ROUTE_NOT_FOUND: ({ network, mask, nextHop }) => `설정된 정적 경로가 없어요: ${network} ${mask} → ${nextHop}`,
+  RIP_NOT_ENABLED: () => "RIP가 켜져 있지 않아요. 먼저 router rip를 입력해 주세요",
+  RIP_NETWORK_INVALID: ({ network }) => `RIP에 넣을 수 없는 주소예요: ${network}`,
+  RIP_NETWORK_NOT_FOUND: ({ network }) => `RIP에 없는 네트워크예요: ${network}`,
+  RIP_VERSION_UNSUPPORTED: () => "PING9은 RIP version 2만 지원해요",
+  RIP_AUTO_SUMMARY_UNSUPPORTED: () => "PING9은 auto-summary를 지원하지 않아요. no auto-summary 상태로 동작해요",
   VLAN_NOT_FOUND: ({ vlanId }) => `VLAN ${withSubject(vlanId)} 없어요`,
   DEFAULT_VLAN_READONLY: () => "VLAN 1은 지우거나 이름을 바꿀 수 없어요",
 

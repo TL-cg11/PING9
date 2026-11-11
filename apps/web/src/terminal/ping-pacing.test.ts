@@ -92,7 +92,10 @@ describe("runLinePaced", () => {
         return waits.length !== stopAtWait;
       },
       kindOf: (traceId, sequence) => pingRoundKind(simulator.getTrace(traceId)!, pc1.id, sequence),
-      targetOf: (traceId) => simulator.getSnapshot().traces.find((trace) => trace.id === traceId)?.targetIp ?? "",
+      targetOf: (traceId) => {
+        const summary = simulator.getSnapshot().traces.find((trace) => trace.id === traceId);
+        return summary?.kind === "ping" ? summary.targetIp : "";
+      },
       os: "windows",
       ...(replayMs === undefined ? {} : { play: (traceId: number) => (played.push(traceId), replayMs) }),
     });

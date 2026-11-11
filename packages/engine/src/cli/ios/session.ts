@@ -8,7 +8,7 @@ import type { CliSession } from "./define";
 
 export const INITIAL_SESSION: CliSession = { mode: "user" };
 
-/** 프롬프트. 예: `SW1>`, `SW1#`, `SW1(config)#`, `SW1(config-if)#`, `SW1(config-vlan)#` */
+/** 프롬프트. 예: `SW1>`, `SW1#`, `SW1(config)#`, `SW1(config-if)#`, `SW1(config-vlan)#`, `R1(config-router)#` */
 export function promptFor(deviceName: string, session: CliSession): string {
   switch (session.mode) {
     case "user":
@@ -21,6 +21,8 @@ export function promptFor(deviceName: string, session: CliSession): string {
       return `${deviceName}(config-if)#`;
     case "config-vlan":
       return `${deviceName}(config-vlan)#`;
+    case "config-router":
+      return `${deviceName}(config-router)#`;
   }
 }
 
@@ -34,6 +36,10 @@ export function effectiveSession(session: CliSession, device: Device): CliSessio
     const exists =
       device.kind === "switch" && switchVlans(device.config).some((vlan) => vlan.id === session.targetVlan);
     if (!exists) return { mode: "config" };
+  }
+  // RIP 설정 중에 다른 곳에서 RIP가 꺼짐 (T11.2.1)
+  if (session.mode === "config-router" && (device.kind !== "router" || device.config.rip === undefined)) {
+    return { mode: "config" };
   }
   if (session.mode === "config-if") {
     const exists = session.targetPort !== undefined && isPortName(device.kind, session.targetPort);

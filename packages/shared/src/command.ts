@@ -25,8 +25,15 @@ export type Command =
   // PC의 OS (T0.7). IP 구성은 그대로 둔다
   | { readonly type: "pc/set-os"; readonly deviceId: string; readonly os: OsKind }
   // Static route (FR-35)
-  | { readonly type: "route/add"; readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string }
-  | { readonly type: "route/remove"; readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string }
+  // distance (T11.1.1): add는 없으면 1. remove는 없으면 AD와 상관없이, 있으면 같은 AD일 때만 지운다
+  | { readonly type: "route/add"; readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string; readonly distance?: number }
+  | { readonly type: "route/remove"; readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string; readonly distance?: number }
+  // RIP 구성 (T11.2.1). `network`는 reducer가 클래스풀로 맞춘다
+  | { readonly type: "rip/enable"; readonly deviceId: string }
+  | { readonly type: "rip/disable"; readonly deviceId: string }
+  | { readonly type: "rip/add-network"; readonly deviceId: string; readonly network: string }
+  | { readonly type: "rip/remove-network"; readonly deviceId: string; readonly network: string }
+  | { readonly type: "rip/set-passive"; readonly deviceId: string; readonly port: string; readonly passive: boolean }
   // VLAN (FR-31)
   | { readonly type: "vlan/create"; readonly deviceId: string; readonly vlanId: number; readonly name?: string }
   | { readonly type: "vlan/rename"; readonly deviceId: string; readonly vlanId: number; readonly name: string }
@@ -56,6 +63,11 @@ const COMMAND_TYPE_SET = {
   "pc/set-os": true,
   "route/add": true,
   "route/remove": true,
+  "rip/enable": true,
+  "rip/disable": true,
+  "rip/add-network": true,
+  "rip/remove-network": true,
+  "rip/set-passive": true,
   "vlan/create": true,
   "vlan/rename": true,
   "vlan/remove": true,

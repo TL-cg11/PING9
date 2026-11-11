@@ -96,7 +96,19 @@ export interface ErrorParamsByCode {
   };
   ROUTE_NETWORK_NOT_ALIGNED: { readonly network: string; readonly mask: string };
   ROUTE_NEXT_HOP_IS_SELF: { readonly deviceId: string; readonly nextHop: string };
+  ROUTE_DISTANCE_INVALID: { readonly value: string };
   ROUTE_NOT_FOUND: { readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string };
+  // RIP (T11.2.1)
+  /** `router rip` 전에 RIP 구성을 바꾸려 함 */
+  RIP_NOT_ENABLED: { readonly deviceId: string };
+  /** RIP `network`에 넣을 수 없는 주소 (D·E 클래스, 0.x, 127.x, 클래스풀 네트워크가 아님) */
+  RIP_NETWORK_INVALID: { readonly network: string };
+  /** `no network`로 RIP에 없는 네트워크를 지우려 함 */
+  RIP_NETWORK_NOT_FOUND: { readonly deviceId: string; readonly network: string };
+  /** `version 1`. PING9은 RIP v2만 */
+  RIP_VERSION_UNSUPPORTED: { readonly version: number };
+  /** `auto-summary`. PING9은 늘 no auto-summary */
+  RIP_AUTO_SUMMARY_UNSUPPORTED: Record<string, never>;
   /** 그 Switch에 없는 VLAN의 이름을 바꾸거나 지우려 함 */
   VLAN_NOT_FOUND: { readonly deviceId: string; readonly vlanId: number };
   /** VLAN 1은 지우거나 이름을 바꿀 수 없음 (FR-31) */
@@ -172,7 +184,13 @@ const ERROR_CODE_SET = {
   INTERFACE_NETWORK_OVERLAP: true,
   ROUTE_NETWORK_NOT_ALIGNED: true,
   ROUTE_NEXT_HOP_IS_SELF: true,
+  ROUTE_DISTANCE_INVALID: true,
   ROUTE_NOT_FOUND: true,
+  RIP_NOT_ENABLED: true,
+  RIP_NETWORK_INVALID: true,
+  RIP_NETWORK_NOT_FOUND: true,
+  RIP_VERSION_UNSUPPORTED: true,
+  RIP_AUTO_SUMMARY_UNSUPPORTED: true,
   VLAN_NOT_FOUND: true,
   DEFAULT_VLAN_READONLY: true,
   CLI_UNKNOWN_COMMAND: true,
@@ -250,6 +268,8 @@ export interface DropParamsByReason {
   NO_ROUTE: { readonly device: DeviceRef; readonly targetIp: string };
   /** TTL이 0이 됨 */
   TTL_EXPIRED: { readonly device: DeviceRef };
+  /** RIP를 보낸 IP가 받은 인터페이스의 네트워크가 아님 (T11.2.2) */
+  RIP_SOURCE_NOT_ON_LINK: { readonly device: DeviceRef; readonly port: string; readonly sourceIp: string };
   /** 받은 장비가 목적지가 아님. 정상 동작이며 실패의 원인이 아니다 */
   NOT_FOR_ME: { readonly device: DeviceRef };
   /** 이벤트 수 한도 초과 (FR-30) */
@@ -269,6 +289,7 @@ const DROP_REASON_SET = {
   VLAN_INACTIVE: true,
   NO_ROUTE: true,
   TTL_EXPIRED: true,
+  RIP_SOURCE_NOT_ON_LINK: true,
   NOT_FOR_ME: true,
   LOOP_GUARD: true,
 } satisfies Record<DropReason, true>;
@@ -361,6 +382,24 @@ export interface EventParamsByCode {
     readonly vlan: number;
     readonly broadcast: boolean;
   };
+  // RIP (T11.2.2). `routes`는 패킷에 담긴 경로 수
+  RIP_REQUEST_SENT: { readonly device: DeviceRef; readonly port: string };
+  RIP_REQUEST_RECEIVED: { readonly device: DeviceRef; readonly port: string; readonly sourceIp: string };
+  RIP_RESPONSE_SENT: { readonly device: DeviceRef; readonly port: string; readonly routes: number };
+  RIP_RESPONSE_RECEIVED: { readonly device: DeviceRef; readonly port: string; readonly sourceIp: string; readonly routes: number };
+  /** 모르던 목적지를 배움 */
+  RIP_ROUTE_LEARNED: RipRouteParams;
+  /** 아는 목적지를 더 좋은 경로로, 또는 같은 다음 홉의 새 metric으로 바꿈 */
+  RIP_ROUTE_CHANGED: RipRouteParams;
+}
+
+interface RipRouteParams {
+  readonly device: DeviceRef;
+  readonly network: string;
+  readonly mask: string;
+  readonly nextHop: string;
+  readonly port: string;
+  readonly metric: number;
 }
 
 export type EventCode = keyof EventParamsByCode;
@@ -391,6 +430,12 @@ const EVENT_CODE_SET = {
   MAC_LEARNED: true,
   FRAME_FORWARDED: true,
   FRAME_FLOODED: true,
+  RIP_REQUEST_SENT: true,
+  RIP_REQUEST_RECEIVED: true,
+  RIP_RESPONSE_SENT: true,
+  RIP_RESPONSE_RECEIVED: true,
+  RIP_ROUTE_LEARNED: true,
+  RIP_ROUTE_CHANGED: true,
 } satisfies Record<EventCode, true>;
 
 export const EVENT_CODES = Object.keys(EVENT_CODE_SET) as readonly EventCode[];

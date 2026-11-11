@@ -7,7 +7,7 @@ import type { ErrorInfo } from "./codes";
 import { isPortName } from "./document";
 import type { DeviceKind, TopologyDocument } from "./document";
 import { CURRENT_SCHEMA_VERSION, LIMITS } from "./limits";
-import { checkRouterInterfaceOverlap, checkStaticRoute } from "./router-config";
+import { checkRipConfig, checkRouterInterfaceOverlap, checkStaticRoute } from "./router-config";
 import { topologyDocumentSchema, traceSchema } from "./schema";
 import type { ParsedDocument } from "./schema";
 import type { Trace } from "./trace";
@@ -173,6 +173,13 @@ function checkRouterConfig(
   for (const route of config.staticRoutes) {
     const error = checkStaticRoute(deviceId, route, config.interfaces);
     if (error) return error;
+  }
+  if (config.rip !== undefined) {
+    const error = checkRipConfig(deviceId, config.rip);
+    if (error) return error;
+    const repeated = new Set(config.rip.networks).size !== config.rip.networks.length ||
+      new Set(config.rip.passiveInterfaces).size !== config.rip.passiveInterfaces.length;
+    if (repeated) return shapeError(`${path}.rip`);
   }
   return null;
 }
