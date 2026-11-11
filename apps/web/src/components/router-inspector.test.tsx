@@ -7,6 +7,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { Inspector } from "./inspector";
+import { PLAY_IN_SIMULATION } from "./router-inspector";
 
 const ignoreDispatch = () => ({ ok: true, notices: [] }) as const;
 const text = (html: string) => html.replaceAll("<!-- -->", "");
@@ -17,10 +18,12 @@ function open(document: TopologyDocument) {
   return simulator;
 }
 
-function render(simulator: ReturnType<typeof createSimulator>, deviceId: string, onPlayExchange = () => {}) {
+/** `onPlayExchange`가 null이면 넘기지 않는다 (실시간 모드) */
+function render(simulator: ReturnType<typeof createSimulator>, deviceId: string,
+  onPlayExchange: ((traceId: number) => void) | null = () => {}) {
   return text(renderToString(
     <Inspector snapshot={simulator.getSnapshot()} deviceId={deviceId} onOpenTerminal={() => {}} onDispatch={ignoreDispatch}
-      routeChangesOf={simulator.getRouteChanges} onPlayExchange={onPlayExchange} />,
+      routeChangesOf={simulator.getRouteChanges} onPlayExchange={onPlayExchange ?? undefined} />,
   ));
 }
 
@@ -131,5 +134,15 @@ describe("경로 교환", () => {
     const html = render(open(fourRouterRipDocument), RIP_SQUARE.r1);
     expect(html).toContain('aria-label="경로 교환 재생"');
     expect(html).toContain("▶ 재생");
+    expect(html).not.toContain("aria-disabled");
+  });
+
+  test("실시간 모드(재생 없음, T0.13): 버튼이 꺼지고 시뮬레이션 모드를 안내한다", () => {
+    const html = render(open(fourRouterRipDocument), RIP_SQUARE.r1, null);
+    const button = html.match(/<button[^>]*aria-label="경로 교환 재생"[^>]*>/)![0];
+
+    expect(button).toContain('class="play off"');
+    expect(button).toContain('aria-disabled="true"');
+    expect(button).toContain(`title="${PLAY_IN_SIMULATION}"`);
   });
 });

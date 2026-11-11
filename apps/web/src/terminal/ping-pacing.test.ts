@@ -159,6 +159,14 @@ describe("runLinePaced", () => {
     expect(played).toEqual(simulator.getSnapshot().traces.map((trace) => trace.id).sort((a, b) => a - b));
   });
 
+  test("실시간 모드(T0.13): 재생이 0을 돌려주면 재생 없이와 같은 간격으로 줄을 보인다", async () => {
+    const { port, waits, run, played } = setup();
+    await runLinePaced(port, initialTerminal(port.prompt()), "ping -n 2 192.168.1.2", run(undefined, 0));
+
+    expect(waits).toEqual([ROUND_INTERVAL_MS]);
+    expect(played).toHaveLength(2);
+  });
+
   test("재생을 기다리는 중 Ctrl+C로 멈추면 그 회차는 보이지 않는다", async () => {
     const { port, run } = setup();
     const final = await runLinePaced(port, initialTerminal(port.prompt()), "ping -n 2 192.168.1.2", run(1, 900));
