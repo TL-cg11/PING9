@@ -63,13 +63,16 @@ export function timelineOf(steps: readonly Step[], lengthOf: (linkId: string) =>
     if (previous !== undefined && step.time - previous.time > LINK_TIME) cursor += PAUSE_MS;
     // 여러 케이블로 동시에 나가면(flooding) 가장 긴 케이블의 펭귄이 도착할 때 다음 단계
     const walking = step.hops.map((hop) => walkMs(lengthOf(hop.linkId)));
-    step.hops.forEach((hop, index) => walks.push({ hop, start: cursor, duration: walking[index]! }));
+    const dropped = step.falls.some((fall) => fall.primary);
+    // 같은 단계에서 놓치고 돌려보내면(TTL 만료 → time-exceeded) 놓침을 다 보인 뒤에 돌아가는 펭귄이 출발한다
+    const delay = dropped && step.hops.length > 0 ? FALL_MS : 0;
+    step.hops.forEach((hop, index) => walks.push({ hop, start: cursor + delay, duration: walking[index]! }));
     for (const fall of step.falls) drops.push({ fall, start: cursor });
     const walked = Math.max(0, ...walking);
-    const length = Math.max(walked, ...step.falls.map((fall) => (fall.primary ? FALL_MS : FADE_MS)));
+    const length = Math.max(delay + walked, ...step.falls.map((fall) => (fall.primary ? FALL_MS : FADE_MS)));
     end = Math.max(end, cursor + length);
     // 놓침을 다 보인 뒤에 다음 펭귄이 출발한다
-    cursor += step.falls.some((fall) => fall.primary) ? length : walked;
+    cursor += dropped ? length : walked;
   });
   // 놓침 그림은 다음 펭귄이 출발할 때 사라져 겹치지 않는다
   const dropsWithEnd = drops.map((drop) => {
@@ -106,7 +109,11 @@ export function previewTimeline(trace: Trace, lengthOf: (linkId: string) => numb
       return keep;
     }) })).filter(step => step.hops.length > 0 || step.falls.length > 0);
   }
-  const timeline = timelineOf(preview, lengthOf);
+  return capped(timelineOf(preview, lengthOf), omittedHops);
+}
+
+/** 한 재생이 MAX_REPLAY_MS를 넘으면 시간 축을 줄여 맞춘다 */
+function capped(timeline: Timeline, omittedHops = 0): Timeline {
   const scale = timeline.durationMs > MAX_REPLAY_MS ? MAX_REPLAY_MS / timeline.durationMs : 1;
   return {
     ...timeline,
@@ -119,6 +126,14 @@ export function previewTimeline(trace: Trace, lengthOf: (linkId: string) => numb
         ...(drop.end === undefined ? {} : { end: drop.end * scale }) })),
     }),
   };
+}
+
+/**
+ * RIP 경로 교환의 재생 (T11.5.1). ping과 달리 첫 시도만 남기지 않는다: 긴 틈 뒤의 정기 갱신도 교환의 일부다.
+ * 긴 틈은 PAUSE_MS로 줄이고, 15초를 넘으면 시간 축을 줄인다
+ */
+export function exchangeTimeline(trace: Trace, lengthOf: (linkId: string) => number | undefined = () => undefined): Timeline {
+  return capped(timelineOf(replaySteps(trace), lengthOf));
 }
 
 /** 시각 `elapsed`(재생 시작부터 ms)에 그릴 것 */

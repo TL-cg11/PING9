@@ -7,15 +7,23 @@ import { useEffect, useState } from "react";
 
 import dropBlue from "../assets/penguin/drop-blue.png";
 import dropGreen from "../assets/penguin/drop-green.png";
+import dropPurple from "../assets/penguin/drop-purple.png";
+import dropRed from "../assets/penguin/drop-red.png";
 import dropYellow from "../assets/penguin/drop-yellow.png";
 import standBlue from "../assets/penguin/stand-blue.png";
 import standGreen from "../assets/penguin/stand-green.png";
+import standPurple from "../assets/penguin/stand-purple.png";
+import standRed from "../assets/penguin/stand-red.png";
 import standYellow from "../assets/penguin/stand-yellow.png";
 import walkABlue from "../assets/penguin/walk-a-blue.png";
 import walkAGreen from "../assets/penguin/walk-a-green.png";
+import walkAPurple from "../assets/penguin/walk-a-purple.png";
+import walkARed from "../assets/penguin/walk-a-red.png";
 import walkAYellow from "../assets/penguin/walk-a-yellow.png";
 import walkBBlue from "../assets/penguin/walk-b-blue.png";
 import walkBGreen from "../assets/penguin/walk-b-green.png";
+import walkBPurple from "../assets/penguin/walk-b-purple.png";
+import walkBRed from "../assets/penguin/walk-b-red.png";
 import walkBYellow from "../assets/penguin/walk-b-yellow.png";
 import type { FrameKind } from "../replay/steps";
 import { spritesAt } from "../replay/timeline";
@@ -31,32 +39,47 @@ const FOOT = 5;
 /** 케이블로 들어온 프레임이 버려질 때 펭귄이 서는 자리 (도착 장비 쪽 끝에서) */
 const FALL_AT = 0.8;
 
-type Color = "blue" | "green" | "yellow";
+type Color = "blue" | "green" | "yellow" | "red" | "purple";
 const PICTURES: Readonly<Record<Color, { a: string; b: string; stand: string; drop: string }>> = {
   blue: { a: walkABlue, b: walkBBlue, stand: standBlue, drop: dropBlue },
   green: { a: walkAGreen, b: walkBGreen, stand: standGreen, drop: dropGreen },
   yellow: { a: walkAYellow, b: walkBYellow, stand: standYellow, drop: dropYellow },
+  red: { a: walkARed, b: walkBRed, stand: standRed, drop: dropRed },
+  purple: { a: walkAPurple, b: walkBPurple, stand: standPurple, drop: dropPurple },
 };
 
-/** ICMP 요청은 파랑, 응답은 노랑, ARP는 초록 */
-function colorOf(kind: FrameKind): Color {
-  if (kind === "icmp-request") return "blue";
-  if (kind === "icmp-reply") return "yellow";
-  return "green";
-}
+/** 물고기 색. ICMP 요청은 파랑, 응답은 노랑, ARP는 초록, ICMP 오류는 빨강, RIP는 보라 (T11.5.1) */
+const COLOR: Readonly<Record<FrameKind, Color>> = {
+  "icmp-request": "blue",
+  "icmp-reply": "yellow",
+  "arp-request": "green",
+  "arp-reply": "green",
+  "icmp-error": "red",
+  "rip-request": "purple",
+  "rip-response": "purple",
+};
+const colorOf = (kind: FrameKind): Color => COLOR[kind];
 
-/** 색만으로 구별하지 않게 ARP에는 머리 위에 요청 `?`, 응답 `!`를 붙인다 (NFR-12) */
-function markOf(kind: FrameKind): string | undefined {
-  if (kind === "arp-request") return "?";
-  if (kind === "arp-reply") return "!";
-  return undefined;
-}
+/**
+ * 색만으로 구별하지 않게 ARP에는 머리 위에 요청 `?`, 응답 `!`를 붙인다 (NFR-12).
+ * RIP는 요청 `R?`, 응답 `R!`. ICMP 오류는 글자 없이 빨강만 (T11.5.1 결정 5·6)
+ */
+const MARK: Readonly<Partial<Record<FrameKind, string>>> = {
+  "arp-request": "?",
+  "arp-reply": "!",
+  "rip-request": "R?",
+  "rip-response": "R!",
+};
+const markOf = (kind: FrameKind): string | undefined => MARK[kind];
 
 const KIND_NAME: Readonly<Record<FrameKind, string>> = {
   "arp-request": "ARP 요청",
   "arp-reply": "ARP 응답",
   "icmp-request": "ping 요청",
   "icmp-reply": "ping 응답",
+  "icmp-error": "ICMP 오류 알림",
+  "rip-request": "RIP 요청",
+  "rip-response": "RIP 응답",
 };
 
 export interface Replay {
@@ -168,7 +191,7 @@ export function PacketLayer({
         <g key={item.key} className="penguin" opacity={item.opacity} role="img" aria-label={item.label}>
           <image href={item.href} x={item.at.x - SIZE / 2} y={item.at.y - SIZE + FOOT} width={item.width} height={SIZE} />
           {item.mark !== undefined && (
-            <text className="penguin-mark" x={item.at.x + 9} y={item.at.y - SIZE + FOOT + 2}>{item.mark}</text>
+            <text className="penguin-mark" x={item.at.x + 9 - (item.mark.length - 1) * 6} y={item.at.y - SIZE + FOOT + 2}>{item.mark}</text>
           )}
         </g>
       ))}

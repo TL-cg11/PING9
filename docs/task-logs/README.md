@@ -87,3 +87,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T1.3.3 이름 변경, 삭제 (T1.4.3 삭제 확인, T1.3.1의 `device/rename` 포함) | [T1.3.3-rename-delete.md](T1.3.3-rename-delete.md) | 엔진·화면 | SDY | 병합됨 ([PR #50](https://github.com/TL-cg11/PING9/pull/50), 팀원 검토 없이) |
 | T0.12 끌던 것을 장비 목록에 놓아 취소 (계획에 없는 새 ID) | [T0.12-drag-cancel.md](T0.12-drag-cancel.md) | 화면 | SDY | 병합됨 ([PR #50](https://github.com/TL-cg11/PING9/pull/50), T1.3.3과 같은 PR, 팀원 검토 없이) |
 | T0.12 수정: 이미 놓인 장비는 취소 표시 없음 | [T0.12-placed-device-no-cancel.md](T0.12-placed-device-no-cancel.md) | 화면 | SDY | 병합됨 ([PR #51](https://github.com/TL-cg11/PING9/pull/51), 팀원 검토 없이) |
+| T11.5.1 화면에서 RIP 보기 (계획에 없는 새 ID) | [T11.5.1-rip-screen.md](T11.5.1-rip-screen.md) | 화면 | yysong1249 | 검토 대기 ([PR #49](https://github.com/TL-cg11/PING9/pull/49)) |

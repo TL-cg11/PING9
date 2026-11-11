@@ -223,6 +223,32 @@ button { font: inherit; cursor: pointer; }
 .mac { display: grid; grid-template-columns: 34px 1fr auto; gap: 2px 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.9; }
 .mac span:nth-child(3n+1) { color: var(--sky-700); font-weight: 600; }
 .mac span:nth-child(3n) { color: var(--navy-60); }
+/* Router 라우팅 테이블과 경로 교환 (T11.5.1). 패널이 넓으면 AD/metric과 표시가 한 줄 끝에, 좁으면 아래 줄에 */
+.inspector { container-type: inline-size; }
+.routes { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+.route-row { padding: 4px 0; border-bottom: 1px dashed var(--ice-200); }
+.route-main { display: flex; gap: 6px; align-items: baseline; white-space: nowrap; }
+.route-main .code { width: 12px; flex: none; color: var(--sky-700); font-weight: 700; }
+.route-main .hop { margin-left: auto; color: var(--navy-60); }
+.route-meta { display: flex; gap: 8px; align-items: center; padding-left: 18px; }
+.route-meta .metric { color: var(--navy-60); font-size: 11px; }
+.route-tag { font-family: Pretendard, sans-serif; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; }
+.route-tag.new { background: #DDF4F1; color: #1E7A6E; }
+.route-tag.changed { background: #FFF2D6; color: #96620A; }
+@container (min-width: 310px) {
+  .route-row { display: flex; align-items: baseline; gap: 8px; }
+  .route-main { flex: 1; }
+  .route-meta { padding-left: 0; }
+}
+.exchange { border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--ice-50); }
+.exchange-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+.exchange-head .play { margin-left: auto; font-size: 12px; font-weight: 700; border: none; border-radius: 8px; padding: 5px 10px; background: var(--sky-700); color: #fff; }
+.exchange-head .play:hover { background: var(--sky-500); }
+.exchange-sum { font-size: 12px; color: var(--navy-60); margin: 6px 0 8px; line-height: 1.6; }
+.exchange-change { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; line-height: 1.6; padding: 5px 0; border-top: 1px dashed var(--ice-200); }
+.exchange-change .net { font-weight: 700; }
+.exchange-change .old { color: var(--navy-60); text-decoration: line-through; }
+.exchange-change .gone { color: var(--danger); font-weight: 700; }
 .term-body .pre { white-space: pre; }
 .if-row .ip { white-space: nowrap; }
 
