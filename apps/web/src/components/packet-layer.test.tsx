@@ -68,3 +68,14 @@ describe("RIP와 ICMP 오류", () => {
     expect(html).not.toContain("penguin-mark");
   });
 });
+
+// T0.15: 시뮬레이션 시계를 따른다. 실제 시각과 상관없이 넘긴 시각으로 펭귄 자리를 정한다
+test("재생 시각(replayTime)을 따른다: 걷는 중이면 걷는 펭귄이 있고, 끝난 뒤면 없다", async () => {
+  const timeline = await firstTimeline();
+  const render = (time: number) => renderToString(
+    <Canvas document={twoPcSwitchDocument} selectedDeviceId={null} onSelect={() => {}} onOpenTerminal={() => {}}
+      replays={[{ key: "r1", timeline, startedAt: 10_000 }]} replayTime={() => time} replayPaused />,
+  );
+  expect(render(10_000 + WALK_MS / 2)).toMatch(/walk-[ab]-green[^"]*\.png/);
+  expect(render(10_000 + timeline.durationMs + 5_000)).not.toMatch(/walk-[ab]-/);
+});

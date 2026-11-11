@@ -2,7 +2,7 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { PING_IN_SIMULATION, TopBar } from "./top-bar";
+import { TopBar } from "./top-bar";
 
 const tabs = (html: string) =>
   [...html.matchAll(/<button[^>]*role="tab"[^>]*>(.*?)<\/button>/g)].map(([tag, label]) => ({
@@ -49,24 +49,44 @@ describe("내보내기, 가져오기 (T7.1.1, T7.1.2)", () => {
   });
 });
 
-describe("ping 실행", () => {
-  const pingButton = (html: string) => html.match(/<button[^>]*class="ping-btn[^"]*"[^>]*>/)![0];
+describe("시뮬레이션의 멈춤·속도 (T0.15)", () => {
+  const sim = (clock: { paused: boolean; speed: 0.5 | 1 | 2 }) => ({ clock, onPause: () => {}, onResume: () => {}, onSpeed: () => {} });
+  const render = (mode: "realtime" | "simulation", paused = false) => renderToString(
+    <TopBar name="새 토폴로지" onExport={() => {}} onImport={() => {}} mode={mode} onModeChange={() => {}}
+      {...(mode === "simulation" ? { sim: sim({ paused, speed: 1 }) } : {})} />);
 
-  test("실시간 모드(onPing 없음): 꺼지고 시뮬레이션 모드를 안내한다", () => {
-    const button = pingButton(renderToString(<TopBar name="새 토폴로지" onExport={() => {}} onImport={() => {}} mode="realtime" onModeChange={() => {}} />));
-    expect(button).toContain('class="ping-btn off"');
-    expect(button).toContain('aria-disabled="true"');
-    expect(button).toContain(`title="${PING_IN_SIMULATION}"`);
+  test("ping 실행 버튼은 없다", () => {
+    expect(render("realtime")).not.toContain("ping 실행");
+    expect(render("simulation")).not.toContain("ping 실행");
   });
 
-  test("시뮬레이션 모드: 눌러지고, 도구가 켜지면 켜진 표시", () => {
-    const off = pingButton(renderToString(<TopBar name="새 토폴로지" onExport={() => {}} onImport={() => {}} mode="simulation" onModeChange={() => {}} onPing={() => {}} />));
-    expect(off).toContain('class="ping-btn"');
-    expect(off).toContain('aria-pressed="false"');
-    expect(off).not.toContain("aria-disabled");
+  test("실시간: 멈춤과 속도가 없다", () => {
+    const html = render("realtime");
+    expect(html).not.toContain("sim-controls");
+    expect(html).not.toContain("⏸ 멈춤");
+  });
 
-    const on = pingButton(renderToString(<TopBar name="새 토폴로지" onExport={() => {}} onImport={() => {}} mode="simulation" onModeChange={() => {}} onPing={() => {}} pingActive />));
-    expect(on).toContain('class="ping-btn on"');
-    expect(on).toContain('aria-pressed="true"');
+  test("시뮬레이션: 멈춤과 속도 셋, 1×가 눌림", () => {
+    const html = render("simulation");
+    expect(html).toContain("⏸ 멈춤");
+    expect(html).not.toContain("다시 실행");
+    expect(html).toMatch(/<button[^>]*aria-pressed="true"[^>]*aria-label="1배속"[^>]*class="on"[^>]*>1<!-- -->×/);
+    expect(html).toContain('aria-label="0.5배속"');
+    expect(html).toContain('aria-label="2배속"');
+  });
+
+  test("멈춘 동안: 다시 실행", () => {
+    const html = render("simulation", true);
+    expect(html).toContain('class="sim-run paused"');
+    expect(html).toContain("▶ 다시 실행");
+    expect(html).not.toContain("⏸ 멈춤");
+  });
+
+  test("모드 탭은 맨 오른쪽, 멈춤·속도는 그 왼쪽", () => {
+    const html = render("simulation");
+    const order = ['class="spacer"', "⏸ 멈춤", "2배속", "⏱ 실시간", "⏯ 시뮬레이션"].map((text) => html.indexOf(text));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(html.slice(html.indexOf("⏯ 시뮬레이션"))).toMatch(/^⏯ 시뮬레이션<\/button><\/div><\/header>$/);
   });
 });

@@ -1,23 +1,31 @@
 // 상단 막대. 시안의 <header class="topbar">와 같은 마크업이다.
-// 모드 전환과 시뮬레이션 모드의 ping 실행(T0.13), 내보내기(T7.1.1), 가져오기(T7.1.2)가 동작한다.
-// 내보내기·가져오기는 왼쪽, 토폴로지 이름 옆에 둔다. 오른쪽에는 모드만 (T7.1 설계).
+// 모드 전환(T0.13), 내보내기(T7.1.1), 가져오기(T7.1.2), 시뮬레이션의 멈춤·속도(T0.15)가 동작한다.
+// 내보내기·가져오기는 왼쪽, 토폴로지 이름 옆에 둔다. 모드 탭은 맨 오른쪽에 고정하고,
+// 시뮬레이션일 때만 그 왼쪽에 멈춤·속도가 붙는다 (T0.15 시안 A안).
 
 import { useRef } from "react";
 
 import type { Mode } from "../mode";
+import { SPEEDS } from "../sim-clock";
+import type { ClockState, Speed } from "../sim-clock";
 
 const MODES: readonly { readonly mode: Mode; readonly label: string }[] = [
   { mode: "realtime", label: "⏱ 실시간" },
   { mode: "simulation", label: "⏯ 시뮬레이션" },
 ];
 
-/** 실시간 모드에서 꺼진 `▶ ping 실행`의 안내 (T0.13) */
-export const PING_IN_SIMULATION = "시뮬레이션 모드에서 쓸 수 있어요";
-
 /** 가져오기의 파일 고르기 창에서 보이는 파일. 내보낸 파일은 `.ping9.json`이다 */
 const IMPORT_ACCEPT = ".json,application/json";
 
-export function TopBar({ name, onExport, onImport, mode, onModeChange, onPing, pingActive = false }: {
+/** 시뮬레이션의 멈춤·속도 (T0.15) */
+export interface SimControls {
+  readonly clock: ClockState;
+  readonly onPause: () => void;
+  readonly onResume: () => void;
+  readonly onSpeed: (speed: Speed) => void;
+}
+
+export function TopBar({ name, onExport, onImport, mode, onModeChange, sim }: {
   readonly name: string;
   /** 지금 토폴로지를 파일로 받는다 (T7.1.1) */
   readonly onExport: () => void;
@@ -25,9 +33,8 @@ export function TopBar({ name, onExport, onImport, mode, onModeChange, onPing, p
   readonly onImport: (file: File) => void;
   readonly mode: Mode;
   readonly onModeChange: (mode: Mode) => void;
-  /** 출발·목적지를 고르는 도구를 켜고 끈다. 없으면(실시간 모드) 버튼이 꺼진다 */
-  readonly onPing?: (() => void) | undefined;
-  readonly pingActive?: boolean;
+  /** 시뮬레이션 모드에서만 준다. 없으면 멈춤·속도를 그리지 않는다 */
+  readonly sim?: SimControls | undefined;
 }) {
   const fileInput = useRef<HTMLInputElement>(null);
   return (
@@ -60,6 +67,24 @@ export function TopBar({ name, onExport, onImport, mode, onModeChange, onPing, p
           }} />
       </div>
       <div className="spacer" />
+      {mode === "simulation" && sim !== undefined && (
+        <div className="sim-controls">
+          {sim.clock.paused ? (
+            <button type="button" className="sim-run paused" onClick={sim.onResume}>▶ 다시 실행</button>
+          ) : (
+            <button type="button" className="sim-run" onClick={sim.onPause}>⏸ 멈춤</button>
+          )}
+          <div className="speed" role="group" aria-label="재생 속도">
+            <span aria-hidden="true">속도</span>
+            {SPEEDS.map((speed) => (
+              <button key={speed} type="button" aria-pressed={speed === sim.clock.speed} aria-label={`${speed}배속`}
+                className={speed === sim.clock.speed ? "on" : undefined} onClick={() => sim.onSpeed(speed)}>
+                {speed}×
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="mode" role="tablist" aria-label="모드">
         {MODES.map((item) => (
           <button key={item.mode} type="button" role="tab" aria-selected={item.mode === mode}
@@ -68,16 +93,6 @@ export function TopBar({ name, onExport, onImport, mode, onModeChange, onPing, p
           </button>
         ))}
       </div>
-      {onPing !== undefined ? (
-        <button type="button" className={pingActive ? "ping-btn on" : "ping-btn"} aria-pressed={pingActive} onClick={onPing}>
-          ▶ ping 실행
-        </button>
-      ) : (
-        // 실시간 모드: 꺼 두고 안내한다. disabled 대신 aria-disabled라 안내(title)가 뜬다
-        <button type="button" className="ping-btn off" aria-disabled="true" title={PING_IN_SIMULATION}>
-          ▶ ping 실행
-        </button>
-      )}
     </header>
   );
 }
