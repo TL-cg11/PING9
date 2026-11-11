@@ -20,7 +20,7 @@ import type { CableState } from "./cable-state";
 import type { DragCancelState } from "./canvas-interaction";
 import { availablePorts } from "./format/available-ports";
 import { formatError } from "./messages/errors";
-import { previewTimeline } from "./replay/timeline";
+import { exchangeTimeline, previewTimeline } from "./replay/timeline";
 import { TOPOLOGY_NAME, simulator, useSnapshot } from "./simulator";
 import { createCommandQueue } from "./terminal/command-queue";
 import { completed, historyStep, initialTerminal, refreshPrompts, runLinePaced, showHelp } from "./terminal/terminal-state";
@@ -37,6 +37,8 @@ const KIND_LABEL: Readonly<Record<DeviceKind, "PC" | "Switch" | "Router">> = {
 
 /** 시안에서 터미널 창이 쌓이기 시작하는 z-index */
 const TERMINAL_Z = 20;
+/** 경로 교환 재생의 열쇠. 장비 ID(UUID)와 겹치지 않는다 (T11.5.1) */
+const RIP_REPLAY_KEY = "rip";
 
 export function App() {
   const snapshot = useSnapshot();
@@ -212,6 +214,7 @@ export function App() {
     });
 
   // 캔버스에서 재생 중인 ping 회차. 장비마다 하나다: 다음 회차나 다음 ping이 앞 것을 바꾼다 (T6.1.2).
+  // 경로 교환 재생은 RIP_REPLAY_KEY로 하나다: 재생 버튼을 다시 누르면 처음부터 (T11.5.1).
   // 원인 폐기로 넘어진 펭귄은 재생이 끝나도 남고, 어느 장비에서든 다음 회차가 시작되거나 캔버스 빈 곳을 누르면 지운다
   const [replays, setReplays] = useState<ReadonlyMap<string, Replay>>(new Map());
   const replayList = useMemo(() => [...replays.values()], [replays]);
@@ -224,19 +227,21 @@ export function App() {
       else next.set(deviceId, replay);
       return next;
     });
-  const play = (deviceId: string, traceId: number): number => {
+  // `key`: 재생의 주인. ping은 장비 ID, 경로 교환은 RIP_REPLAY_KEY
+  const play = (key: string, traceId: number, exchange = false): number => {
     const trace = simulator.getTrace(traceId);
     if (trace === undefined) return 0;
     const { document: current } = simulator.getSnapshot();
-    const timeline = previewTimeline(trace, (linkId) => cableLength(current, linkId));
+    const lengthOf = (linkId: string) => cableLength(current, linkId);
+    const timeline = exchange ? exchangeTimeline(trace, lengthOf) : previewTimeline(trace, lengthOf);
     replayCount.current += 1;
     const startedAt = performance.now();
-    // 이 장비의 앞 재생을 바꾸고, 다른 장비에서 재생이 끝나 남아 있던 펭귄(놓침)도 지운다.
-    // 다른 장비에서 아직 걷는 중인 재생은 그대로 둔다
+    // 같은 주인의 앞 재생을 바꾸고, 다른 주인의 재생이 끝나 남아 있던 펭귄(놓침)도 지운다.
+    // 다른 주인의 아직 걷는 중인 재생은 그대로 둔다
     setReplays((current) => {
       const next = new Map([...current].filter(([id, replay]) =>
-        id !== deviceId && startedAt - replay.startedAt < replay.timeline.durationMs));
-      next.set(deviceId, { key: `replay-${replayCount.current}`, timeline, startedAt });
+        id !== key && startedAt - replay.startedAt < replay.timeline.durationMs));
+      next.set(key, { key: `replay-${replayCount.current}`, timeline, startedAt });
       return next;
     });
     return timeline.durationMs;
@@ -442,6 +447,8 @@ export function App() {
           removeAsk={removeAsk !== null && removeAsk === ui.selectedDeviceId}
           onConfirmRemove={() => { if (removeAsk !== null) removeDevice(removeAsk); }}
           onCancelRemove={() => setRemoveAsk(null)}
+          routeChangesOf={simulator.getRouteChanges}
+          onPlayExchange={(traceId) => play(RIP_REPLAY_KEY, traceId, true)}
         />}
       </main>
     </div>

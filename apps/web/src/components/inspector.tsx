@@ -2,10 +2,11 @@
 // 구성 값은 스냅샷의 Document에서, 포트 상태와 테이블은 스냅샷의 views에서 읽는다 (AD-7).
 
 import { shortPortName } from "@ping9/shared";
-import type { Command, DeviceKind, DispatchResult, PortView, Snapshot, TopologyDocument } from "@ping9/shared";
+import type { Command, DeviceKind, DispatchResult, PortView, RouteChangeView, Snapshot, TopologyDocument } from "@ping9/shared";
 
 import { DeviceName } from "./device-name";
 import { PcSettings } from "./pc-settings";
+import { ripSummaryFor, RouteExchange, RouterRoutingTable } from "./router-inspector";
 import { SwitchMacTable, SwitchVlanList } from "./switch-inspector";
 import { SwitchPortTag, trunkAllowedText } from "./switch-port-tag";
 
@@ -27,6 +28,8 @@ export function Inspector({
   removeAsk = false,
   onConfirmRemove,
   onCancelRemove,
+  routeChangesOf = () => undefined,
+  onPlayExchange = () => {},
 }: {
   readonly snapshot: Snapshot;
   readonly deviceId: string | null;
@@ -39,6 +42,10 @@ export function Inspector({
   readonly removeAsk?: boolean;
   readonly onConfirmRemove?: () => void;
   readonly onCancelRemove?: () => void;
+  /** 경로 교환 Trace에서 바뀐 경로 (`Simulator.getRouteChanges`, T11.5.1) */
+  readonly routeChangesOf?: (traceId: number) => readonly RouteChangeView[] | undefined;
+  /** 경로 교환 Trace를 캔버스에서 재생한다 */
+  readonly onPlayExchange?: (traceId: number) => void;
 }) {
   const { document } = snapshot;
   const device = document.devices.find((candidate) => candidate.id === deviceId);
@@ -53,6 +60,9 @@ export function Inspector({
   }
 
   const linked = view.ports.filter((port) => port.linkId !== undefined).length;
+  const rip = device.kind === "router" ? ripSummaryFor(device, snapshot.traces) : undefined;
+  const changes = rip === undefined ? [] :
+    (routeChangesOf(rip.id) ?? []).filter((change) => change.device.deviceId === device.id);
 
   return (
     <aside className="inspector">
@@ -81,6 +91,8 @@ export function Inspector({
       ))}
 
       {view.kind === "switch" && <SwitchMacTable view={view} />}
+      {view.kind === "router" && <RouterRoutingTable view={view} changes={changes} />}
+      {rip !== undefined && <RouteExchange document={document} summary={rip} changes={changes} onPlay={onPlayExchange} />}
 
       <button className="open-term" onClick={() => onOpenTerminal(device.id)}>
         터미널 열기

@@ -1,9 +1,12 @@
 // ping 추적을 재생 단계로 나눈다 (T6.1.1). 같은 `time`의 이벤트가 한 단계다 (AD-6).
 // 추적만 읽는 순수 함수라 같은 추적은 언제나 같은 단계가 된다. 엔진을 부르지 않는다.
 
+import { isIcmpError } from "@ping9/shared";
 import type { Trace, TraceEvent } from "@ping9/shared";
 
-export type FrameKind = "arp-request" | "arp-reply" | "icmp-request" | "icmp-reply";
+// T11.5.1: ICMP 오류(time-exceeded, destination-unreachable)와 RIP 요청·응답을 따로 그린다
+export type FrameKind =
+  | "arp-request" | "arp-reply" | "icmp-request" | "icmp-reply" | "icmp-error" | "rip-request" | "rip-response";
 
 /** 케이블 위를 지나가는 프레임 하나 */
 export interface Hop {
@@ -37,8 +40,10 @@ export interface Step {
 }
 
 export function frameKind(event: TraceEvent): FrameKind {
-  const { arp, icmp } = event.frame;
+  const { arp, icmp, rip } = event.frame;
   if (arp !== undefined) return arp.operation === "request" ? "arp-request" : "arp-reply";
+  if (rip !== undefined) return rip.command === "request" ? "rip-request" : "rip-response";
+  if (isIcmpError(icmp)) return "icmp-error";
   return icmp?.type === "echo-reply" ? "icmp-reply" : "icmp-request";
 }
 
