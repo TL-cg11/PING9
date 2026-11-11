@@ -4,6 +4,7 @@
 import { shortPortName } from "@ping9/shared";
 import type { Command, DeviceKind, DispatchResult, PortView, Snapshot, TopologyDocument } from "@ping9/shared";
 
+import { DeviceName } from "./device-name";
 import { PcSettings } from "./pc-settings";
 import { SwitchMacTable, SwitchVlanList } from "./switch-inspector";
 import { SwitchPortTag, trunkAllowedText } from "./switch-port-tag";
@@ -22,12 +23,22 @@ export function Inspector({
   deviceId,
   onOpenTerminal,
   onDispatch,
+  onRemove,
+  removeAsk = false,
+  onConfirmRemove,
+  onCancelRemove,
 }: {
   readonly snapshot: Snapshot;
   readonly deviceId: string | null;
   readonly onOpenTerminal: (deviceId: string) => void;
   /** 설정 입력을 Document에 반영하는 길. Simulator의 dispatch다 (AD-3) */
   readonly onDispatch: (command: Command) => DispatchResult;
+  /** "장비 삭제"를 눌렀을 때. 없으면 버튼을 그리지 않는다 (T1.3.3, FR-11) */
+  readonly onRemove?: (deviceId: string) => void;
+  /** 케이블이 연결된 장비라 지우기 전에 한 번 더 묻는 중이다 (T1.4.3) */
+  readonly removeAsk?: boolean;
+  readonly onConfirmRemove?: () => void;
+  readonly onCancelRemove?: () => void;
 }) {
   const { document } = snapshot;
   const device = document.devices.find((candidate) => candidate.id === deviceId);
@@ -45,10 +56,8 @@ export function Inspector({
 
   return (
     <aside className="inspector">
-      <div className="title">
-        <h3>{device.name}</h3>
-        <span className="chip">{KIND_LABEL[device.kind]}</span>
-      </div>
+      {/* 바로 아래 PcSettings도 장비 ID를 key로 쓴다. 형제끼리 key가 겹치지 않게 앞에 말을 붙인다 */}
+      <DeviceName key={`name ${device.id}`} device={device} kindLabel={KIND_LABEL[device.kind]} onDispatch={onDispatch} />
       <div className="sub">
         포트 {view.ports.length}개 · {linked}개 연결
       </div>
@@ -76,6 +85,17 @@ export function Inspector({
       <button className="open-term" onClick={() => onOpenTerminal(device.id)}>
         터미널 열기
       </button>
+      {onRemove !== undefined && (removeAsk ? (
+        <div className="remove-ask" role="group" aria-label="장비 삭제 확인">
+          <p>{device.name}에 연결된 케이블 {linked}개도 함께 지워요. 되돌릴 수 없어요.</p>
+          {/* Enter를 누르고 있어서 반복된 입력이 "장비 삭제"에 이어 이 버튼까지 누르지 않게 한다 */}
+          <button type="button" className="remove-device" autoFocus onClick={onConfirmRemove}
+            onKeyDown={(event) => { if (event.repeat) event.preventDefault(); }}>삭제</button>
+          <button type="button" className="remove-cancel" onClick={onCancelRemove}>취소</button>
+        </div>
+      ) : (
+        <button type="button" className="remove-device" onClick={() => onRemove(device.id)}>장비 삭제</button>
+      ))}
     </aside>
   );
 }

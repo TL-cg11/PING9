@@ -51,6 +51,11 @@ button { font: inherit; cursor: pointer; }
 .placement-preview { pointer-events: none; opacity: .65; }
 .device-tool svg { pointer-events: none; }
 .palette-note { font-size: 11px; line-height: 1.4; text-align: center; color: var(--navy-60); }
+/* 끌던 것을 장비 목록에 다시 놓으면 취소된다 (T0.12). 끄는 동안 안내를 바꾸고, 목록 위에 오면 표시한다 */
+.palette.cancel-armed .palette-note { color: var(--sky-700); font-weight: 600; }
+.palette.cancel-over { background: var(--danger-bg); outline: 2px dashed var(--danger); outline-offset: -6px; }
+.palette.cancel-over .palette-note { color: var(--danger); font-weight: 700; }
+.palette.cancel-over .tool { opacity: .55; }
 .cable-tool.active { color: #fff; background: var(--sky-700); border-color: var(--sky-700); box-shadow: 0 0 0 3px var(--ice-200); }
 .cable-tool.active:hover:not(:disabled) { background: var(--sky-900); border-color: var(--sky-900); }
 .tool-selected { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 999px; background: #fff; color: var(--sky-700); }
@@ -178,6 +183,24 @@ button { font: inherit; cursor: pointer; }
 .route { font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.9; }
 .route .code { display: inline-block; width: 18px; color: var(--sky-700); font-weight: 600; }
 .route .miss { color: var(--danger); font-weight: 600; }
+/* 이름 바꾸기 (T1.3.3) */
+.inspector .title .rename { margin-left: auto; width: 28px; height: 28px; display: grid; place-items: center; flex: none; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--navy-60); }
+.inspector .title .rename svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; }
+.inspector .title .rename:hover { background: var(--ice-100); border-color: var(--line); color: var(--sky-700); }
+.inspector .title .rename:focus-visible { outline: 2px solid var(--sky-700); outline-offset: 1px; }
+.inspector .name-form .name-input { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--sky-500); border-radius: 8px; font: inherit; font-size: 18px; font-weight: 700; color: var(--navy); background: #fff; box-shadow: 0 0 0 3px var(--ice-100); }
+.inspector .name-form .name-input:focus { outline: none; }
+.inspector .name-form .name-input[aria-invalid="true"] { border-color: var(--danger); background: var(--danger-bg); box-shadow: none; }
+.inspector .name-err { margin: 6px 0 2px; font-size: 12px; color: var(--danger); }
+.inspector .name-help { margin: 4px 0 6px; font-size: 11px; color: var(--navy-60); }
+/* 장비 삭제와 확인 (T1.3.3, T1.4.3). 케이블 삭제 버튼과 같은 모양 */
+.remove-device { margin-top: 10px; width: 100%; padding: 8px; border: 1px solid var(--danger); border-radius: 8px; background: var(--danger-bg); color: var(--danger); font-size: 13px; }
+.remove-device:hover { background: #FFDCDC; }
+.remove-device:focus-visible, .remove-cancel:focus-visible { outline: 2px solid var(--sky-700); outline-offset: 1px; }
+.remove-ask { margin-top: 10px; padding: 10px; border: 1px solid var(--danger); border-radius: 10px; background: #fff; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.remove-ask p { grid-column: 1 / -1; font-size: 12px; line-height: 1.5; color: var(--navy); }
+.remove-ask .remove-device { margin-top: 0; font-weight: 700; }
+.remove-cancel { padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--ice-50); color: var(--navy-60); font-size: 13px; }
 .open-term { margin-top: 18px; width: 100%; padding: 9px; border-radius: 10px; border: 1px solid var(--line); background: var(--ice-50); color: var(--sky-700); font-weight: 600; font-size: 13px; }
 
 /* VLAN 추가분 */

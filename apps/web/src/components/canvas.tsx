@@ -4,10 +4,10 @@
 import { osOf, shortPortName } from "@ping9/shared";
 import type { Device, DeviceKind, PortRef, Position, TopologyDocument } from "@ping9/shared";
 import { useEffect, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
 
-import { DEVICE_DRAG_TYPE, MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM, clampCanvasPosition, readDraggedDevice, screenToWorld, wheelZoom, zoomAtPoint, zoomViewBox } from "../canvas-interaction";
-import type { CanvasViewBox } from "../canvas-interaction";
+import { DEVICE_DRAG_TYPE, MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM, clampCanvasPosition, containsPoint, readDraggedDevice, screenToWorld, wheelZoom, zoomAtPoint, zoomViewBox } from "../canvas-interaction";
+import type { CanvasViewBox, DragCancelState } from "../canvas-interaction";
 import { cableLook } from "../format/cable-look";
 import { RING_DY, RING_RX, RING_RY, linkEnds, ringCenter } from "../format/link-ends";
 import { linkVlan } from "../format/link-vlan";
@@ -36,8 +36,12 @@ interface NodeDrag {
   readonly pointerId: number;
   readonly start: Position;
   readonly offset: Position;
+  /** 끌기 전의 자리. 취소 영역 위에서는 장비를 여기에 그린다 (T0.12) */
+  readonly origin: Position;
   position: Position;
   moved: boolean;
+  /** 지금 취소 영역 위에 있다. 이대로 놓으면 옮기지 않는다 */
+  overCancel: boolean;
 }
 /** 화면 낭독기가 읽는 장비 종류 */
 const KIND_NAME: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router" };
@@ -159,6 +163,8 @@ export function Canvas({
   onClosePortPicker,
   replays = [],
   onCanvasClick,
+  cancelZoneRef,
+  onCancelZone,
 }: {
   readonly document: TopologyDocument;
   readonly selectedDeviceId: string | null;
@@ -180,6 +186,10 @@ export function Canvas({
   readonly replays?: readonly Replay[];
   /** 장비와 케이블이 아닌 빈 곳을 눌렀을 때 */
   readonly onCanvasClick?: () => void;
+  /** 끌던 것을 여기에 놓으면 취소한다: 새 장비는 추가하지 않고, 옮기던 장비는 제자리로 돌아간다 (T0.12) */
+  readonly cancelZoneRef?: RefObject<HTMLElement | null>;
+  /** 끌기와 취소 영역의 상태가 바뀔 때 */
+  readonly onCancelZone?: (state: DragCancelState) => void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const viewportSizeRef = useRef<{ width: number; height: number } | null>(null);
@@ -202,6 +212,14 @@ export function Canvas({
   const [draft, setDraft] = useState<{ readonly deviceId: string; readonly position: Position } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [cursor, setCursor] = useState<Position | null>(null);
+  // 취소 영역(왼쪽 장비 목록) 위에 있는지. 목록에서 끌기 시작하면 처음부터 그 위라서, 한 번 벗어난 뒤부터 센다
+  const [overCancel, setOverCancel] = useState(false);
+  const leftCancelZone = useRef(false);
+  const inCancelZone = (event: Pick<PointerEvent, "clientX" | "clientY">) =>
+    containsPoint(cancelZoneRef?.current?.getBoundingClientRect(), { x: event.clientX, y: event.clientY });
+  const cancelState: DragCancelState = paletteDragKind === null && draft === null ? "idle" : overCancel ? "over" : "armed";
+  useEffect(() => { onCancelZone?.(cancelState); }, [cancelState, onCancelZone]);
+  useEffect(() => { leftCancelZone.current = false; setOverCancel(false); }, [paletteDragKind]);
   const [pickerAt, setPickerAt] = useState({ x: 12, y: 60 });
   const positions = new Map(document.devices.map(device => [device.id,
     device.id === draft?.deviceId ? draft.position : device.position]));
@@ -283,6 +301,7 @@ export function Canvas({
     panRef.current = null;
     setPanning(false);
     setDraft(null);
+    setOverCancel(false);
   };
 
   useEffect(() => {
@@ -317,6 +336,7 @@ export function Canvas({
   };
 
   // 장비 목록에서 시작한 포인터를 창 전체에서 추적한다. 바깥에 놓으면 추가하지 않는다.
+  // 장비 목록으로 다시 가져오면 취소 표시를 한다 (T0.12)
   useEffect(() => {
     if (paletteDragKind === null) { setDragOver(false); setCursor(null); return; }
     const inside = (event: PointerEvent) => {
@@ -325,12 +345,15 @@ export function Canvas({
         event.clientY >= box.top && event.clientY <= box.bottom;
     };
     const move = (event: PointerEvent) => {
+      const zone = inCancelZone(event);
+      if (!zone) leftCancelZone.current = true;
+      setOverCancel(zone && leftCancelZone.current);
       const over = inside(event);
       setDragOver(over);
       setCursor(over ? pointAt({ x: event.clientX, y: event.clientY }) : null);
     };
     const end = (event: PointerEvent) => {
-      if (inside(event)) {
+      if (inside(event) && !inCancelZone(event)) {
         const position = pointAt({ x: event.clientX, y: event.clientY });
         if (position !== null) onDropDevice?.(paletteDragKind, position);
       }
@@ -362,7 +385,7 @@ export function Canvas({
       deviceId: device.id, pointerId: event.pointerId,
       start: { x: event.clientX, y: event.clientY },
       offset: { x: point.x - device.position.x, y: point.y - device.position.y },
-      position: device.position, moved: false,
+      origin: device.position, position: device.position, moved: false, overCancel: false,
     };
   };
 
@@ -381,6 +404,10 @@ export function Canvas({
     if (!drag.moved && Math.hypot(event.clientX - drag.start.x, event.clientY - drag.start.y) < 4) return;
     if (!drag.moved) { raiseDevice(drag.deviceId); onDeviceDrag?.(); }
     drag.moved = true;
+    // 왼쪽 장비 목록 위에서는 제자리에 그린다. 이대로 놓으면 옮기지 않는다 (T0.12)
+    drag.overCancel = inCancelZone(event);
+    setOverCancel(drag.overCancel);
+    if (drag.overCancel) { setDraft({ deviceId: drag.deviceId, position: drag.origin }); return; }
     const position = pointAt({ x: event.clientX, y: event.clientY }, drag.offset);
     if (position === null) return;
     drag.position = position;
@@ -401,10 +428,14 @@ export function Canvas({
     updateMove(event);
     dragRef.current = null;
     setDraft(null);
+    setOverCancel(false);
     if (drag.moved) {
       suppressClick.current = true;
       suppressDoubleClick.current = true;
-      onMoveDevice?.(drag.deviceId, drag.position);
+      // 끄는 사이에 지워진 장비는 옮기지 않는다
+      if (!drag.overCancel && documentRef.current.devices.some(device => device.id === drag.deviceId)) {
+        onMoveDevice?.(drag.deviceId, drag.position);
+      }
     }
   };
 
@@ -481,6 +512,7 @@ export function Canvas({
 
             return (
               <g key={link.id} className={link.id === selectedLinkId ? "link selected" : "link"}
+                data-link-id={link.id}
                 role={onSelectLink === undefined ? undefined : "button"}
                 tabIndex={onSelectLink === undefined ? undefined : 0}
                 aria-label={onSelectLink === undefined ? undefined : `케이블 ${link.ends.map(end =>
@@ -631,7 +663,7 @@ export function Canvas({
       )}
       <div className="hint">
         {cableActive ? "장비를 클릭해 빈 포트를 선택하세요 · Esc로 연결 도구 해제" :
-          "휠로 확대·축소 · 빈 곳 드래그로 화면 이동 · 장비 더블클릭 또는 Enter로 터미널 열기"}
+          "휠로 확대·축소 · 빈 곳 드래그로 화면 이동 · 장비 더블클릭 또는 Enter로 터미널 열기 · Delete로 삭제"}
       </div>
     </>
   );
