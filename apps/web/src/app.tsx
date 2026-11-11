@@ -20,6 +20,11 @@ import type { CableState } from "./cable-state";
 import type { DragCancelState } from "./canvas-interaction";
 import { availablePorts } from "./format/available-ports";
 import { formatError } from "./messages/errors";
+import { PingAddressPicker } from "./components/ping-address-picker";
+import { pickAddress, pickDevice, pingAddresses, pingToolMessage, syncPingTool } from "./ping-tool";
+import type { PingStep, PingTool } from "./ping-tool";
+import { browserStorage, readMode, writeMode } from "./mode";
+import type { Mode } from "./mode";
 import { exchangeTimeline, previewTimeline } from "./replay/timeline";
 import { TOPOLOGY_NAME, simulator, useSnapshot } from "./simulator";
 import { createCommandQueue } from "./terminal/command-queue";
@@ -46,6 +51,24 @@ export function App() {
   const [ui, dispatch] = useReducer(uiReducer, INITIAL_UI_STATE);
   const [actionError, setActionError] = useState<ErrorInfo | null>(null);
   const [cable, setCable] = useState<CableState>(CABLE_OFF);
+  // 시뮬레이션 모드의 `▶ ping 실행` (T0.13). 출발 → 목적지(→ 주소)를 고르면 출발 장비 터미널에서 친 것처럼 실행한다
+  const [pingTool, setPingTool] = useState<PingTool | null>(null);
+  const [pingNotice, setPingNotice] = useState<string | null>(null);
+  const stopPing = () => { setPingTool(null); setPingNotice(null); };
+  const togglePing = () => {
+    if (pingTool !== null) return stopPing();
+    setCable(CABLE_OFF); setDragKind(null); setConnectionMessage(null); setActionError(null);
+    setSelectedLinkId(null);
+    setPingTool({ stage: "source" });
+    setPingNotice(null);
+  };
+  const applyPing = (step: PingStep) => {
+    setPingTool(step.tool);
+    setPingNotice(step.notice ?? null);
+    if (step.send === undefined) return;
+    openTerminal(step.send.sourceId);
+    submit(step.send.sourceId, step.send.command);
+  };
   const [dragKind, setDragKind] = useState<DeviceKind | null>(null);
   // 목록에서 끌어 온 새 장비를 왼쪽 장비 목록에 다시 놓으면 취소된다 (T0.12). 캔버스가 목록의 자리를 보고 상태를 알려 준다
   const paletteRef = useRef<HTMLElement>(null);
@@ -98,6 +121,13 @@ export function App() {
   };
 
   const selectDevice = (deviceId: string) => {
+    if (pingTool !== null) {
+      // `▶ ping 실행`: 누른 장비가 출발·목적지가 된다 (T0.13)
+      setSelectedLinkId(null);
+      dispatch({ type: "select", deviceId });
+      applyPing(pickDevice(pingTool, simulator.getSnapshot().document, deviceId));
+      return;
+    }
     setSelectedLinkId(null);
     setActionError(null);
     setConnectionMessage(null);
@@ -175,12 +205,13 @@ export function App() {
       (deviceId) => simulator.console(deviceId).prompt()));
     setSelectedLinkId(current => document.links.some(link => link.id === current) ? current : null);
     setCable(current => syncCableState(current, document));
+    setPingTool(current => syncPingTool(current, document));
   }, [document]);
 
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      setCable(CABLE_OFF); setDragKind(null); setConnectionMessage(null); setRemoveAsk(null);
+      setCable(CABLE_OFF); setDragKind(null); setConnectionMessage(null); setRemoveAsk(null); stopPing();
     };
     window.addEventListener("keydown", escape);
     return () => window.removeEventListener("keydown", escape);
@@ -217,6 +248,22 @@ export function App() {
   // 경로 교환 재생은 RIP_REPLAY_KEY로 하나다: 재생 버튼을 다시 누르면 처음부터 (T11.5.1).
   // 원인 폐기로 넘어진 펭귄은 재생이 끝나도 남고, 어느 장비에서든 다음 회차가 시작되거나 캔버스 빈 곳을 누르면 지운다
   const [replays, setReplays] = useState<ReadonlyMap<string, Replay>>(new Map());
+
+  // 실시간 / 시뮬레이션 (T0.13). 펭귄은 시뮬레이션에서만 걷는다.
+  // 진행 중인 ping은 회차마다 지금 모드를 읽는다(ref): 도중에 바꾸면 남은 회차가 새 모드를 따른다
+  const [mode, setMode] = useState<Mode>(() => readMode(browserStorage()));
+  const modeRef = useRef(mode);
+  const changeMode = (next: Mode) => {
+    if (next === modeRef.current) return;
+    modeRef.current = next;
+    setMode(next);
+    writeMode(browserStorage(), next);
+    // 실시간으로 바꾸면 걷던 펭귄과 남은 놓침 그림을 바로 지운다. ping 실행 도구도 끈다
+    if (next === "realtime") {
+      setReplays(new Map());
+      stopPing();
+    }
+  };
   const replayList = useMemo(() => [...replays.values()], [replays]);
   const replayCount = useRef(0);
   const setReplayOf = (deviceId: string, replay: Replay | undefined) =>
@@ -293,7 +340,8 @@ export function App() {
             return summary?.kind === "ping" && summary.hop !== undefined;
           },
           os: device?.kind === "pc" ? osOf(device.config) : "windows",
-          play: (traceId) => play(deviceId, traceId),
+          // 실시간이면 재생하지 않는다. 0을 돌려주면 회차 줄이 실제 OS처럼 바로 뜬다 (응답 없는 회차는 4초)
+          play: (traceId) => (modeRef.current === "simulation" ? play(deviceId, traceId) : 0),
         });
         update(next);
       } finally {
@@ -381,13 +429,23 @@ export function App() {
     });
   };
 
+  // 목적지 장비의 주소가 여럿이면 그 장비 옆에 고르는 창 (T0.13)
+  const pingTarget = pingTool?.stage === "address" ? document.devices.find((device) => device.id === pingTool.targetId) : undefined;
+  const pingAddressPanel = pingTool !== null && pingTarget !== undefined ? {
+    deviceId: pingTarget.id,
+    panel: <PingAddressPicker device={pingTarget} addresses={pingAddresses(pingTarget)}
+      onPick={(ip) => applyPing(pickAddress(pingTool, document, ip))}
+      onClose={() => pingTool.stage === "address" && setPingTool({ stage: "target", sourceId: pingTool.sourceId })} />,
+  } : null;
+
   return (
     <div className="app">
-      <TopBar name={TOPOLOGY_NAME} />
+      <TopBar name={TOPOLOGY_NAME} mode={mode} onModeChange={changeMode}
+        onPing={mode === "simulation" ? togglePing : undefined} pingActive={pingTool !== null} />
       <main className="work">
         <Palette deviceCount={document.devices.length} linkCount={document.links.length} cableActive={cable.active}
-          onConnect={() => { setCable(cable.active ? CABLE_OFF : CABLE_READY); setConnectionMessage(null); setActionError(null); }}
-          onDeviceDragStart={kind => { setDragKind(kind); setCable(CABLE_OFF); setConnectionMessage(null); }}
+          onConnect={() => { setCable(cable.active ? CABLE_OFF : CABLE_READY); setConnectionMessage(null); setActionError(null); stopPing(); }}
+          onDeviceDragStart={kind => { setDragKind(kind); setCable(CABLE_OFF); setConnectionMessage(null); stopPing(); }}
           dragCancel={dragCancel} zoneRef={paletteRef} />
         <section className="canvas" onPointerDownCapture={releaseFocus}>
           {actionError !== null && <div className="canvas-error" role="alert">{formatError(actionError)}</div>}
@@ -396,6 +454,10 @@ export function App() {
               connectionMessage ?? (cable.first === null ? "케이블 선택됨 · 첫 번째 장비를 클릭해 포트를 고르세요" :
                 `${document.devices.find(device => device.id === cable.first?.deviceId)?.name ?? "장비"} ${shortPortName(cable.first.port)} 선택됨 · 두 번째 장비를 클릭하세요`)}</span>
             {cable.active && <button type="button" onClick={() => setCable(CABLE_OFF)}>연결 도구 해제</button>}
+          </div>}
+          {pingTool !== null && dragKind === null && !cable.active && <div className="edit-banner" role="status">
+            <span>{pingNotice ?? pingToolMessage(pingTool, document)}</span>
+            <button type="button" onClick={stopPing}>그만두기</button>
           </div>}
           <Canvas
             document={document}
@@ -411,6 +473,8 @@ export function App() {
             onPickPort={pickPort} onClosePortPicker={() => setCable(current => ({ ...current, pickerDeviceId: null }))}
             replays={replayList} onCanvasClick={clearFinishedReplays}
             cancelZoneRef={paletteRef} onCancelZone={setDragCancel}
+            pickActive={pingTool !== null}
+            anchorPanel={pingAddressPanel}
           />
           {ui.terminals.map((placement, index) => {
             const device = document.devices.find((candidate) => candidate.id === placement.deviceId);
@@ -448,7 +512,7 @@ export function App() {
           onConfirmRemove={() => { if (removeAsk !== null) removeDevice(removeAsk); }}
           onCancelRemove={() => setRemoveAsk(null)}
           routeChangesOf={simulator.getRouteChanges}
-          onPlayExchange={(traceId) => play(RIP_REPLAY_KEY, traceId, true)}
+          onPlayExchange={mode === "simulation" ? (traceId) => play(RIP_REPLAY_KEY, traceId, true) : undefined}
         />}
       </main>
     </div>

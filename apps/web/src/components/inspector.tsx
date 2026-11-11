@@ -29,7 +29,7 @@ export function Inspector({
   onConfirmRemove,
   onCancelRemove,
   routeChangesOf = () => undefined,
-  onPlayExchange = () => {},
+  onPlayExchange,
 }: {
   readonly snapshot: Snapshot;
   readonly deviceId: string | null;
@@ -44,8 +44,8 @@ export function Inspector({
   readonly onCancelRemove?: () => void;
   /** 경로 교환 Trace에서 바뀐 경로 (`Simulator.getRouteChanges`, T11.5.1) */
   readonly routeChangesOf?: (traceId: number) => readonly RouteChangeView[] | undefined;
-  /** 경로 교환 Trace를 캔버스에서 재생한다 */
-  readonly onPlayExchange?: (traceId: number) => void;
+  /** 경로 교환 Trace를 캔버스에서 재생한다. 없으면(실시간 모드) 재생 버튼이 꺼진다 (T0.13) */
+  readonly onPlayExchange?: ((traceId: number) => void) | undefined;
 }) {
   const { document } = snapshot;
   const device = document.devices.find((candidate) => candidate.id === deviceId);

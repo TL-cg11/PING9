@@ -25,11 +25,19 @@ test("시안의 틀(상단 막대, 장비 목록, 캔버스, 속성 패널)이 �
   }
 });
 
-test("아직 동작하지 않는 버튼은 꺼져 있다", () => {
+test("아직 동작하지 않는 버튼은 꺼져 있다. 모드 버튼 둘은 켜져 있다 (T0.13)", () => {
   const text = html();
 
   const topbar = text.slice(text.indexOf('<header class="topbar">'), text.indexOf("</header>"));
-  expect(topbar.match(/<button[^>]*disabled=""[^>]*>/g)).toHaveLength(5);
+  // 내보내기, 가져오기. ping 실행은 실시간 모드라 aria-disabled로 꺼짐 (안내가 뜨게)
+  expect(topbar.match(/<button[^>]*disabled=""[^>]*>/g)).toHaveLength(2);
+  expect(topbar).toMatch(/<button[^>]*class="ping-btn off"[^>]*aria-disabled="true"/);
+  expect(topbar.match(/<button[^>]*role="tab"[^>]*>/g)?.every((tab) => !tab.includes("disabled"))).toBe(true);
+});
+
+test("처음 열면 실시간 모드 (T0.13)", () => {
+  const topbar = html().match(/<div class="mode".*?<\/div>/s)?.[0] ?? "";
+  expect(topbar).toMatch(/<button[^>]*aria-selected="true"[^>]*>⏱ 실시간/);
 });
 
 test("장비가 2대보다 적으면 케이블 도구가 꺼져 있다", () => {

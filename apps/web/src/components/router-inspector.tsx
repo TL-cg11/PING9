@@ -6,7 +6,10 @@ import type { RipRouteHop, RouteChangeView, RouteEntryView, RouterDevice, Router
 
 type RipSummary = Extract<TraceSummary, { kind: "rip" }>;
 
-const SOURCE_CODE: Readonly<Record<RouteEntryView["source"], string>> = { connected: "C", static: "S", rip: "R" };
+/** 실시간 모드에서 꺼진 재생 버튼의 안내 (T0.13) */
+export const PLAY_IN_SIMULATION = "시뮬레이션 모드에서 재생할 수 있어요";
+
+const SOURCE_CODE:Readonly<Record<RouteEntryView["source"], string>> = { connected: "C", static: "S", rip: "R" };
 
 const keyOf = (route: { readonly network: string; readonly mask: string }) => `${route.network}/${route.mask}`;
 const destination = (route: { readonly network: string; readonly mask: string }) =>
@@ -80,7 +83,8 @@ export function RouteExchange({ document, summary, changes, onPlay }: {
   readonly summary: RipSummary;
   /** 마지막 경로 교환에서 이 Router의 바뀐 경로 */
   readonly changes: readonly RouteChangeView[];
-  readonly onPlay: (traceId: number) => void;
+  /** 없으면 실시간 모드다: 버튼을 끄고 시뮬레이션 모드를 안내한다 (T0.13) */
+  readonly onPlay?: ((traceId: number) => void) | undefined;
 }) {
   return (
     <>
@@ -88,9 +92,17 @@ export function RouteExchange({ document, summary, changes, onPlay }: {
       <div className="exchange">
         <div className="exchange-head">
           마지막 교환 · 추적 #{summary.id}
-          <button type="button" className="play" onClick={() => onPlay(summary.id)} aria-label="경로 교환 재생">
-            ▶ 재생
-          </button>
+          {onPlay !== undefined ? (
+            <button type="button" className="play" onClick={() => onPlay(summary.id)} aria-label="경로 교환 재생">
+              ▶ 재생
+            </button>
+          ) : (
+            // disabled 대신 aria-disabled: 꺼진 버튼에도 안내(title)가 뜨고 키보드로 닿는다
+            <button type="button" className="play off" aria-disabled="true" aria-label="경로 교환 재생"
+              title={PLAY_IN_SIMULATION}>
+              ▶ 재생
+            </button>
+          )}
         </div>
         <div className="exchange-sum">
           Router {summary.routers}대 · 배운 경로 {summary.learned}
