@@ -73,3 +73,5 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T4.3.3 Switch·Router 통합 | [T4.3.3-switch-runtime-merge.md](T4.3.3-switch-runtime-merge.md) | 엔진·공통 | ssunyoung2 | 로컬 통합 검증 |
 | T11.2.1 RIP 구성과 명령어 | [T11.2.1-rip-config.md](T11.2.1-rip-config.md) | 엔진, 공통 | yysong1249 | 검토 대기 ([PR #41](https://github.com/TL-cg11/PING9/pull/41)) |
 | T11.1.1 경로 출처와 AD | [T11.1.1-route-distance.md](T11.1.1-route-distance.md) | 엔진, 공통 | yysong1249 | 검토 대기 ([PR #42](https://github.com/TL-cg11/PING9/pull/42), PR #41 위) |
+| T11.2.2 RIP 모듈 (경로 주고받기와 배우기) | [T11.2.2-rip-module.md](T11.2.2-rip-module.md) | 엔진, 공통 | yysong1249 | 검토 대기 ([PR #44](https://github.com/TL-cg11/PING9/pull/44), T11.2.3과 같은 PR) |
+| T11.2.3 경로 교환을 저절로 실행하고 보관하기 | [T11.2.3-route-exchange-run.md](T11.2.3-route-exchange-run.md) | 엔진, 공통, 화면 | yysong1249 | 검토 대기 ([PR #44](https://github.com/TL-cg11/PING9/pull/44), T11.2.2와 같은 PR) |

@@ -11,7 +11,7 @@ import type {
   ErrorInfo,
   TopologyDocument,
 } from "@ping9/shared";
-import type { ArpEntryView, MacTableEntryView } from "@ping9/shared";
+import type { ArpEntryView, MacTableEntryView, RouteEntryView } from "@ping9/shared";
 
 import type { PingRequest, PingRun } from "../../runtime";
 
@@ -86,6 +86,10 @@ export interface RuntimeAccess {
   clearArp(deviceId: string, ip?: string): boolean;
   /** Switch가 배운 MAC 주소 (T5.2.2). 화면의 테이블과 같은 값이다 */
   macTable(deviceId: string): readonly MacTableEntryView[];
+  /** Router가 지금 쓰는 라우팅 테이블. 배운 RIP 경로를 포함한다 (T11.2.2) */
+  routingTable(deviceId: string): readonly RouteEntryView[];
+  /** 경로 교환 1회 (`clear ip route *`, T11.2.3). RIP Router가 없어 돌지 않았으면 false */
+  exchangeRoutes(): boolean;
 }
 
 export interface CommandOutcome {

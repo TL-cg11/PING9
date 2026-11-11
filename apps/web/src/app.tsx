@@ -248,8 +248,10 @@ export function App() {
             const trace = simulator.getTrace(traceId);
             return trace === undefined ? "reply" : pingRoundKind(trace, deviceId, sequence);
           },
-          targetOf: (traceId) =>
-            simulator.getSnapshot().traces.find((summary) => summary.id === traceId)?.targetIp ?? "",
+          targetOf: (traceId) => {
+            const summary = simulator.getSnapshot().traces.find((candidate) => candidate.id === traceId);
+            return summary?.kind === "ping" ? summary.targetIp : "";
+          },
           os: device?.kind === "pc" ? osOf(device.config) : "windows",
           play: (traceId) => play(deviceId, traceId),
         });

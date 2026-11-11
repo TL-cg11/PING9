@@ -268,6 +268,8 @@ export interface DropParamsByReason {
   NO_ROUTE: { readonly device: DeviceRef; readonly targetIp: string };
   /** TTL이 0이 됨 */
   TTL_EXPIRED: { readonly device: DeviceRef };
+  /** RIP를 보낸 IP가 받은 인터페이스의 네트워크가 아님 (T11.2.2) */
+  RIP_SOURCE_NOT_ON_LINK: { readonly device: DeviceRef; readonly port: string; readonly sourceIp: string };
   /** 받은 장비가 목적지가 아님. 정상 동작이며 실패의 원인이 아니다 */
   NOT_FOR_ME: { readonly device: DeviceRef };
   /** 이벤트 수 한도 초과 (FR-30) */
@@ -287,6 +289,7 @@ const DROP_REASON_SET = {
   VLAN_INACTIVE: true,
   NO_ROUTE: true,
   TTL_EXPIRED: true,
+  RIP_SOURCE_NOT_ON_LINK: true,
   NOT_FOR_ME: true,
   LOOP_GUARD: true,
 } satisfies Record<DropReason, true>;
@@ -379,6 +382,24 @@ export interface EventParamsByCode {
     readonly vlan: number;
     readonly broadcast: boolean;
   };
+  // RIP (T11.2.2). `routes`는 패킷에 담긴 경로 수
+  RIP_REQUEST_SENT: { readonly device: DeviceRef; readonly port: string };
+  RIP_REQUEST_RECEIVED: { readonly device: DeviceRef; readonly port: string; readonly sourceIp: string };
+  RIP_RESPONSE_SENT: { readonly device: DeviceRef; readonly port: string; readonly routes: number };
+  RIP_RESPONSE_RECEIVED: { readonly device: DeviceRef; readonly port: string; readonly sourceIp: string; readonly routes: number };
+  /** 모르던 목적지를 배움 */
+  RIP_ROUTE_LEARNED: RipRouteParams;
+  /** 아는 목적지를 더 좋은 경로로, 또는 같은 다음 홉의 새 metric으로 바꿈 */
+  RIP_ROUTE_CHANGED: RipRouteParams;
+}
+
+interface RipRouteParams {
+  readonly device: DeviceRef;
+  readonly network: string;
+  readonly mask: string;
+  readonly nextHop: string;
+  readonly port: string;
+  readonly metric: number;
 }
 
 export type EventCode = keyof EventParamsByCode;
@@ -409,6 +430,12 @@ const EVENT_CODE_SET = {
   MAC_LEARNED: true,
   FRAME_FORWARDED: true,
   FRAME_FLOODED: true,
+  RIP_REQUEST_SENT: true,
+  RIP_REQUEST_RECEIVED: true,
+  RIP_RESPONSE_SENT: true,
+  RIP_RESPONSE_RECEIVED: true,
+  RIP_ROUTE_LEARNED: true,
+  RIP_ROUTE_CHANGED: true,
 } satisfies Record<EventCode, true>;
 
 export const EVENT_CODES = Object.keys(EVENT_CODE_SET) as readonly EventCode[];

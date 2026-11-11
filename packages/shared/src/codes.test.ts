@@ -25,7 +25,7 @@ describe("코드 목록", () => {
   });
 
   // VLAN_INACTIVE는 FR-47의 표에 없다. 포트의 VLAN이 지워진 경우를 따로 나타내려고 T5.2.1에서 더했다
-  test("폐기 사유는 02 문서 FR-47의 표에 VLAN_INACTIVE를 더한 것이다", () => {
+  test("폐기 사유는 02 문서 FR-47의 표에 VLAN_INACTIVE와 RIP_SOURCE_NOT_ON_LINK(T11.2.2)를 더한 것이다", () => {
     expect([...DROP_REASONS].sort()).toEqual(
       [
         "ARP_TIMEOUT",
@@ -36,6 +36,7 @@ describe("코드 목록", () => {
         "NO_IP",
         "NO_LINK",
         "NO_ROUTE",
+        "RIP_SOURCE_NOT_ON_LINK",
         "TRUNK_NOT_ALLOWED",
         "TTL_EXPIRED",
         "VLAN_BLOCKED",

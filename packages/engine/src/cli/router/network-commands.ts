@@ -29,6 +29,14 @@ export const ROUTER_NETWORK_COMMANDS: readonly CommandDefinition[] = [
       return { lines };
     },
   }),
+  defineCommand({ modes: ["privileged"], devices: ["router"], tokens: ["clear", "ip", "route", "*"],
+    help: "Clear the routing table and learn RIP routes again",
+    // 실제 IOS처럼 출력이 없다. 경로 교환 1회 (T11.2.3)
+    run: (_args, context) => {
+      context.runtime?.exchangeRoutes();
+      return {};
+    },
+  }),
   defineCommand({ modes: ["privileged"], devices: ["router"], tokens: ["show", "arp"], help: "Show learned IP, MAC and interface mappings",
     run: (_args, context) => {
       const entries = context.runtime?.arpTable(context.device.id) ?? [];

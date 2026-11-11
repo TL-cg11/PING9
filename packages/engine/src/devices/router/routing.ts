@@ -41,7 +41,9 @@ export function routingTable(
       distance: route.distance ?? DEFAULT_DISTANCE.static, metric: 0,
     }];
   });
-  const candidates = [...connected, ...active, ...learned].filter(route => route.distance < UNUSABLE_DISTANCE);
+  // 배운 경로는 나가는 인터페이스가 살아 있을 때만 쓴다. 다음 경로 교환을 기다리지 않는다 (T11.2.2)
+  const usable = learned.filter(route => connected.some(candidate => candidate.port === route.port));
+  const candidates = [...connected, ...active, ...usable].filter(route => route.distance < UNUSABLE_DISTANCE);
   const best = new Map<string, number>();
   for (const route of candidates) {
     const key = `${route.network}/${route.mask}`;
