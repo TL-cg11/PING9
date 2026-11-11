@@ -64,8 +64,9 @@ button { font: inherit; cursor: pointer; }
 
 .canvas { position: relative; overflow: hidden; background-color: var(--ice-50); background-image: radial-gradient(circle, #C4DBF7 1.4px, transparent 1.6px); background-size: 24px 24px; }
 
-.topo { position: absolute; inset: 0; width: 100%; height: 100%; }
+.topo { touch-action: none; cursor: grab; position: absolute; inset: 0; width: 100%; height: 100%; }
 .topo.drop-target { outline: 2px dashed var(--sky-500); outline-offset: -8px; background: #1565D809; }
+.topo.panning { cursor: grabbing; }
 .node { cursor: grab; touch-action: none; }
 .node.dragging { cursor: grabbing; }
 .cable-mode .node { cursor: crosshair; }
@@ -90,9 +91,9 @@ button { font: inherit; cursor: pointer; }
 .node .focus-ring { fill: none; stroke: none; pointer-events: none; }
 /* 키보드로 고를 때만 보인다. 눈에 덜 띄게 옅게 둔다 */
 .node:focus-visible .focus-ring { stroke: var(--sky-700); stroke-opacity: 0.55; stroke-width: 1.2; stroke-dasharray: 4 3; }
-.node text { font-family: Pretendard, sans-serif; fill: var(--navy); }
-.node .lbl { font-size: 14px; font-weight: 700; }
-.node .ip { font-size: 12px; fill: var(--navy-60); }
+.device-label text { font-family: Pretendard, sans-serif; fill: var(--navy); }
+.device-label .lbl { font-size: 14px; font-weight: 700; }
+.device-label .ip { font-size: 12px; fill: var(--navy-60); }
 
 .wire { stroke: #9DBDE8; stroke-width: 2.5; }
 .wire-hit { fill: none; stroke: transparent; stroke-width: 20; cursor: pointer; }
@@ -138,7 +139,7 @@ button { font: inherit; cursor: pointer; }
 .remove-link { margin-top: 24px; width: 100%; padding: 8px; border: 1px solid var(--danger); border-radius: 8px; background: var(--danger-bg); color: var(--danger); }
 
 .hint { position: absolute; left: 16px; bottom: 16px; font-size: 12px; color: var(--navy-60); background: rgba(255,255,255,.85); padding: 6px 10px; border-radius: 8px; pointer-events: none; }
-.canvas-zoom { position: absolute; right: 16px; bottom: 16px; z-index: 6; display: flex; align-items: center; gap: 4px; padding: 4px; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 3px 12px #0E1B3814; }
+.canvas-zoom { position: absolute; right: 16px; bottom: 16px; z-index: 200; display: flex; align-items: center; gap: 4px; padding: 4px; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 3px 12px #0E1B3814; }
 .canvas-zoom button { width: 34px; height: 34px; border: 0; border-radius: 8px; background: var(--ice-50); color: var(--sky-700); font-size: 24px; line-height: 1; }
 .canvas-zoom button:hover:not(:disabled) { background: var(--ice-100); }
 .canvas-zoom button:focus-visible { outline: 2px solid var(--sky-700); outline-offset: 1px; }
@@ -146,9 +147,9 @@ button { font: inherit; cursor: pointer; }
 .canvas-zoom output { min-width: 48px; text-align: center; color: var(--navy-60); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /* terminal popups */
-.term { position: absolute; width: 400px; height: 230px; min-width: 300px; min-height: 160px; background: var(--term); border-radius: 12px; box-shadow: 0 12px 32px rgba(14,27,56,.28), 0 0 0 1px rgba(255,255,255,.06); display: flex; flex-direction: column; overflow: hidden; resize: both; z-index: 10; }
+.term { position: absolute; width: 400px; height: 230px; min-width: 0; min-height: 0; background: var(--term); border-radius: 12px; box-shadow: 0 12px 32px rgba(14,27,56,.28), 0 0 0 1px rgba(255,255,255,.06); display: flex; flex-direction: column; overflow: hidden; z-index: 10; }
 .term.hidden { display: none; }
-.term-bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #172A55; color: #fff; cursor: move; user-select: none; }
+.term-bar { touch-action: none; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #172A55; color: #fff; cursor: move; user-select: none; }
 .term-bar .t-name { font-weight: 700; font-size: 13px; }
 .term-bar .t-chip { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: rgba(143,220,255,.18); color: var(--cyan); }
 .term-bar .t-x { margin-left: auto; border: none; background: transparent; color: rgba(255,255,255,.7); font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 6px; }
@@ -223,6 +224,27 @@ button { font: inherit; cursor: pointer; }
 .pc-form .form-status.applied { color: var(--ok); }
 .pc-form .form-status.unchanged { color: var(--navy-60); font-weight: 400; }
 
+
+/* 글자는 장비·케이블 위에 표시하고 마우스 조작은 아래 장비/배경으로 통과시킨다. */
+.canvas-labels { pointer-events: none; user-select: none; }
+.canvas-labels text { stroke: var(--ice-50); stroke-width: 3px; paint-order: stroke; stroke-linejoin: round; }
+.canvas-labels .cable-text { stroke: #fff; }
+.hint { max-width: calc(100% - 200px); }
+.term-resize { position: absolute; border: 0; background: transparent; touch-action: none; z-index: 1; padding: 0; }
+.resize-n, .resize-s { left: 14px; right: 14px; height: 7px; cursor: ns-resize; }
+.resize-n { top: 0; }
+.resize-s { bottom: 0; }
+.resize-w, .resize-e { top: 14px; bottom: 14px; width: 7px; cursor: ew-resize; }
+.resize-w { left: 0; }
+.resize-e { right: 0; }
+.resize-nw, .resize-ne, .resize-sw, .resize-se { width: 14px; height: 14px; }
+.resize-nw { top: 0; left: 0; cursor: nwse-resize; }
+.resize-ne { top: 0; right: 0; cursor: nesw-resize; }
+.resize-sw { bottom: 0; left: 0; cursor: nesw-resize; }
+.resize-se { bottom: 0; right: 0; cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 40%, #8FA3C8 41%, #8FA3C8 48%, transparent 49%, transparent 62%, #8FA3C8 63%, #8FA3C8 70%, transparent 71%); }
+.term-resize:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+
 /* 펭귄 층 (T6.1.2). 누르기를 가로채지 않는다 */
 .packet-layer { pointer-events: none; }
 .penguin-mark {
@@ -232,3 +254,6 @@ button { font: inherit; cursor: pointer; }
   stroke-width: 3px;
   paint-order: stroke;
 }
+
+.replay-hint { position: absolute; right: 16px; top: 16px; z-index: 5; max-width: calc(100% - 32px);
+  padding: 8px 12px; border-radius: 8px; background: #FFF2D6; color: #79510E; font-size: 12px; pointer-events: none; }

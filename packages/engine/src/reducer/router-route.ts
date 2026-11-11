@@ -1,4 +1,4 @@
-import { checkStaticRoute, errorInfo, LIMITS } from "@ping9/shared";
+import { checkStaticRoute, DEFAULT_DISTANCE, errorInfo, LIMITS } from "@ping9/shared";
 import type { CommandOf, ErrorInfo, StaticRoute } from "@ping9/shared";
 
 import { describeValue } from "../describe";
@@ -23,11 +23,20 @@ export const addRoute: CommandHandler<"route/add"> = (document, command) => {
   const { device } = found;
   const error = shapeError(command) ?? checkStaticRoute(device.id, command, device.config.interfaces);
   if (error !== null) return { ok: false, error };
-  if (device.config.staticRoutes.some(route => sameRoute(route, command))) return { ok: true, document, notices: [] };
+  const distance = command.distance ?? DEFAULT_DISTANCE.static;
+  const route = { network: command.network, mask: command.mask, nextHop: command.nextHop, distance };
+  const existing = device.config.staticRoutes.find(candidate => sameRoute(candidate, command));
+  if (existing !== undefined) {
+    // 같은 경로를 다른 AD로 다시 넣으면 AD만 바꾼다 (실제 IOS와 같음)
+    if ((existing.distance ?? DEFAULT_DISTANCE.static) === distance) return { ok: true, document, notices: [] };
+    return withRouterConfig(document, device, {
+      ...device.config,
+      staticRoutes: device.config.staticRoutes.map(candidate => candidate === existing ? route : candidate),
+    });
+  }
   if (device.config.staticRoutes.length >= LIMITS.maxStaticRoutesPerRouter) {
     return { ok: false, error: errorInfo("LIMIT_EXCEEDED", { limit: "staticRoutes", max: LIMITS.maxStaticRoutesPerRouter }) };
   }
-  const route = { network: command.network, mask: command.mask, nextHop: command.nextHop };
   return withRouterConfig(document, device, { ...device.config, staticRoutes: [...device.config.staticRoutes, route] });
 };
 
@@ -37,12 +46,15 @@ export const removeRoute: CommandHandler<"route/remove"> = (document, command) =
   const { device } = found;
   const error = shapeError(command) ?? checkStaticRoute(device.id, command, device.config.interfaces);
   if (error !== null) return { ok: false, error };
-  if (!device.config.staticRoutes.some(route => sameRoute(route, command))) {
+  // AD를 주면 그 AD일 때만 지운다. 안 주면 AD와 상관없이 지운다 (T11.1.1 결정 4)
+  const target = device.config.staticRoutes.find(route => sameRoute(route, command) &&
+    (command.distance === undefined || (route.distance ?? DEFAULT_DISTANCE.static) === command.distance));
+  if (target === undefined) {
     return { ok: false, error: errorInfo("ROUTE_NOT_FOUND", {
       deviceId: device.id, network: command.network, mask: command.mask, nextHop: command.nextHop,
     }) };
   }
   return withRouterConfig(document, device, {
-    ...device.config, staticRoutes: device.config.staticRoutes.filter(route => !sameRoute(route, command)),
+    ...device.config, staticRoutes: device.config.staticRoutes.filter(route => route !== target),
   });
 };

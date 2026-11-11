@@ -53,3 +53,18 @@ export function clampCanvasPosition(position: Position, topLeft: Position, botto
     y: clamp(position.y, Math.max(-LIMITS.maxPosition, topLeft.y + 36), Math.min(LIMITS.maxPosition, bottomRight.y - 64)),
   };
 }
+
+/** 휠·트랙패드의 단위를 픽셀로 맞추고 한 이벤트의 변화량을 제한한다. */
+export function wheelZoom(zoom: number, deltaY: number, deltaMode: number, height: number): number {
+  if (!Number.isFinite(deltaY)) return zoom;
+  const pixels = deltaY * (deltaMode === 1 ? 16 : deltaMode === 2 ? height : 1);
+  const factor = Math.exp(-Math.max(-100, Math.min(100, pixels)) * 0.002);
+  return Math.max(MIN_CANVAS_ZOOM, Math.min(MAX_CANVAS_ZOOM, zoom * factor));
+}
+
+/** 포인터가 가리키던 지도 지점을 화면의 같은 위치에 유지한다. */
+export function zoomAtPoint(box: CanvasViewBox, size: { readonly width: number; readonly height: number },
+  factor: number, world: Position, fraction: Position): CanvasViewBox {
+  const next = zoomViewBox(box, size, factor);
+  return { ...next, x: world.x - fraction.x * next.width, y: world.y - fraction.y * next.height };
+}

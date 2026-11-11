@@ -94,7 +94,10 @@ describe("runLinePaced", () => {
         return waits.length !== stopAtWait;
       },
       kindOf: (traceId, sequence) => pingRoundKind(simulator.getTrace(traceId)!, pc1.id, sequence),
-      targetOf: (traceId) => simulator.getSnapshot().traces.find((trace) => trace.id === traceId)?.targetIp ?? "",
+      targetOf: (traceId) => {
+        const summary = simulator.getSnapshot().traces.find((trace) => trace.id === traceId);
+        return summary?.kind === "ping" ? summary.targetIp : "";
+      },
       os: "windows",
       ...(replayMs === undefined ? {} : { play: (traceId: number) => (played.push(traceId), replayMs) }),
     });
@@ -178,7 +181,11 @@ describe("runLinePaced", () => {
       simulator.load(switchedStaticRoutingLabDocument);
       const port = simulator.console(ROUTER_LAB.pc1);
       const waits: number[] = [];
-      const summaryOf = (traceId: number) => simulator.getSnapshot().traces.find((trace) => trace.id === traceId);
+      // 요약은 ping과 RIP 교환의 합이다 (T11.2.3). 탐색의 요약은 ping 쪽이다
+      const summaryOf = (traceId: number) => {
+        const summary = simulator.getSnapshot().traces.find((trace) => trace.id === traceId);
+        return summary?.kind === "ping" ? summary : undefined;
+      };
       const run: PacedRun = {
         show: () => undefined,
         wait: async (ms) => {

@@ -66,7 +66,7 @@ test("닫기 버튼은 Tab으로 닿는다. Safari도 건너뛰지 않게 tabind
 });
 
 test("위치와 쌓이는 순서를 스타일로 넣고, 닫은 창은 hidden 클래스를 단다", () => {
-  expect(render()).toMatch(/class="term"[^>]* style="left:10px;top:20px;z-index:21"/);
+  expect(render()).toMatch(/class="term"[^>]* style="left:10px;top:20px;width:400px;height:230px;z-index:21"/);
   expect(render(true)).toContain('class="term hidden"');
 });
 

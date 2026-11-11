@@ -190,7 +190,7 @@ export function definitionsFor(kind: DeviceKind, definitions: readonly CommandDe
  */
 export function candidatesFor(mode: CliMode, forDevice: readonly CommandDefinition[]): CommandDefinition[] {
   const own = forDevice.filter((definition) => definition.modes.includes(mode));
-  if (mode !== "config-if" && mode !== "config-vlan") return own;
+  if (mode !== "config-if" && mode !== "config-vlan" && mode !== "config-router") return own;
   return [...own, ...forDevice.filter((definition) => definition.modes.includes("config") && !own.includes(definition))];
 }
 

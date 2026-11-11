@@ -58,7 +58,8 @@ describe("Windows tracert", () => {
 
   test("hop마다 추적 하나. 요약에 hop 번호가 있고 추적은 검증을 통과한다", async () => {
     const { simulator } = await run(switchedStaticRoutingLabDocument, LAB.pc1, "tracert 192.168.2.10");
-    const summaries = [...simulator.getSnapshot().traces].reverse();
+    // 요약은 ping과 RIP 교환의 합이다 (T11.2.3). 탐색의 요약은 ping 쪽이다
+    const summaries = [...simulator.getSnapshot().traces].reverse().flatMap((summary) => (summary.kind === "ping" ? [summary] : []));
     expect(summaries.map((summary) => [summary.kind, summary.hop, summary.targetIp, summary.status])).toEqual([
       ["ping", 1, "192.168.2.10", "failed"],
       ["ping", 2, "192.168.2.10", "failed"],
@@ -75,7 +76,9 @@ describe("Windows tracert", () => {
 
   test("ping의 요약에는 hop이 없다", async () => {
     const { simulator } = await run(switchedStaticRoutingLabDocument, LAB.pc1, "ping -n 1 192.168.2.10");
-    expect(simulator.getSnapshot().traces[0]!.hop).toBeUndefined();
+    const summary = simulator.getSnapshot().traces[0]!;
+    expect(summary.kind).toBe("ping");
+    expect(summary.kind === "ping" ? summary.hop : null).toBeUndefined();
   });
 
   test("-d는 같은 출력, -h는 최대 hop", async () => {

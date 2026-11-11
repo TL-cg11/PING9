@@ -145,3 +145,16 @@ test("Linux PC는 아이콘과 이름표에 OS가 나온다 (T0.7)", () => {
   expect(html.match(/icon-os-windows/g)).toHaveLength(1);
   expect(html).toContain('aria-label="PC2, PC, Linux, 콘솔 열기"');
 });
+
+
+test("이름·IP·포트·VLAN 글자는 아이콘과 케이블 뒤에 그리는 최상위 글자 레이어에 있다", () => {
+  const html = render(twoSwitchVlanDocument);
+  const overlay = html.indexOf('class="canvas-labels"');
+  expect(overlay).toBeGreaterThan(html.lastIndexOf('class="icon icon-'));
+  expect(overlay).toBeGreaterThan(html.lastIndexOf('class="cable"'));
+  const textLayer = html.slice(overlay, html.indexOf("</svg>", overlay));
+  for (const label of ['class="lbl"', 'class="ip"', 'class="wire-port"', 'class="cable-text"', 'class="net"']) {
+    expect(textLayer).toContain(label);
+    expect(html.slice(0, overlay)).not.toContain(label);
+  }
+});

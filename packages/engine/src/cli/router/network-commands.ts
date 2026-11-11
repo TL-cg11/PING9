@@ -31,6 +31,14 @@ export const ROUTER_NETWORK_COMMANDS: readonly CommandDefinition[] = [
       return { lines };
     },
   }),
+  defineCommand({ modes: ["privileged"], devices: ["router"], tokens: ["clear", "ip", "route", "*"],
+    help: "Clear the routing table and learn RIP routes again",
+    // 실제 IOS처럼 출력이 없다. 경로 교환 1회 (T11.2.3)
+    run: (_args, context) => {
+      context.runtime?.exchangeRoutes();
+      return {};
+    },
+  }),
   defineCommand({ modes: ["user", "privileged"], devices: ["router"], tokens: ["traceroute", param("ip", "ipv4", "Destination IPv4 address")],
     help: "Show the routers on the way (up to 30 hops)",
     // T11.4.1. 자기 인터페이스 주소와 127.x는 링크를 지나지 않는다 (ping과 같은 판단)
