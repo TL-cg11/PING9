@@ -2,11 +2,12 @@
 // 화면이 가진 상태는 선택, 열린 터미널, 터미널의 화면 기록뿐이다. 나머지는 engine의 스냅샷에서 읽는다 (AD-4).
 
 import { osOf, pingRoundKind, shortPortName } from "@ping9/shared";
-import type { DeviceKind, ErrorInfo, PortRef, Position } from "@ping9/shared";
+import type { DeviceKind, ErrorInfo, PortRef, Position, TopologyDocument } from "@ping9/shared";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { Canvas, cableLength } from "./components/canvas";
+import { ConfirmDialog } from "./components/confirm-dialog";
 import { isRemoveKey, removeKeyAction } from "./components/canvas-keys";
 import { Inspector } from "./components/inspector";
 import { LinkInspector } from "./components/link-inspector";
@@ -27,6 +28,7 @@ import { browserStorage, readMode, writeMode } from "./mode";
 import type { Mode } from "./mode";
 import { exchangeTimeline, previewTimeline } from "./replay/timeline";
 import { TOPOLOGY_NAME, simulator, useSnapshot } from "./simulator";
+import { downloadText, exportFile, needsReplaceConfirm, readImportFile } from "./topology-file";
 import { createCommandQueue } from "./terminal/command-queue";
 import { completed, historyStep, initialTerminal, refreshPrompts, runLinePaced, showHelp } from "./terminal/terminal-state";
 import type { TerminalState } from "./terminal/terminal-state";
@@ -42,6 +44,13 @@ const KIND_LABEL: Readonly<Record<DeviceKind, "PC" | "Switch" | "Router">> = {
 
 /** 시안에서 터미널 창이 쌓이기 시작하는 z-index */
 const TERMINAL_Z = 20;
+/** 가져올 파일을 고르고 바꾸기를 묻는 중인 것 (T7.1.2) */
+interface PendingImport {
+  readonly fileName: string;
+  readonly name: string;
+  readonly document: TopologyDocument;
+}
+
 /** 경로 교환 재생의 열쇠. 장비 ID(UUID)와 겹치지 않는다 (T11.5.1) */
 const RIP_REPLAY_KEY = "rip";
 
@@ -50,6 +59,11 @@ export function App() {
   const { document } = snapshot;
   const [ui, dispatch] = useReducer(uiReducer, INITIAL_UI_STATE);
   const [actionError, setActionError] = useState<ErrorInfo | null>(null);
+  // 토폴로지 이름. 서버가 없어 처음은 고정 이름이고, 가져온 파일의 이름으로 바뀐다 (T7.1.2)
+  const [topologyName, setTopologyName] = useState(TOPOLOGY_NAME);
+  const [importAsk, setImportAsk] = useState<PendingImport | null>(null);
+  // 가져오기 실패. 닫을 때까지 보인다 (FR-45)
+  const [importError, setImportError] = useState<ErrorInfo | null>(null);
   const [cable, setCable] = useState<CableState>(CABLE_OFF);
   // 시뮬레이션 모드의 `▶ ping 실행` (T0.13). 출발 → 목적지(→ 주소)를 고르면 출발 장비 터미널에서 친 것처럼 실행한다
   const [pingTool, setPingTool] = useState<PingTool | null>(null);
@@ -211,7 +225,7 @@ export function App() {
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      setCable(CABLE_OFF); setDragKind(null); setConnectionMessage(null); setRemoveAsk(null); stopPing();
+      setCable(CABLE_OFF); setDragKind(null); setConnectionMessage(null); setRemoveAsk(null); stopPing(); setImportAsk(null);
     };
     window.addEventListener("keydown", escape);
     return () => window.removeEventListener("keydown", escape);
@@ -378,7 +392,7 @@ export function App() {
   // 입력란과 터미널 안에서는 글자를 지우는 키라서 건드리지 않는다
   useEffect(() => {
     const onDelete = (event: KeyboardEvent) => {
-      if (!isRemoveKey(event) || cable.active || dragKind !== null) return;
+      if (!isRemoveKey(event) || cable.active || dragKind !== null || importAsk !== null) return;
       const target = event.target instanceof Element ? event.target : null;
       if (target?.closest("input, textarea, select, [contenteditable], .term") != null) return;
       const action = removeKeyAction({
@@ -429,6 +443,38 @@ export function App() {
     });
   };
 
+  // 지금 Document를 파일로 받는다 (T7.1.1). 장비가 없어도 받는다
+  const exportTopology = () => {
+    const file = exportFile(topologyName, simulator.getSnapshot().document);
+    downloadText(file.fileName, file.text);
+  };
+
+  // 고른 파일을 검증하고, 캔버스에 장비가 있으면 바꿀지 묻는다 (T7.1.2). 실패하면 지금 캔버스는 그대로
+  const importTopology = async (file: File) => {
+    setImportError(null);
+    const result = await readImportFile(file);
+    if (!result.ok) return setImportError(result.error);
+    const pending: PendingImport = { fileName: file.name, name: result.name, document: result.document };
+    if (needsReplaceConfirm(simulator.getSnapshot().document)) setImportAsk(pending);
+    else replaceTopology(pending);
+  };
+
+  // 지금 토폴로지를 바꾼다. 열면 Runtime이 비어 있듯이 화면 상태도 처음으로: 선택, 터미널과 그 기록, 펭귄, 도구.
+  // 모드는 그대로 둔다
+  const replaceTopology = ({ name, document: next }: PendingImport) => {
+    setImportAsk(null);
+    for (const controller of running.current.values()) controller.abort();
+    const result = simulator.load(next);
+    if (!result.ok) return setImportError(result.error);
+    setTopologyName(name);
+    updateTerminals(() => ({}));
+    setBusy(new Set());
+    dispatch({ type: "sync", deviceIds: [] });
+    setReplays(new Map());
+    setCable(CABLE_OFF); setDragKind(null); setSelectedLinkId(null); setRemoveAsk(null); stopPing();
+    setActionError(null); setConnectionMessage(null);
+  };
+
   // 목적지 장비의 주소가 여럿이면 그 장비 옆에 고르는 창 (T0.13)
   const pingTarget = pingTool?.stage === "address" ? document.devices.find((device) => device.id === pingTool.targetId) : undefined;
   const pingAddressPanel = pingTool !== null && pingTarget !== undefined ? {
@@ -440,7 +486,7 @@ export function App() {
 
   return (
     <div className="app">
-      <TopBar name={TOPOLOGY_NAME} mode={mode} onModeChange={changeMode}
+      <TopBar name={topologyName} onExport={exportTopology} onImport={(file) => void importTopology(file)} mode={mode} onModeChange={changeMode}
         onPing={mode === "simulation" ? togglePing : undefined} pingActive={pingTool !== null} />
       <main className="work">
         <Palette deviceCount={document.devices.length} linkCount={document.links.length} cableActive={cable.active}
@@ -449,6 +495,10 @@ export function App() {
           dragCancel={dragCancel} zoneRef={paletteRef} />
         <section className="canvas" onPointerDownCapture={releaseFocus}>
           {actionError !== null && <div className="canvas-error" role="alert">{formatError(actionError)}</div>}
+          {importError !== null && <div className="import-error" role="alert">
+            <span>⚠️ 가져오지 못했어요: {formatError(importError)}</span>
+            <button type="button" aria-label="알림 닫기" onClick={() => setImportError(null)}>×</button>
+          </div>}
           {(dragKind !== null || cable.active) && <div className="edit-banner" role="status">
             <span>{dragKind !== null ? `${KIND_LABEL[dragKind]}를 원하는 위치에 놓으세요 · 왼쪽 목록에 다시 놓으면 취소` :
               connectionMessage ?? (cable.first === null ? "케이블 선택됨 · 첫 번째 장비를 클릭해 포트를 고르세요" :
@@ -515,6 +565,13 @@ export function App() {
           onPlayExchange={mode === "simulation" ? (traceId) => play(RIP_REPLAY_KEY, traceId, true) : undefined}
         />}
       </main>
+      {importAsk !== null && (
+        <ConfirmDialog title="지금 토폴로지를 바꿀까요?" confirmLabel="바꾸기"
+          onConfirm={() => replaceTopology(importAsk)} onCancel={() => setImportAsk(null)}>
+          <p>"{importAsk.fileName}" 파일을 열면 지금 캔버스의 장비와 케이블이 사라져요.</p>
+          <p>먼저 <b>⤓ 내보내기</b>로 받아 둘 수 있어요.</p>
+        </ConfirmDialog>
+      )}
     </div>
   );
 }

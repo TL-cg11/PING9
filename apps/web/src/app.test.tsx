@@ -25,14 +25,22 @@ test("시안의 틀(상단 막대, 장비 목록, 캔버스, 속성 패널)이 �
   }
 });
 
-test("아직 동작하지 않는 버튼은 꺼져 있다. 모드 버튼 둘은 켜져 있다 (T0.13)", () => {
+test("모드 버튼 둘과 내보내기, 가져오기가 켜져 있다 (T0.13, T7.1.1, T7.1.2)", () => {
   const text = html();
 
   const topbar = text.slice(text.indexOf('<header class="topbar">'), text.indexOf("</header>"));
-  // 내보내기, 가져오기. ping 실행은 실시간 모드라 aria-disabled로 꺼짐 (안내가 뜨게)
-  expect(topbar.match(/<button[^>]*disabled=""[^>]*>/g)).toHaveLength(2);
+  // ping 실행은 실시간 모드라 aria-disabled로 꺼짐 (안내가 뜨게)
+  expect(topbar.match(/<button[^>]*disabled=""[^>]*>/g)).toBeNull();
+  expect(topbar).toMatch(/<button type="button" class="ghost">⤓ 내보내기/);
+  expect(topbar).toMatch(/<button type="button" class="ghost">⤒ 가져오기/);
   expect(topbar).toMatch(/<button[^>]*class="ping-btn off"[^>]*aria-disabled="true"/);
   expect(topbar.match(/<button[^>]*role="tab"[^>]*>/g)?.every((tab) => !tab.includes("disabled"))).toBe(true);
+});
+
+test("확인 창과 가져오기 실패 알림은 처음에 없다 (T7.1.2)", () => {
+  const text = html();
+  expect(text).not.toContain("confirm-dialog");
+  expect(text).not.toContain("import-error");
 });
 
 test("처음 열면 실시간 모드 (T0.13)", () => {

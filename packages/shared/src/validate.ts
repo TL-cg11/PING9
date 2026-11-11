@@ -6,6 +6,7 @@ import { errorInfo } from "./codes";
 import type { ErrorInfo } from "./codes";
 import { isPortName } from "./document";
 import type { DeviceKind, TopologyDocument } from "./document";
+import { TOPOLOGY_EXPORT_KIND } from "./export-file";
 import { CURRENT_SCHEMA_VERSION, LIMITS } from "./limits";
 import { checkRipConfig, checkRouterInterfaceOverlap, checkStaticRoute } from "./router-config";
 import { topologyDocumentSchema, traceSchema } from "./schema";
@@ -13,6 +14,7 @@ import type { ParsedDocument } from "./schema";
 import type { Trace } from "./trace";
 import {
   checkDeviceName,
+  checkTopologyName,
   checkGateway,
   checkInterfaceAddress,
   checkVlanId,
@@ -23,6 +25,11 @@ import {
 
 export type DocumentResult =
   | { readonly ok: true; readonly document: TopologyDocument }
+  | { readonly ok: false; readonly error: ErrorInfo };
+
+/** 내보낸 파일을 읽은 결과 (T7.1.2) */
+export type ExportFileResult =
+  | { readonly ok: true; readonly name: string; readonly document: TopologyDocument }
   | { readonly ok: false; readonly error: ErrorInfo };
 
 export type TraceCheckResult =
@@ -316,36 +323,78 @@ export function migrateDocument(input: unknown): unknown {
   return input;
 }
 
+type JsonResult = { readonly ok: true; readonly raw: unknown } | { readonly ok: false; readonly error: ErrorInfo };
+
+/** 공통 절차의 앞부분: 크기 → JSON 해석 → 금지 키와 중첩 깊이 (SEC-8) */
+function readJson(text: string): JsonResult {
+  if (typeof text !== "string") return fail(errorInfo("DOCUMENT_INVALID_JSON", {}));
+
+  // 글자 수가 한도를 넘으면 바이트 수도 넘는다. 긴 입력을 끝까지 세지 않는다
+  const size = text.length > LIMITS.maxImportBytes ? text.length : utf8ByteLength(text);
+  if (size > LIMITS.maxImportBytes) {
+    return fail(errorInfo("DOCUMENT_TOO_LARGE", { size, limit: LIMITS.maxImportBytes }));
+  }
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return fail(errorInfo("DOCUMENT_INVALID_JSON", {}));
+  }
+
+  const structureError = scanStructure(raw);
+  return structureError ? fail(structureError) : { ok: true, raw };
+}
+
+/** 공통 절차의 뒷부분: `schemaVersion` → `migrateDocument()` → `validateDocument()` */
+function readDocument(raw: unknown): DocumentResult {
+  if (!isRecord(raw)) return fail(shapeError(""));
+  const versionError = checkVersion(raw);
+  if (versionError) return fail(versionError);
+  return validateDocument(migrateDocument(raw));
+}
+
 /**
  * JSON 글자에서 문서를 읽는 공통 절차 (SEC-8). 가져오기와 저장이 같은 순서로 실행한다:
  * 크기 → JSON 해석 → 금지 키와 중첩 깊이 → `schemaVersion` → `migrateDocument()` → `validateDocument()`.
- * 내보낸 파일의 겉 포장(`{ kind: "topology-export", name, document }`)은 T7.1.2에서 다룬다.
+ * 내보낸 파일의 겉 포장은 `parseExportJson`이 읽는다.
  */
 export function parseDocumentJson(text: string): DocumentResult {
   try {
-    if (typeof text !== "string") return fail(errorInfo("DOCUMENT_INVALID_JSON", {}));
+    const json = readJson(text);
+    return json.ok ? readDocument(json.raw) : json;
+  } catch {
+    return fail(shapeError(""));
+  }
+}
 
-    // 글자 수가 한도를 넘으면 바이트 수도 넘는다. 긴 입력을 끝까지 세지 않는다
-    const size = text.length > LIMITS.maxImportBytes ? text.length : utf8ByteLength(text);
-    if (size > LIMITS.maxImportBytes) {
-      return fail(errorInfo("DOCUMENT_TOO_LARGE", { size, limit: LIMITS.maxImportBytes }));
+/**
+ * 내보낸 파일(`{ kind: "topology-export", name, document }`)을 읽는다 (T7.1.2, FR-7).
+ * `parseDocumentJson`과 같은 절차에 겉 포장 확인을 더한다: 크기 → JSON 해석 → 금지 키와 중첩 깊이 →
+ * `kind` → `name`(토폴로지 이름 규칙) → `document`(`schemaVersion` → 변환 → 검증).
+ * 겉 포장 없이 Document만 있는 파일은 받지 않는다 (설계 결정 4). 겉 포장의 다른 키는 무시한다.
+ * 안쪽 문서의 형태 오류 위치는 파일 기준(`document.devices.0...`)으로 알려 준다
+ */
+export function parseExportJson(text: string): ExportFileResult {
+  try {
+    const json = readJson(text);
+    if (!json.ok) return json;
+    const { raw } = json;
+    if (!isRecord(raw) || raw.kind !== TOPOLOGY_EXPORT_KIND) return fail(errorInfo("IMPORT_NOT_EXPORT_FILE", {}));
+
+    const { name } = raw;
+    if (typeof name !== "string") return fail(shapeError("name"));
+    const nameError = checkTopologyName(name);
+    if (nameError) return fail(nameError);
+
+    const document = readDocument(raw.document);
+    if (!document.ok) {
+      const { error } = document;
+      if (error.code !== "DOCUMENT_INVALID_SHAPE") return document;
+      const { path } = error.params as { readonly path: string };
+      return fail(shapeError(path === "" ? "document" : `document.${path}`));
     }
-
-    let raw: unknown;
-    try {
-      raw = JSON.parse(text);
-    } catch {
-      return fail(errorInfo("DOCUMENT_INVALID_JSON", {}));
-    }
-
-    const structureError = scanStructure(raw);
-    if (structureError) return fail(structureError);
-
-    if (!isRecord(raw)) return fail(shapeError(""));
-    const versionError = checkVersion(raw);
-    if (versionError) return fail(versionError);
-
-    return validateDocument(migrateDocument(raw));
+    return { ok: true, name, document: document.document };
   } catch {
     return fail(shapeError(""));
   }

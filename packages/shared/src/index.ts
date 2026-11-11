@@ -5,6 +5,7 @@ export * from "./codes";
 export * from "./command";
 export * from "./console";
 export * from "./document";
+export * from "./export-file";
 export * from "./limits";
 export * from "./ping";
 export * from "./port-name";
@@ -18,7 +19,8 @@ export {
   documentByteSize,
   migrateDocument,
   parseDocumentJson,
+  parseExportJson,
   validateDocument,
   validateTrace,
 } from "./validate";
-export type { DocumentResult, TraceCheckResult } from "./validate";
+export type { DocumentResult, ExportFileResult, TraceCheckResult } from "./validate";
