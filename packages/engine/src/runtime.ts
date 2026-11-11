@@ -2,12 +2,14 @@
 // Document는 Simulator가 들고 있고, Runtime은 매번 getDocument()로 읽는다.
 // PC·Switch·Router 모델을 함께 보관한다.
 
-import { isIcmpError, LIMITS, pingRoundKind } from "@ping9/shared";
+import { isIcmpError, LIMITS, parseIpv4, pingRoundKind } from "@ping9/shared";
 import type {
   ArpEntryView,
   DeviceView,
   ErrorInfo,
   MacTableEntryView,
+  RipRouteHop,
+  RouteChangeView,
   RouteEntryView,
   TopologyDocument,
   Trace,
@@ -71,12 +73,19 @@ export interface Runtime {
   fillViews(views: Record<string, DeviceView>): Record<string, DeviceView>;
   traceSummaries(): readonly TraceSummary[];
   getTrace(traceId: number): Trace | undefined;
+  /** 그 경로 교환으로 바뀐 RIP 경로 (T11.3.1). 그 교환의 Trace가 목록에 없거나 ping Trace면 undefined */
+  routeChanges(traceId: number): readonly RouteChangeView[] | undefined;
 }
 
 interface StoredTrace {
   readonly trace: Trace;
   readonly summary: TraceSummary;
+  /** 경로 교환일 때 바뀐 RIP 경로 */
+  readonly routeChanges?: readonly RouteChangeView[];
 }
+
+/** Router별, 네트워크별 RIP 경로. 키는 `network/mask` */
+type RipRoutes = ReadonlyMap<string, ReadonlyMap<string, RipRouteHop>>;
 
 export function createRuntime(getDocument: () => TopologyDocument): Runtime {
   const kernel = createKernel();
@@ -85,6 +94,8 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
   const switches = new Map<string, SwitchModel>();
   // 가장 최근 것이 앞. 최대 LIMITS.maxTraces개
   let traces: readonly StoredTrace[] = [];
+  // 마지막 경로 교환 뒤의 RIP 경로. 다음 교환과 비교한다 (T11.3.1)
+  let lastRipRoutes: RipRoutes = new Map();
 
   /** 문서의 PC마다 모델이 있게 한다. 모델은 처음 쓸 때 만든다 */
   const pcModel = (deviceId: string): PcModel | undefined => {
@@ -125,6 +136,21 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     return models;
   };
 
+  /** 문서의 모든 Router가 지금 라우팅 테이블에 쓰는 RIP 경로. RIP를 끈 Router도 넣어 사라진 경로가 보이게 한다 */
+  const currentRipRoutes = (): RipRoutes => {
+    const result = new Map<string, ReadonlyMap<string, RipRouteHop>>();
+    for (const device of getDocument().devices) {
+      if (device.kind !== "router") continue;
+      const routes = new Map<string, RipRouteHop>();
+      for (const route of routerModel(device.id)!.routingTable()) {
+        if (route.source !== "rip") continue;
+        routes.set(`${route.network}/${route.mask}`, { nextHop: route.nextHop!, port: route.port!, metric: route.metric });
+      }
+      result.set(device.id, routes);
+    }
+    return result;
+  };
+
   const store = (stored: StoredTrace): void => {
     traces = [stored, ...traces].slice(0, LIMITS.maxTraces);
   };
@@ -136,6 +162,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
       routers.clear();
       switches.clear();
       traces = [];
+      lastRipRoutes = new Map();
     },
 
     configChanged(previous, document) {
@@ -257,6 +284,9 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
       }));
       const learned = ripRouters.reduce((sum, device) =>
         sum + routerModel(device.id)!.routingTable().filter(route => route.source === "rip").length, 0);
+      const ripRoutes = currentRipRoutes();
+      const routeChanges = diffRipRoutes(getDocument(), lastRipRoutes, ripRoutes);
+      lastRipRoutes = ripRoutes;
       // 목록에 RIP Trace는 가장 최근 것 하나만 둔다. 설정을 칠 때마다 ping 기록이 밀려나지 않게 한다 (결정 4)
       traces = traces.filter(stored => stored.summary.kind !== "rip");
       store({
@@ -264,7 +294,11 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
         summary: {
           id: trace.id, docVersion, kind: "rip", status: trace.result.status, eventCount: trace.events.length,
           routers: ripRouters.length, learned,
+          added: routeChanges.filter(change => change.before === undefined).length,
+          removed: routeChanges.filter(change => change.after === undefined).length,
+          changed: routeChanges.filter(change => change.before !== undefined && change.after !== undefined).length,
         },
+        routeChanges,
       });
       return trace;
     },
@@ -292,6 +326,10 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     getTrace(traceId) {
       return traces.find((stored) => stored.trace.id === traceId)?.trace;
     },
+
+    routeChanges(traceId) {
+      return traces.find((stored) => stored.trace.id === traceId)?.routeChanges;
+    },
   };
 }
 
@@ -316,4 +354,37 @@ function roundOf(trace: Trace, sourceId: string, sequence: number, targetIp: str
       event.frame.icmp?.sequence === sequence,
   );
   return { kind: "reply", traceId, sequence, timeUs: reply?.time ?? 0, ttl: reply?.frame.ipv4?.ttl ?? 0 };
+}
+
+/**
+ * 교환 전후의 RIP 경로를 비교한다 (T11.3.1). 지금 문서에 있는 Router만, 문서 순서와 네트워크 주소 순.
+ * 지운 Router의 경로는 넣지 않는다
+ */
+function diffRipRoutes(document: TopologyDocument, before: RipRoutes, after: RipRoutes): RouteChangeView[] {
+  const changes: RouteChangeView[] = [];
+  for (const device of document.devices) {
+    if (device.kind !== "router") continue;
+    const old = before.get(device.id) ?? new Map<string, RipRouteHop>();
+    const now = after.get(device.id) ?? new Map<string, RipRouteHop>();
+    const keys = [...new Set([...old.keys(), ...now.keys()])].sort(byNetwork);
+    for (const key of keys) {
+      const was = old.get(key);
+      const is = now.get(key);
+      if (was !== undefined && is !== undefined && was.nextHop === is.nextHop && was.port === is.port && was.metric === is.metric) continue;
+      const [network, mask] = key.split("/") as [string, string];
+      changes.push({
+        device: deviceRef(device), network, mask,
+        ...(was === undefined ? {} : { before: was }),
+        ...(is === undefined ? {} : { after: is }),
+      });
+    }
+  }
+  return changes;
+}
+
+/** `network/mask` 키를 네트워크 주소, 긴 마스크 순으로 */
+function byNetwork(a: string, b: string): number {
+  const [networkA, maskA] = a.split("/") as [string, string];
+  const [networkB, maskB] = b.split("/") as [string, string];
+  return (parseIpv4(networkA)! - parseIpv4(networkB)!) || (parseIpv4(maskB)! - parseIpv4(maskA)!);
 }
