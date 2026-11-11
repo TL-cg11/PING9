@@ -82,3 +82,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T0.10 터미널 네 면 조절·휠 확대 | [T0.10-terminal-resize-wheel.md](T0.10-terminal-resize-wheel.md) | 화면 | ssunyoung2 | [PR #46](https://github.com/TL-cg11/PING9/pull/46) 리뷰 대기 |
 | T0.10 최신 메인 통합 | [T0.10-latest-main-sync.md](T0.10-latest-main-sync.md) | 화면·통합 | ssunyoung2 | [PR #46](https://github.com/TL-cg11/PING9/pull/46) 리뷰 대기 |
 | T4.4.1 Router 자체 순환 ping·재생 지연 수정 | [T4.4.1-router-loop-ping.md](T4.4.1-router-loop-ping.md) | 엔진·화면 | ssunyoung2 | [PR #46](https://github.com/TL-cg11/PING9/pull/46) 리뷰 대기 |
+| T11.4.1 traceroute (계획에 없는 새 ID) | [T11.4.1-traceroute.md](T11.4.1-traceroute.md) | 엔진·공통 | yysong1249 | 검토 대기 ([PR #47](https://github.com/TL-cg11/PING9/pull/47)) |

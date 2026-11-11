@@ -196,18 +196,19 @@ export class RouterModel implements DeviceModel {
 
   repliesReceived(): readonly number[] { return [...this.#replies]; }
 
-  sendEcho(ctx: SimContext, targetIp: string, sequence: number): void {
+  /** echo 요청을 보낸다. `ttl`은 traceroute가 hop마다 정한다 (T11.4.1) */
+  sendEcho(ctx: SimContext, targetIp: string, sequence: number, ttl = ROUTER_TTL): void {
     const device = this.#device(); const decision = this.#decision(targetIp);
     if (decision === null) {
       const port = PORT_NAMES.router[0];
       const frame = ctx.createFrame({ ethernet: { sourceMac: portMac(device, port), destinationMac: UNKNOWN_MAC },
-        ipv4: { sourceIp: device.config.interfaces[port]?.ip ?? "", destinationIp: targetIp, ttl: ROUTER_TTL },
+        ipv4: { sourceIp: device.config.interfaces[port]?.ip ?? "", destinationIp: targetIp, ttl },
         icmp: { type: "echo-request", sequence } });
       ctx.record({ frame, deviceId: device.id, layer: "L3", action: "drop",
         reason: { code: "NO_ROUTE", params: { device: deviceRef(device), targetIp } } });
       return;
     }
-    this.#send(ctx, decision, { sourceIp: device.config.interfaces[decision.port]!.ip!, destinationIp: targetIp, ttl: ROUTER_TTL },
+    this.#send(ctx, decision, { sourceIp: device.config.interfaces[decision.port]!.ip!, destinationIp: targetIp, ttl },
       { type: "echo-request", sequence }, "create");
   }
 

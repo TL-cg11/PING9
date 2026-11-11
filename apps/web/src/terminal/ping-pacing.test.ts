@@ -2,7 +2,9 @@
 import { createSimulator } from "@ping9/engine";
 import { pingRoundKind } from "@ping9/shared";
 import type { PingRoundKind, TopologyDocument } from "@ping9/shared";
-import { TWO_PC, twoPcDocument, twoPcPingConsoleResult } from "@ping9/shared/examples";
+import {
+  ROUTER_LAB, switchedStaticRoutingLabDocument, TWO_PC, twoPcDocument, twoPcPingConsoleResult,
+} from "@ping9/shared/examples";
 import { describe, expect, test } from "vitest";
 
 import { interruptedLines, pacePing, ROUND_INTERVAL_MS, TIMEOUT_WAIT_MS, waitAfterStart } from "./ping-pacing";
@@ -171,5 +173,59 @@ describe("runLinePaced", () => {
     expect(waits).toEqual([]);
     expect(shown).toEqual([]);
     expect(outputOf(final)[0]).toBe("Ethernet adapter Ethernet0:");
+  });
+
+  describe("tracert (T11.4.1)", () => {
+    function tracert(stopAtWait?: number) {
+      const simulator = createSimulator();
+      simulator.load(switchedStaticRoutingLabDocument);
+      const port = simulator.console(ROUTER_LAB.pc1);
+      const waits: number[] = [];
+      // 요약은 ping과 RIP 교환의 합이다 (T11.2.3). 탐색의 요약은 ping 쪽이다
+      const summaryOf = (traceId: number) => {
+        const summary = simulator.getSnapshot().traces.find((trace) => trace.id === traceId);
+        return summary?.kind === "ping" ? summary : undefined;
+      };
+      const run: PacedRun = {
+        show: () => undefined,
+        wait: async (ms) => {
+          waits.push(ms);
+          return waits.length !== stopAtWait;
+        },
+        kindOf: (traceId, sequence) => pingRoundKind(simulator.getTrace(traceId)!, ROUTER_LAB.pc1, sequence),
+        targetOf: (traceId) => summaryOf(traceId)?.targetIp ?? "",
+        isHop: (traceId) => summaryOf(traceId)?.hop !== undefined,
+        os: "windows",
+      };
+      return { port, waits, run: () => runLinePaced(port, initialTerminal(port.prompt()), "tracert 192.168.2.10", run) };
+    }
+
+    test("hop 줄을 하나씩 보이고 마지막에 Trace complete.", async () => {
+      const { waits, run } = tracert();
+      const final = await run();
+
+      expect(waits).toEqual([ROUND_INTERVAL_MS, ROUND_INTERVAL_MS]);
+      expect(outputOf(final)).toEqual([
+        "Tracing route to 192.168.2.10 over a maximum of 30 hops",
+        "",
+        "  1     8 ms     8 ms     8 ms  192.168.1.1",
+        "  2     8 ms     8 ms     8 ms  10.0.12.2",
+        "  3    14 ms    14 ms    14 ms  192.168.2.10",
+        "",
+        "Trace complete.",
+      ]);
+    });
+
+    test("Ctrl+C로 멈추면 ping 통계 없이 ^C만", async () => {
+      const { run } = tracert(1);
+      const final = await run();
+
+      expect(outputOf(final)).toEqual([
+        "Tracing route to 192.168.2.10 over a maximum of 30 hops",
+        "",
+        "  1     8 ms     8 ms     8 ms  192.168.1.1",
+        "^C",
+      ]);
+    });
   });
 });

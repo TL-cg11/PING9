@@ -13,7 +13,7 @@ import type {
 } from "@ping9/shared";
 import type { ArpEntryView, MacTableEntryView, RouteEntryView } from "@ping9/shared";
 
-import type { PingRequest, PingRun } from "../../runtime";
+import type { PingRequest, PingRun, TracerouteRequest } from "../../runtime";
 
 export type CliMode = "user" | "privileged" | "config" | "config-if" | "config-vlan" | "config-router";
 
@@ -81,6 +81,8 @@ export interface CommandContext {
  */
 export interface RuntimeAccess {
   ping(request: PingRequest): PingRun;
+  /** traceroute (T11.4.1). hop마다 추적 하나 */
+  traceroute(request: TracerouteRequest): PingRun;
   arpTable(deviceId: string): readonly ArpEntryView[];
   /** IP를 주면 그 항목만. 지운 것이 있으면 true */
   clearArp(deviceId: string, ip?: string): boolean;

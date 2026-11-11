@@ -149,6 +149,8 @@ export type TraceSummary =
       readonly source: DeviceRef;
       /** 목적지 IP */
       readonly targetIp: string;
+      /** traceroute의 탐색이면 그 hop 번호 (= 보낸 TTL). ping이면 없다 (T11.4.1) */
+      readonly hop?: number;
     })
   | (TraceSummaryBase & {
       /** RIP 경로 교환 1회. 목록에는 가장 최근 것 하나만 있다 */

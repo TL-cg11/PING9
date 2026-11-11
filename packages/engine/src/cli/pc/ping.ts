@@ -45,7 +45,7 @@ export function readCount(value: string): ParamValue {
 }
 
 /** 255.255.255.255이거나 이 PC 네트워크의 브로드캐스트 주소 (MAL-6) */
-function isBroadcast(target: string, pc: PcDevice): boolean {
+export function isBroadcast(target: string, pc: PcDevice): boolean {
   if (target === "255.255.255.255") return true;
   const { ip, mask } = pc.config;
   if (ip === undefined || mask === undefined) return false;
@@ -58,7 +58,7 @@ function isBroadcast(target: string, pc: PcDevice): boolean {
 }
 
 /** 링크를 지나지 않는 주소: 자기 IP, 127.0.0.0/8 */
-function isLoopback(target: string, pc: PcDevice): boolean {
+export function isLoopback(target: string, pc: PcDevice): boolean {
   return target === pc.config.ip || target.startsWith("127.");
 }
 

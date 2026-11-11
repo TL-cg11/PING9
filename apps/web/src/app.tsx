@@ -251,6 +251,10 @@ export function App() {
             const summary = simulator.getSnapshot().traces.find((candidate) => candidate.id === traceId);
             return summary?.kind === "ping" ? summary.targetIp : "";
           },
+          isHop: (traceId) => {
+            const summary = simulator.getSnapshot().traces.find((candidate) => candidate.id === traceId);
+            return summary?.kind === "ping" && summary.hop !== undefined;
+          },
           os: device?.kind === "pc" ? osOf(device.config) : "windows",
           play: (traceId) => play(deviceId, traceId),
         });

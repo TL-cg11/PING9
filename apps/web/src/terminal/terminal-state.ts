@@ -178,6 +178,8 @@ export interface PacedRun {
   kindOf(traceId: number, sequence: number): PingRoundKind;
   /** 그 추적의 목적지 IP */
   targetOf(traceId: number): string;
+  /** traceroute의 hop 추적이면 true (T11.4.1). 멈췄을 때 ping 통계 대신 `^C`만 찍는다 */
+  isHop?(traceId: number): boolean;
   /** 통계 줄의 형식 */
   readonly os: OsKind;
   /** 그 회차의 추적을 캔버스에서 재생하고 재생 길이(ms)를 돌려준다 (T6.1.2). 없으면 재생하지 않는다 */
@@ -186,6 +188,7 @@ export interface PacedRun {
 
 /**
  * 한 줄을 실행하고, ping처럼 회차가 있는 결과는 실제처럼 회차마다 시간을 두고 보인다 (T1.8.3).
+ * traceroute도 hop 줄마다 추적 줄이 있어 같은 길로 보인다 (T11.4.1).
  * 결과는 engine이 이미 다 계산했다. Ctrl+C로 멈추면 남은 회차를 숨기고 그때까지의 통계를 보인다.
  * 숨긴 회차의 추적은 engine에 그대로 남는다
  */
@@ -209,6 +212,9 @@ export async function runLinePaced(
   const shown: PingRoundKind[] = [];
   const interrupted = (round: (typeof paced.rounds)[number]) => {
     const first = paced.rounds[0]!.lines.at(-1);
+    if (first?.kind === "trace" && run.isHop?.(first.traceId) === true) {
+      return append(current, [{ kind: "text", text: "^C" }]);
+    }
     const targetIp = first?.kind === "trace" ? run.targetOf(first.traceId) : "";
     return append(current, interruptedLines(run.os, targetIp, shown, round.kind));
   };
