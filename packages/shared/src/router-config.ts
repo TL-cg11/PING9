@@ -16,7 +16,24 @@ export function checkStaticRoute(deviceId: string, route: StaticRoute, interface
   if (Object.values(interfaces).some(iface => iface.ip === route.nextHop)) {
     return errorInfo("ROUTE_NEXT_HOP_IS_SELF", { deviceId, nextHop: route.nextHop });
   }
-  return null;
+  return checkRouteDistance(route.distance);
+}
+
+/** 출처별 AD 기본값 (T11.1.1). 같은 목적지의 경로가 여럿이면 작은 쪽을 쓴다 */
+export const DEFAULT_DISTANCE = { connected: 0, static: 1, rip: 120 } as const;
+
+/** Static route의 AD. 없으면 통과(1). 1~255의 정수만 */
+export function checkRouteDistance(distance: unknown): ErrorInfo | null {
+  if (distance === undefined) return null;
+  return Number.isInteger(distance) && (distance as number) >= 1 && (distance as number) <= 255
+    ? null
+    : errorInfo("ROUTE_DISTANCE_INVALID", { value: String(distance).slice(0, 64) });
+}
+
+/** AD 1은 기본값이라 저장하지 않는다. 옛 문서와 같은 모양이 된다 */
+export function normalizeStaticRoute(route: StaticRoute): StaticRoute {
+  const { network, mask, nextHop, distance } = route;
+  return distance === undefined || distance === DEFAULT_DISTANCE.static ? { network, mask, nextHop } : { network, mask, nextHop, distance };
 }
 
 /** 생략된 포트도 기본 꺼짐으로 채우고 전체 포트 순서대로 정규화한다. */
@@ -29,7 +46,7 @@ export function normalizeRouterConfig(config: RouterConfig): RouterConfig {
         ...(iface?.ip !== undefined && iface.mask !== undefined ? { ip: iface.ip, mask: iface.mask } : {}),
       }];
     })),
-    staticRoutes: config.staticRoutes,
+    staticRoutes: config.staticRoutes.map(normalizeStaticRoute),
     ...(config.rip === undefined ? {} : { rip: normalizeRipConfig(config.rip) }),
   };
 }

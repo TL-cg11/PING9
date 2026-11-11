@@ -106,6 +106,8 @@ export interface StaticRoute {
   readonly network: string;
   readonly mask: string;
   readonly nextHop: string;
+  /** AD (T11.1.1). 1~255. 없으면 1. 1은 저장하지 않는다 */
+  readonly distance?: number;
 }
 
 /** RIP 구성 (T11.2.1). version 2, no auto-summary로 고정이라 저장하지 않는다 */

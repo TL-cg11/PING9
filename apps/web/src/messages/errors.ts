@@ -62,6 +62,7 @@ export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsBy
     `${port}의 IP ${ip} (${mask})가 ${otherPort} 네트워크와 겹쳐요. 다른 네트워크를 입력해 주세요`,
   ROUTE_NETWORK_NOT_ALIGNED: ({ network, mask }) => `${network}는 ${mask}에 맞는 네트워크 주소가 아니에요`,
   ROUTE_NEXT_HOP_IS_SELF: ({ nextHop }) => `다음 홉 ${nextHop}은 이 라우터 자신의 IP 주소예요`,
+  ROUTE_DISTANCE_INVALID: ({ value }) => `경로의 거리(AD) 값은 1부터 255까지예요: ${value}`,
   ROUTE_NOT_FOUND: ({ network, mask, nextHop }) => `설정된 정적 경로가 없어요: ${network} ${mask} → ${nextHop}`,
   RIP_NOT_ENABLED: () => "RIP가 켜져 있지 않아요. 먼저 router rip를 입력해 주세요",
   RIP_NETWORK_INVALID: ({ network }) => `RIP에 넣을 수 없는 주소예요: ${network}`,

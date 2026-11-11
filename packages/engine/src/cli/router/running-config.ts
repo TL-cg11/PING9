@@ -1,4 +1,4 @@
-import { PORT_NAMES } from "@ping9/shared";
+import { DEFAULT_DISTANCE, PORT_NAMES } from "@ping9/shared";
 import type { RouterDevice } from "@ping9/shared";
 
 /** 기본 구성과 다른 설정을, 포트 순서대로 다시 입력할 수 있는 명령어로 만든다. */
@@ -25,7 +25,8 @@ export function routerRunningConfigLines(device: RouterDevice): string[] {
     );
   }
   for (const route of device.config.staticRoutes) {
-    lines.push(`ip route ${route.network} ${route.mask} ${route.nextHop}`);
+    const distance = route.distance === undefined || route.distance === DEFAULT_DISTANCE.static ? "" : ` ${route.distance}`;
+    lines.push(`ip route ${route.network} ${route.mask} ${route.nextHop}${distance}`);
   }
   lines.push("end");
   return lines;

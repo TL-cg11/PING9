@@ -8,6 +8,9 @@ import type { CommandDefinition } from "../ios";
 import { tableLines } from "../ios/table";
 import { routerRunningConfigLines } from "./running-config";
 
+const SOURCE_CODE = { connected: "C", static: "S", rip: "R" } as const;
+const SOURCE_LABEL = { connected: "C - connected", static: "S - static", rip: "R - RIP" } as const;
+
 export const ROUTER_SHOW_COMMANDS: readonly CommandDefinition[] = [
   defineCommand({
     modes: ["privileged"], devices: ["router"],
@@ -22,7 +25,8 @@ export const ROUTER_SHOW_COMMANDS: readonly CommandDefinition[] = [
       const decision = lookupRoute(table, destination);
       const lines = decision === null ? [`No route to ${destination}`] : [
         `Routing entry for ${decision.route.network}/${maskToPrefixLength(decision.route.mask)}`,
-        `  ${decision.route.source === "connected" ? "C - connected" : "S - static"}`,
+        `  ${SOURCE_LABEL[decision.route.source]}`,
+        `  Distance: ${decision.route.distance}, metric: ${decision.route.metric}`,
         `  Next hop: ${decision.nextHop}`,
         `  Outgoing interface: ${decision.port}`,
       ];
@@ -31,13 +35,15 @@ export const ROUTER_SHOW_COMMANDS: readonly CommandDefinition[] = [
   }),
   defineCommand({
     modes: ["privileged"], devices: ["router"], tokens: ["show", "ip", "route"],
-    help: "Show active connected and static routes",
+    help: "Show the routing table",
     run: (_args, context) => {
       const view = computeViews(context.document)[context.device.id];
       if (view?.kind !== "router") return {};
-      const rows = view.routingTable.map(route => [route.source === "connected" ? "C" : "S",
-        `${route.network}/${maskToPrefixLength(route.mask)}`, route.nextHop ?? "directly connected", route.port ?? ""]);
-      const lines = ["Codes: C - connected, S - static", ...tableLines(["Type", "Network", "Next hop", "Interface"], rows)];
+      const rows = view.routingTable.map(route => [SOURCE_CODE[route.source],
+        `${route.network}/${maskToPrefixLength(route.mask)}`, `${route.distance}/${route.metric}`,
+        route.nextHop ?? "directly connected", route.port ?? ""]);
+      const lines = ["Codes: C - connected, S - static, R - RIP",
+        ...tableLines(["Type", "Network", "AD/Metric", "Next hop", "Interface"], rows)];
       return { lines: lines.map(text => ({ kind: "text", text })) };
     },
   }),

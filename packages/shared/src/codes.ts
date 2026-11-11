@@ -96,6 +96,7 @@ export interface ErrorParamsByCode {
   };
   ROUTE_NETWORK_NOT_ALIGNED: { readonly network: string; readonly mask: string };
   ROUTE_NEXT_HOP_IS_SELF: { readonly deviceId: string; readonly nextHop: string };
+  ROUTE_DISTANCE_INVALID: { readonly value: string };
   ROUTE_NOT_FOUND: { readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string };
   // RIP (T11.2.1)
   /** `router rip` 전에 RIP 구성을 바꾸려 함 */
@@ -183,6 +184,7 @@ const ERROR_CODE_SET = {
   INTERFACE_NETWORK_OVERLAP: true,
   ROUTE_NETWORK_NOT_ALIGNED: true,
   ROUTE_NEXT_HOP_IS_SELF: true,
+  ROUTE_DISTANCE_INVALID: true,
   ROUTE_NOT_FOUND: true,
   RIP_NOT_ENABLED: true,
   RIP_NETWORK_INVALID: true,

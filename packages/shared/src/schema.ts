@@ -53,6 +53,7 @@ const staticRouteSchema = z.object({
   network: shortString,
   mask: shortString,
   nextHop: shortString,
+  distance: integer.optional(),
 });
 
 const ripConfigSchema = z.object({
