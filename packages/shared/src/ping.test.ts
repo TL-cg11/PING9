@@ -17,14 +17,17 @@ describe("pingRoundKind", () => {
     expect(pingRoundKind(twoPcPingTrace, TWO_PC.pc1.id, 2)).toBe("timeout");
   });
 
-  test("출발 PC의 폐기로 나눈다: NO_IP·NO_GATEWAY는 unsent, ARP_TIMEOUT은 unreachable", () => {
-    const withDrop = (code: "NO_IP" | "NO_GATEWAY" | "ARP_TIMEOUT", deviceId: string = TWO_PC.pc1.id): Trace => ({
+  test("출발 PC의 폐기로 나눈다: NO_IP·NO_GATEWAY·IF_DOWN은 unsent, ARP_TIMEOUT은 unreachable", () => {
+    const withDrop = (code: "NO_IP" | "NO_GATEWAY" | "IF_DOWN" | "ARP_TIMEOUT", deviceId: string = TWO_PC.pc1.id): Trace => ({
       ...twoPcPingTrace,
       result: { status: "failed", primaryDropSeq: 0 },
       events: [{ ...twoPcPingTrace.events[0]!, deviceId, action: "drop", dropReason: code, reason: { code, params: { device: { deviceId, deviceName: "PC1" }, targetIp: TWO_PC.pc2.ip } } } as Trace["events"][number]],
     });
     expect(pingRoundKind(withDrop("NO_IP"), TWO_PC.pc1.id, 1)).toBe("unsent");
     expect(pingRoundKind(withDrop("NO_GATEWAY"), TWO_PC.pc1.id, 1)).toBe("unsent");
+    // 꺼진 PC 포트 (T0.14). 받는 쪽의 IF_DOWN은 출발 PC에게는 응답이 안 온 것이다
+    expect(pingRoundKind(withDrop("IF_DOWN"), TWO_PC.pc1.id, 1)).toBe("unsent");
+    expect(pingRoundKind(withDrop("IF_DOWN", TWO_PC.pc2.id), TWO_PC.pc1.id, 1)).toBe("timeout");
     expect(pingRoundKind(withDrop("ARP_TIMEOUT"), TWO_PC.pc1.id, 1)).toBe("unreachable");
     // 다른 장비의 ARP 실패는 출발 PC에게는 응답이 안 온 것이다
     expect(pingRoundKind(withDrop("ARP_TIMEOUT", TWO_PC.pc2.id), TWO_PC.pc1.id, 1)).toBe("timeout");

@@ -78,7 +78,6 @@ describe("interface/set-admin (Switch)", () => {
 
   test.each([
     ["없는 장비", { deviceId: "00000000-0000-4000-8000-00000000ffff" }, "DEVICE_NOT_FOUND"],
-    ["Switch가 아닌 장비", { deviceId: pc1.id, port: "Ethernet0" }, "DEVICE_KIND_MISMATCH"],
     ["없는 포트", { port: "FastEthernet0/9" }, "UNKNOWN_PORT"],
     ["줄여 쓴 포트 이름", { port: "fa0/1" }, "UNKNOWN_PORT"],
     ["글이 아닌 포트", { port: 5 }, "UNKNOWN_PORT"],

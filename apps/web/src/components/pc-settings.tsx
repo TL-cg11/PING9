@@ -1,9 +1,9 @@
-// 속성 패널에서 PC에만 있는 구역: OS (T0.7), IP, 서브넷 마스크, 기본 게이트웨이 (T1.5.2, FR-25).
+// 속성 패널에서 PC에만 있는 구역: OS (T0.7), 포트 켜고 끄기 (T0.14), IP, 서브넷 마스크, 기본 게이트웨이 (T1.5.2, FR-25).
 // "적용" 버튼이나 Enter로 pc/set-ip를 한 번 dispatch한다 (AD-3). 판단은 format/pc-address.ts에 있다.
-// OS는 고르는 즉시 pc/set-os를 dispatch한다. IP의 "적용"과 따로다.
+// OS는 고르는 즉시 pc/set-os를, 포트 토글은 누르는 즉시 interface/set-admin을 dispatch한다. IP의 "적용"과 따로다.
 // 문구는 카탈로그에서 만들어 글자 그대로 넣는다 (AD-14, SEC-11).
 
-import { OS_KINDS, osOf } from "@ping9/shared";
+import { OS_KINDS, PORT_NAMES, osOf } from "@ping9/shared";
 import type { Command, DispatchResult, ErrorInfo, Notice, OsKind, PcDevice } from "@ping9/shared";
 import { useId, useState } from "react";
 
@@ -37,6 +37,51 @@ export function OsChoice({ os, onChange }: { readonly os: OsKind; readonly onCha
         </label>
       ))}
     </fieldset>
+  );
+}
+
+const PC_PORT = PORT_NAMES.pc[0];
+
+/** 패널에 보이는 포트 이름. Linux는 콘솔과 같은 `eth0`, 문서 안의 이름은 OS와 상관없이 `Ethernet0`이다 */
+const PORT_LABELS: Readonly<Record<OsKind, string>> = { windows: PC_PORT, linux: "eth0" };
+
+/** 토글을 눌렀을 때 낼 Command (T0.14) */
+export function portAdminCommand(deviceId: string, adminUp: boolean): Command {
+  return { type: "interface/set-admin", deviceId, port: PC_PORT, adminUp };
+}
+
+/**
+ * 포트 켜고 끄기 (T0.14). 스위치 모양 버튼이고, 색만으로 구별하지 않도록 "켜짐"·"꺼짐" 글자를 함께 쓴다.
+ * Windows에는 끄는 명령어가 없어 여기서만 끈다 (결정 3)
+ */
+export function PortSwitch({
+  os,
+  adminUp,
+  onChange,
+}: {
+  readonly os: OsKind;
+  readonly adminUp: boolean;
+  readonly onChange: (adminUp: boolean) => void;
+}) {
+  const port = PORT_LABELS[os];
+  return (
+    <div className={adminUp ? "port-row" : "port-row off"}>
+      <span className="key">포트</span>
+      <span className="port-name">{port}</span>
+      <button
+        type="button"
+        className="port-switch"
+        role="switch"
+        aria-checked={adminUp}
+        aria-label={`포트 ${port}`}
+        onClick={() => onChange(!adminUp)}
+      >
+        <span className="state">{adminUp ? "켜짐" : "꺼짐"}</span>
+        <span className="track" aria-hidden="true">
+          <span className="knob" />
+        </span>
+      </button>
+    </div>
   );
 }
 
@@ -190,6 +235,7 @@ export function PcSettings({
   };
 
   const os = osOf(device.config);
+  const adminUp = device.config.adminUp ?? true;
 
   return (
     <>
@@ -199,6 +245,7 @@ export function PcSettings({
           if (next !== os) onDispatch({ type: "pc/set-os", deviceId: device.id, os: next });
         }}
       />
+      <PortSwitch os={os} adminUp={adminUp} onChange={(next) => onDispatch(portAdminCommand(device.id, next))} />
       <PcSettingsView
         draft={draft}
         errors={errors}

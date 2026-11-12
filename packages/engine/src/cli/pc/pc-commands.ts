@@ -10,6 +10,7 @@ import { macAddressFor } from "../../mac";
 import { computeViews } from "../../views";
 import { defineCommand, linesFromDispatch, param } from "../ios";
 import type { CommandArgs, CommandContext, CommandDefinition, CommandOutcome } from "../ios";
+import { pcRoutes, portStatusOf } from "./routes";
 
 const PC_PORT = PORT_NAMES.pc[0];
 
@@ -89,6 +90,58 @@ function setIp(args: CommandArgs, context: CommandContext): CommandOutcome {
   return { lines: linesFromDispatch(result) };
 }
 
+const RULE = "=".repeat(75);
+
+/** Metric. 실제 1Gbps 유선의 흔한 값으로 고정한다 (T0.14) */
+const METRIC = { gateway: 25, onLink: 281 } as const;
+
+/**
+ * 경로 한 줄. 실제 Windows처럼 칸을 오른쪽에 맞춘다.
+ * `On-link`는 뒤에 빈칸이 하나 붙어 IP 게이트웨이보다 한 칸 앞에서 끝난다 (실제 출력과 같음)
+ */
+function routeRow(destination: string, mask: string, gateway: string | null, iface: string, metric: number): ConsoleLine {
+  const gatewayText = gateway === null ? "On-link " : gateway;
+  return text(
+    `${destination.padStart(17)}${mask.padStart(17)}${gatewayText.padStart(17)}${iface.padStart(17)}${String(metric).padStart(7)}`,
+  );
+}
+
+/**
+ * `route print` (T0.14). 실제 출력의 IPv4 부분에서 기본 게이트웨이·내 네트워크·내 주소 줄만 보인다.
+ * loopback·멀티캐스트·브로드캐스트 줄과 IPv6 부분은 뺀다 (결정 2). `route add`가 없어 Persistent Routes는 늘 None
+ */
+function showRoutePrint(_args: CommandArgs, context: CommandContext): CommandOutcome {
+  const pc = pcOf(context);
+  if (pc === undefined) return {};
+  const routes = pcRoutes(pc, portStatusOf(pc, context));
+  const mac = macAddressFor(pc.id, 0).replaceAll(":", " ");
+  return {
+    lines: [
+      text(RULE),
+      text("Interface List"),
+      text(`  2...${mac} ......${PC_PORT}`),
+      text(RULE),
+      text(""),
+      text("IPv4 Route Table"),
+      text(RULE),
+      text("Active Routes:"),
+      text("Network Destination        Netmask          Gateway       Interface  Metric"),
+      ...(routes === null
+        ? []
+        : [
+            ...(routes.gateway === undefined
+              ? []
+              : [routeRow("0.0.0.0", "0.0.0.0", routes.gateway, routes.ip, METRIC.gateway)]),
+            routeRow(routes.network, routes.mask, null, routes.ip, METRIC.onLink),
+            routeRow(routes.ip, "255.255.255.255", null, routes.ip, METRIC.onLink),
+          ]),
+      text(RULE),
+      text("Persistent Routes:"),
+      text("  None"),
+    ],
+  };
+}
+
 const ipParam = param("ip", "ipv4", "IPv4 address");
 const maskParam = param("mask", "mask", "Subnet mask");
 const gatewayParam = param("gateway", "ipv4", "Default gateway");
@@ -122,5 +175,12 @@ export const WINDOWS_PC_COMMANDS: readonly CommandDefinition[] = [
     tokens: ["ipconfig", ipParam, maskParam, gatewayParam],
     help: "Set the IP address, subnet mask and default gateway",
     run: setIp,
+  }),
+  defineCommand({
+    modes: ["user"],
+    devices: ["pc"],
+    tokens: ["route", "print"],
+    help: "Show the IPv4 routing table (default gateway and own network only)",
+    run: showRoutePrint,
   }),
 ];
