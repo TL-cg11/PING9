@@ -95,4 +95,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T0.14 PC 명령어 2단계: 라우팅 표 보기, 포트 끄고 켜기 (계획에 없는 새 ID) | [T0.14-pc-route-link.md](T0.14-pc-route-link.md) | 엔진·화면·공통 | yysong1249 | 검토 대기 ([PR #55](https://github.com/TL-cg11/PING9/pull/55), PR #54 위). 요구사항 추가라 팀 확인 필요 |
 | T0.16 토폴로지 이름 고치기 (계획에 없는 새 ID) | [T0.16-topology-name.md](T0.16-topology-name.md) | 화면 | yysong1249 | 검토 대기 ([PR #56](https://github.com/TL-cg11/PING9/pull/56), PR #55 위). 요구사항 추가라 팀 확인 필요 |
 | T0.17 떠 있는 좌우 패널, 빈 속성 패널 카드, 시뮬레이션 배경 (계획에 없는 새 ID) | [T0.17-panel-and-background.md](T0.17-panel-and-background.md) | 화면 | yysong1249 | 검토 대기 ([PR #57](https://github.com/TL-cg11/PING9/pull/57)). 디자인 변경이라 팀 확인 필요 |
-| T0.14 버그 수정: 꺼 둔 PC 포트가 IP 설정에 켜짐, 포트를 껐다 켜도 RIP 경로가 그대로임 | [T0.14-pc-port-admin-fix.md](T0.14-pc-port-admin-fix.md) | 엔진 | SDY | 검토 대기. T0.14(yysong1249)의 수정이라 담당자 확인 필요 |
+| T0.14 버그 수정: 꺼 둔 PC 포트가 IP 설정에 켜짐, 포트를 껐다 켜도 RIP 경로가 그대로임 | [T0.14-pc-port-admin-fix.md](T0.14-pc-port-admin-fix.md) | 엔진 | SDY | 검토 대기 ([PR #58](https://github.com/TL-cg11/PING9/pull/58)). T0.14(yysong1249)의 수정이라 담당자 확인 필요 |
