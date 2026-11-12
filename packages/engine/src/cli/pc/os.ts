@@ -6,6 +6,9 @@ import type { OsKind, PcDevice } from "@ping9/shared";
 
 import { defineCommand } from "../ios";
 import type { CommandDefinition } from "../ios";
+import { LINUX_FILE_COMMANDS, WINDOWS_FILE_COMMANDS } from "./file-commands";
+import { folderLabel } from "./file-tree";
+import type { PcFiles } from "./file-tree";
 import { LINUX_PC_COMMANDS } from "./linux-commands";
 import { WINDOWS_PC_COMMANDS } from "./pc-commands";
 import { LINUX_NETWORK_COMMANDS, WINDOWS_NETWORK_COMMANDS } from "./ping";
@@ -39,6 +42,7 @@ function helpCommand(commands: () => readonly CommandDefinition[]): CommandDefin
 // ping과 ARP 명령어(T1.8.3), traceroute(T11.4.1)는 Runtime을 쓰므로 따로 정의하고 여기서 붙인다
 const WINDOWS_COMMANDS: readonly CommandDefinition[] = [
   ...WINDOWS_PC_COMMANDS,
+  ...WINDOWS_FILE_COMMANDS,
   ...WINDOWS_NETWORK_COMMANDS,
   ...WINDOWS_TRACE_COMMANDS,
   helpCommand(() => WINDOWS_COMMANDS),
@@ -46,6 +50,7 @@ const WINDOWS_COMMANDS: readonly CommandDefinition[] = [
 // Linux는 실제처럼 대소문자를 구분한다 (T0.9). Windows는 구분하지 않는다
 const LINUX_COMMANDS: readonly CommandDefinition[] = [
   ...LINUX_PC_COMMANDS,
+  ...LINUX_FILE_COMMANDS,
   ...LINUX_NETWORK_COMMANDS,
   ...LINUX_TRACE_COMMANDS,
   helpCommand(() => LINUX_COMMANDS),
@@ -56,9 +61,13 @@ export function pcCommandsFor(pc: PcDevice): readonly CommandDefinition[] {
   return osOf(pc.config) === "linux" ? LINUX_COMMANDS : WINDOWS_COMMANDS;
 }
 
-/** 프롬프트. Windows는 `PC1>`, Linux는 `PC2$` */
-export function pcPrompt(pc: PcDevice): string {
-  return osOf(pc.config) === "linux" ? `${pc.name}$` : `${pc.name}>`;
+/**
+ * 프롬프트 (T0.19 설계안 결정 4, D안): 장비 이름과 지금 폴더 이름만.
+ * Windows `PC1 User>`, `PC1 C:\>`. Linux `user@PC2 ~ $`, `user@PC2 / $`
+ */
+export function pcPrompt(pc: PcDevice, files: PcFiles): string {
+  const label = folderLabel(files);
+  return osOf(pc.config) === "linux" ? `user@${pc.name} ${label} $` : `${pc.name} ${label}>`;
 }
 
 /** 첫 단어가 없는 명령어일 때 OS가 내는 줄 (T0.9). 한국어 안내는 따로 붙는다 */
@@ -68,11 +77,4 @@ export function unknownCommandText(os: OsKind, token: string): readonly string[]
     : [`'${token}' is not recognized as an internal or external command,`, "operable program or batch file."];
 }
 
-/**
- * 한 줄에 명령 하나만 받는다 (T0.9, vpc.md 4절). 파이프, 리다이렉트, 명령 연결 기호의 위치를 찾는다.
- * Windows는 `&` 하나로도 명령을 이으므로 `&&`가 아니라 `&`를 본다
- */
-export function unsupportedSyntaxAt(line: string): { readonly token: string; readonly position: number } | undefined {
-  const match = /[|<>;&`]|\$\(/.exec(line);
-  return match === null ? undefined : { token: match[0], position: match.index };
-}
+export { unsupportedSyntaxAt } from "./syntax";

@@ -84,6 +84,8 @@ test("예시 ConsoleResult의 줄을 종류별로 그릴 수 있다", () => {
         return `오류 ${line.code}`;
       case "notice":
         return `알림 ${line.code}`;
+      case "clear":
+        return "[화면 지움]";
     }
   };
 

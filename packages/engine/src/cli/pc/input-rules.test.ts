@@ -73,9 +73,9 @@ describe("모르는 명령은 OS 형식으로 나온다", () => {
   });
 
   test("Linux", async () => {
-    expect((await open("linux").port.exec("  ls")).lines).toEqual([
-      { kind: "text", text: "ls: command not found" },
-      { kind: "notice", code: "PC_UNKNOWN_COMMAND", params: { token: "ls" } },
+    expect((await open("linux").port.exec("  vi")).lines).toEqual([
+      { kind: "text", text: "vi: command not found" },
+      { kind: "notice", code: "PC_UNKNOWN_COMMAND", params: { token: "vi" } },
     ]);
   });
 
@@ -119,20 +119,44 @@ describe("help", () => {
       "arp -d",
       "arp -d *",
       "arp -d <ip>",
+      "cd",
+      "cd <path>",
+      "cd..",
+      "cd\\",
+      "cls",
+      "copy <source> <target>",
+      "del <path>",
+      "dir",
+      "dir <path>",
+      "echo <text>",
+      "echo <text> > <file>",
       "help",
       "ipconfig",
       "ipconfig /all",
       "ipconfig <ip> <mask>",
       "ipconfig <ip> <mask> <gateway>",
+      "md <path>",
+      "mkdir <path>",
+      "move <source> <target>",
       "ping -n <count> <ip>",
       "ping <ip>",
       "ping <ip> -n <count>",
+      "rd /q /s <path>",
+      "rd /s /q <path>",
+      "rd /s <path>",
+      "rd <path>",
+      "ren <path> <name>",
+      "rmdir /q /s <path>",
+      "rmdir /s /q <path>",
+      "rmdir /s <path>",
+      "rmdir <path>",
       "route print",
       "tracert -d -h <hops> <ip>",
       "tracert -d <ip>",
       "tracert -h <hops> -d <ip>",
       "tracert -h <hops> <ip>",
       "tracert <ip>",
+      "type <path>",
     ]);
   });
 

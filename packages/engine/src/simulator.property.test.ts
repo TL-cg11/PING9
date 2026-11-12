@@ -54,7 +54,7 @@ test("load는 어떤 값에도 예외를 던지지 않고, 검증을 통과한 �
         expect(snapshot.document).toEqual(expected.document);
         expect(Object.keys(snapshot.views)).toHaveLength(expected.document.devices.length);
         for (const device of expected.document.devices) {
-          expect(simulator.console(device.id).prompt()).toBe(`${device.name}>`);
+          expect(simulator.console(device.id).prompt()).toBe(device.kind === "pc" ? (device.config.os === "linux" ? `user@${device.name} ~ $` : `${device.name} User>`) : `${device.name}>`);
         }
       } else {
         expect(snapshot.docVersion).toBe(0);

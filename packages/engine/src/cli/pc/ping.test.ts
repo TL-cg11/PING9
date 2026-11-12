@@ -157,7 +157,7 @@ describe("Linux ping", () => {
   test("출력 형식과 응답한 쪽의 TTL", async () => {
     const { port } = open(linuxPc1);
     const result = await port.exec("ping -c 2 192.168.1.2");
-    expect(result.prompt).toBe("PC1$");
+    expect(result.prompt).toBe("user@PC1 ~ $");
     expect(texts(result)).toEqual([
       "PING 192.168.1.2 (192.168.1.2) 56(84) bytes of data.",
       "64 bytes from 192.168.1.2: icmp_seq=1 ttl=128 time=4.00 ms",

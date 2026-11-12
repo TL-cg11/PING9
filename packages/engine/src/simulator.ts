@@ -14,6 +14,8 @@ import type {
 
 import { INITIAL_SESSION } from "./cli/ios";
 import type { CliSession, IosConsoleEnv, RuntimeAccess } from "./cli/ios";
+import { initialFiles } from "./cli/pc";
+import type { PcFiles } from "./cli/pc";
 import { createConsolePort } from "./console";
 import type { ConsolePort } from "./console";
 import { deepFreeze } from "./freeze";
@@ -66,6 +68,8 @@ export function createSimulator(): Simulator {
   const consoles = new Map<string, ConsolePort>();
   // 장비별 CLI 세션 (현재 모드, 설정 중인 대상). 스냅샷에 담지 않으며 바뀌어도 구독자를 부르지 않는다
   const sessions = new Map<string, CliSession>();
+  // PC의 파일 트리 (T0.19). Runtime에만 있고 문서를 다시 열면 비운다
+  const files = new Map<string, PcFiles>();
 
   const changed = (): void => {
     snapshot = null;
@@ -128,6 +132,13 @@ export function createSimulator(): Simulator {
     setSession: (deviceId, session) => {
       sessions.set(deviceId, session);
     },
+    getFiles: (deviceId, os) => {
+      const stored = files.get(deviceId);
+      return stored !== undefined && stored.os === os ? stored : initialFiles(os);
+    },
+    setFiles: (deviceId, tree) => {
+      files.set(deviceId, tree);
+    },
     runtime: runtimeAccess,
   };
 
@@ -142,6 +153,7 @@ export function createSimulator(): Simulator {
       runtimeVersion += 1;
       runtime.reset();
       sessions.clear();
+      files.clear();
       // 배운 경로는 저장하지 않는다. 열자마자 다시 배운다 (T11.2.3 결정 2)
       if (hasRipRouter(document)) runtime.exchangeRoutes(docVersion);
       changed();

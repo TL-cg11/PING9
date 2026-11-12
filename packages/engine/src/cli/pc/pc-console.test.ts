@@ -106,7 +106,7 @@ describe("ipconfig <ip> <mask> [<gateway>]", () => {
 
     const result = await port.exec("ipconfig 10.0.0.1 255.255.255.0");
 
-    expect(result).toEqual({ lines: [], prompt: "PC1>" });
+    expect(result).toEqual({ lines: [], prompt: "PC1 User>" });
     expect(simulator.getSnapshot().docVersion).toBe(before + 1);
     expect(simulator.getSnapshot().document.devices.find((device) => device.id === pc1.id)?.config).toEqual({
       ip: "10.0.0.1",
@@ -211,9 +211,9 @@ describe("프롬프트와 장비 종류", () => {
   test("PC의 프롬프트는 명령 전후 모두 이름>", async () => {
     const { port } = open();
 
-    expect(port.prompt()).toBe("PC1>");
-    expect((await port.exec("ipconfig 10.0.0.1 255.255.255.0")).prompt).toBe("PC1>");
-    expect((await port.exec("foo")).prompt).toBe("PC1>");
+    expect(port.prompt()).toBe("PC1 User>");
+    expect((await port.exec("ipconfig 10.0.0.1 255.255.255.0")).prompt).toBe("PC1 User>");
+    expect((await port.exec("foo")).prompt).toBe("PC1 User>");
   });
 
   test("Switch 콘솔에서는 ipconfig를 모른다", async () => {
@@ -227,6 +227,6 @@ describe("프롬프트와 장비 종류", () => {
   test("빈 줄은 아무것도 하지 않는다", async () => {
     const { port } = open();
 
-    expect(await port.exec("   ")).toEqual({ lines: [], prompt: "PC1>" });
+    expect(await port.exec("   ")).toEqual({ lines: [], prompt: "PC1 User>" });
   });
 });

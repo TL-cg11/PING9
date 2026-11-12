@@ -43,6 +43,7 @@ export function TerminalWindow({
   onSubmit,
   onHistory,
   onComplete,
+  onCandidates,
   onHelp,
   onLeave,
   onInterrupt,
@@ -65,6 +66,8 @@ export function TerminalWindow({
   readonly onHistory: (direction: "up" | "down") => string;
   /** Tab. 입력란에 넣을 글을 돌려준다 (완성할 것이 없으면 받은 글 그대로) */
   readonly onComplete: (input: string) => string;
+  /** 더 채울 것이 없는데 Tab을 또 누름. 후보 목록을 화면 기록에 더한다 (T0.19) */
+  readonly onCandidates?: (input: string) => void;
   /** `?`. 도움말을 화면 기록에 더한다 */
   readonly onHelp: (input: string) => void;
   /** Esc. 입력란을 떠나 캔버스의 그 장비로 포커스를 옮긴다. 창은 닫지 않는다 */
@@ -76,6 +79,8 @@ export function TerminalWindow({
   readonly onMove: (x: number, y: number) => void;
 }) {
   const [input, setInput] = useState("");
+  // 바로 앞의 Tab이 남긴 입력. 같은 입력에서 Tab을 또 누르면 후보 목록을 보인다 (bash의 Tab 두 번, T0.19)
+  const lastTab = useRef<string | null>(null);
   const windowRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -178,6 +183,7 @@ export function TerminalWindow({
     // Tab이 포커스를 옮기거나 `?`가 입력란에 들어가지 않게 한다
     event.preventDefault();
 
+    if (action !== "complete") lastTab.current = null;
     switch (action) {
       case "submit":
         onSubmit(input);
@@ -187,9 +193,13 @@ export function TerminalWindow({
       case "history-down":
         setInput(onHistory(action === "history-up" ? "up" : "down"));
         break;
-      case "complete":
-        setInput(onComplete(input));
+      case "complete": {
+        const next = onComplete(input);
+        if (next === input && lastTab.current === input) onCandidates?.(input);
+        lastTab.current = next;
+        setInput(next);
         break;
+      }
       case "help":
         // 입력 중인 줄은 그대로 둔다
         onHelp(input);

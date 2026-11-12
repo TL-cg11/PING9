@@ -17,8 +17,9 @@ export type {
   RuntimeAccess,
   Token,
 } from "./define";
-export { completeLine, helpFor } from "./assist";
-export { iosComplete, iosExec, iosHelp, iosPrompt } from "./ios-console";
+export { completeLine, completionLabels, helpFor } from "./assist";
+export type { CompletionOption, PathCompleter } from "./assist";
+export { iosCandidates, iosComplete, iosExec, iosHelp, iosPrompt } from "./ios-console";
 export type { IosConsoleEnv } from "./ios-console";
 export { parseLine } from "./parse";
 export type { ParseResult } from "./parse";

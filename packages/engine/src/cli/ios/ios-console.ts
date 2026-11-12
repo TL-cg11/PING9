@@ -8,11 +8,14 @@ import type {
   Device,
   DispatchResult,
   HelpEntry,
+  OsKind,
   TopologyDocument,
 } from "@ping9/shared";
 
-import { completeLine, helpFor } from "./assist";
-import type { CliSession, CommandDefinition, RuntimeAccess } from "./define";
+import { completeLine, completionLabels, helpFor } from "./assist";
+import type { PathCompleter } from "./assist";
+import type { PcFiles } from "../pc/file-tree";
+import type { CliSession, CommandDefinition, FileAccess, RuntimeAccess } from "./define";
 import { parseLine } from "./parse";
 import { effectiveSession, promptFor } from "./session";
 
@@ -26,6 +29,9 @@ export interface IosConsoleEnv {
   setSession(deviceId: string, session: CliSession): void;
   /** ping과 ARP 명령어가 쓰는 Runtime (T1.8.3) */
   readonly runtime?: RuntimeAccess;
+  /** PC의 파일 트리 (T0.19). 없거나 OS가 바뀌었으면 그 OS의 처음 상태 */
+  getFiles?(deviceId: string, os: OsKind): PcFiles;
+  setFiles?(deviceId: string, files: PcFiles): void;
 }
 
 export function iosPrompt(device: Device, env: IosConsoleEnv): string {
@@ -38,9 +44,22 @@ export function iosComplete(
   device: Device,
   definitions: readonly CommandDefinition[],
   env: IosConsoleEnv,
+  paths?: PathCompleter,
 ): string | null {
   const session = effectiveSession(env.getSession(device.id), device);
-  return completeLine(line, session.mode, device.kind, definitions);
+  return completeLine(line, session.mode, device.kind, definitions, paths);
+}
+
+/** Tab을 두 번 눌렀을 때의 후보 목록 (T0.19) */
+export function iosCandidates(
+  line: string,
+  device: Device,
+  definitions: readonly CommandDefinition[],
+  env: IosConsoleEnv,
+  paths?: PathCompleter,
+): string[] {
+  const session = effectiveSession(env.getSession(device.id), device);
+  return completionLabels(line, session.mode, device.kind, definitions, paths);
 }
 
 /** `?` 도움말. 지금 세션의 모드에서 계산하고, 세션과 문서는 바꾸지 않는다 */
@@ -91,7 +110,15 @@ export function iosExec(
     session,
     dispatch: (command) => env.dispatch(command),
     ...(env.runtime === undefined ? {} : { runtime: env.runtime }),
+    ...(fileAccess(device, env) ?? {}),
   });
   if (outcome.session !== undefined) env.setSession(device.id, outcome.session);
   return result(outcome.lines ?? []);
+}
+
+/** PC면 그 장비의 파일 트리를 읽고 바꾸는 길 (T0.19) */
+export function fileAccess(device: Device, env: IosConsoleEnv): { readonly files: FileAccess } | undefined {
+  const { getFiles, setFiles } = env;
+  if (device.kind !== "pc" || getFiles === undefined || setFiles === undefined) return undefined;
+  return { files: { get: (os) => getFiles(device.id, os), set: (files) => setFiles(device.id, files) } };
 }

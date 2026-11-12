@@ -87,7 +87,9 @@ export function submitted(state: TerminalState, input: string): TerminalState {
 
 /** engine이 돌려준 결과를 기록한다. 오류와 알림은 한국어 문구로 바꾼다 */
 export function received(state: TerminalState, result: ConsoleResult): TerminalState {
-  const lines: TerminalLine[] = [];
+  let lines: TerminalLine[] = [];
+  // `clear`·`cls` (T0.19): 그때까지의 화면 기록(친 줄 포함)을 지운다
+  let cleared = false;
   // 이 결과를 낸 입력 줄. 실행하면 입력 줄이 먼저 기록되므로 화면 기록의 마지막 줄이다
   const last = state.lines.at(-1);
   const echoed = last?.kind === "input" ? last : undefined;
@@ -109,9 +111,13 @@ export function received(state: TerminalState, result: ConsoleResult): TerminalS
       case "trace":
         // 추적 링크는 이벤트 목록이 생길 때 그린다 (T1.9.4)
         break;
+      case "clear":
+        cleared = true;
+        lines = [];
+        break;
     }
   }
-  return { ...state, lines: keepRecent([...state.lines, ...lines]), prompt: result.prompt };
+  return { ...state, lines: keepRecent(cleared ? lines : [...state.lines, ...lines]), prompt: result.prompt };
 }
 
 /** 위·아래 화살표. 돌려주는 `input`을 입력란에 넣는다 */
@@ -136,6 +142,30 @@ export function historyStep(
 /** Tab: 완성한 줄을 돌려준다. 완성할 것이 없으면 입력 중인 줄 그대로다 (T3.2.3) */
 export function completed(port: ConsolePort, input: string): string {
   return port.complete(cleanInput(input)) ?? input;
+}
+
+/** 후보를 늘어놓을 한 줄의 너비 (글자). bash처럼 열을 맞춰 여러 줄로 나눈다 */
+const CANDIDATE_WIDTH = 72;
+
+/**
+ * Tab을 두 번 눌렀을 때 (T0.19): bash처럼 입력 중인 줄을 남기고 그 아래에 후보를 열 맞춰 보인다.
+ * 입력란의 글은 부르는 쪽이 그대로 둔다. 후보가 없으면 아무것도 더하지 않는다
+ */
+export function showCandidates(port: ConsolePort, state: TerminalState, input: string): TerminalState {
+  const line = cleanInput(input);
+  const labels = port.candidates(line);
+  if (labels.length === 0) return state;
+  const column = Math.max(...labels.map((label) => label.length)) + 2;
+  const perRow = Math.max(1, Math.floor(CANDIDATE_WIDTH / column));
+  const rows: TerminalLine[] = [];
+  for (let index = 0; index < labels.length; index += perRow) {
+    const row = labels.slice(index, index + perRow);
+    rows.push({ kind: "text", text: row.map((label, at) => (at === row.length - 1 ? label : label.padEnd(column))).join("") });
+  }
+  return {
+    ...state,
+    lines: keepRecent([...state.lines, { kind: "input", prompt: state.prompt, text: line }, ...rows]),
+  };
 }
 
 /**

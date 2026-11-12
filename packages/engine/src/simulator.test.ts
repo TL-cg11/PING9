@@ -284,8 +284,8 @@ describe("console", () => {
     const simulator = createSimulator();
     simulator.load(twoPcDocument);
 
-    expect(simulator.console(TWO_PC.pc1.id).prompt()).toBe("PC1>");
-    expect(simulator.console(TWO_PC.pc2.id).prompt()).toBe("PC2>");
+    expect(simulator.console(TWO_PC.pc1.id).prompt()).toBe("PC1 User>");
+    expect(simulator.console(TWO_PC.pc2.id).prompt()).toBe("PC2 User>");
   });
 
   test("같은 장비에는 같은 ConsolePort를 돌려준다", () => {
@@ -301,8 +301,8 @@ describe("console", () => {
     simulator.load(twoPcDocument);
     const port = simulator.console(TWO_PC.pc1.id);
 
-    await expect(port.exec("")).resolves.toEqual({ lines: [], prompt: "PC1>" });
-    await expect(port.exec("   ")).resolves.toEqual({ lines: [], prompt: "PC1>" });
+    await expect(port.exec("")).resolves.toEqual({ lines: [], prompt: "PC1 User>" });
+    await expect(port.exec("   ")).resolves.toEqual({ lines: [], prompt: "PC1 User>" });
   });
 
   test("PC에서 없는 명령어는 OS 형식의 줄과 한국어 안내다 (T0.9)", async () => {
@@ -316,7 +316,7 @@ describe("console", () => {
         { kind: "text", text: "operable program or batch file." },
         { kind: "notice", code: "PC_UNKNOWN_COMMAND", params: { token: "pathping" } },
       ],
-      prompt: "PC1>",
+      prompt: "PC1 User>",
     });
   });
 
@@ -331,7 +331,7 @@ describe("console", () => {
     });
     await expect(port.exec("x".repeat(LIMITS.maxConsoleLineLength + 1))).resolves.toEqual({
       lines: [{ kind: "error", code: "CLI_LINE_TOO_LONG", params: { limit: 512 } }],
-      prompt: "PC1>",
+      prompt: "PC1 User>",
     });
   });
 
@@ -354,7 +354,7 @@ describe("console", () => {
 
     await expect(simulator.console(TWO_PC.pc1.id).exec(null as unknown as string)).resolves.toEqual({
       lines: [],
-      prompt: "PC1>",
+      prompt: "PC1 User>",
     });
   });
 
