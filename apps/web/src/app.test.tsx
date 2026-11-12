@@ -27,6 +27,16 @@ test("시안의 틀(상단 막대, 장비 목록, 캔버스, 속성 패널)이 �
   expect(text).toContain('class="inspector inspector-idle"');
 });
 
+test("캔버스와 속성 패널 사이에 패널 폭 손잡이가 있다 (T0.18)", () => {
+  const text = html();
+
+  expect(text).toContain('class="side-resize"');
+  expect(text).toContain('role="separator"');
+  // 기억한 폭이 없으면(서버 렌더링) 처음 폭 270px
+  expect(text).toContain("grid-template-columns:112px minmax(0, 1fr) 270px");
+  expect(text).toContain('aria-valuenow="270"');
+});
+
 test("창 전체에 지금 모드가 클래스로 붙는다 (T0.17, 시뮬레이션 배경)", () => {
   expect(html()).toMatch(/<div class="app mode-(realtime|simulation)">/);
 });

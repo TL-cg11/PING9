@@ -19,8 +19,15 @@ button { font: inherit; cursor: pointer; }
 /* 시뮬레이션 모드 배경 (T0.17): 오로라 그림을 창 전체에 비율대로 채운다. 상단 막대는 반투명이라 그림이 비친다 */
 .app.mode-simulation { background: #3B7BE0 url(/bg-sim-aurora.png) center bottom / cover no-repeat; }
 .app.mode-simulation .topbar { background: linear-gradient(180deg, #0B3C8C59, #0B3C8C14); text-shadow: 0 1px 2px #0B2A5C33; }
-/* 그림에 ＋ 격자가 들어 있어 시뮬레이션에서는 캔버스의 점 격자를 끈다 */
+/* 캔버스의 점 격자 대신 아래 눈밭 격자를 쓴다 */
 .app.mode-simulation .canvas { background-color: transparent; background-image: none; }
+/* 시뮬레이션 격자 (T0.18): 실시간과 같은 점 격자를 평평한 눈밭에만 보인다. 하늘, 산, 바다, 얼음 덩어리에는 없다.
+   눈밭 마스크(bg-sim-snow-mask.png)는 배경 그림과 크기가 같고 같은 방식(cover, 아래 가운데)으로 맞춰서 창 크기가 바뀌어도 눈밭을 따라간다.
+   점은 캔버스 왼쪽 위(왼쪽 14 + 장비 목록 112 + 틈 14, 위쪽 막대 64 + 6)에서 시작해 실시간과 같은 자리에 찍힌다 */
+.app.mode-simulation { position: relative; isolation: isolate; }
+.app.mode-simulation::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image: radial-gradient(circle, #C4DBF7 1.4px, transparent 1.6px); background-size: 24px 24px; background-position: 140px 70px;
+  -webkit-mask: url(/bg-sim-snow-mask.png) center bottom / cover no-repeat; mask: url(/bg-sim-snow-mask.png) center bottom / cover no-repeat; }
 
 /* top bar */
 .topbar { display: flex; align-items: center; gap: 16px; padding: 0 20px; background: linear-gradient(90deg, var(--sky-900), var(--sky-500)); color: #fff; }
@@ -59,7 +66,14 @@ button { font: inherit; cursor: pointer; }
 .speed button.on { background: #fff; color: var(--sky-700); }
 
 /* middle */
-.work { display: grid; grid-template-columns: 112px 1fr 270px; gap: 14px; padding: 6px 14px 14px; min-height: 0; }
+.work { position: relative; display: grid; grid-template-columns: 112px 1fr 270px; gap: 14px; padding: 6px 14px 14px; min-height: 0; }
+/* 오른쪽 패널 폭 조절 손잡이 (T0.18). 캔버스와 패널 사이 틈(14px)의 가운데에 선다. 폭은 app.tsx가 grid-template-columns로 정한다 */
+.side-resize { position: absolute; top: 6px; bottom: 14px; width: 12px; margin-right: 1px; cursor: ew-resize; touch-action: none; z-index: 20; outline: none; }
+.side-resize::after { content: ""; position: absolute; top: 50%; left: 50%; width: 4px; height: 44px; transform: translate(-50%, -50%); border-radius: 2px; background: #0E3A7A2E; transition: background .15s, height .15s; }
+.side-resize:hover::after, .side-resize:focus-visible::after, .side-resize.dragging::after { height: 72px; background: var(--sky-700); }
+.side-resize:focus-visible::after { box-shadow: 0 0 0 3px rgba(143,220,255,.55); }
+.work.side-dragging { cursor: ew-resize; user-select: none; }
+.work.side-dragging .canvas, .work.side-dragging .inspector { pointer-events: none; }
 /* 좌우 패널은 떠 있는 카드 (T0.17) */
 .palette { background: #FFFFFFEB; border: 1px solid #FFFFFFB3; border-radius: 18px; box-shadow: 0 8px 26px #0E3A7A1F; backdrop-filter: blur(6px); padding: 16px 12px; display: flex; flex-direction: column; gap: 10px; }
 .palette h4 { font-size: 12px; color: var(--navy-60); font-weight: 600; margin-top: 4px; }
@@ -198,8 +212,7 @@ button { font: inherit; cursor: pointer; }
 .inspector-idle { padding: 14px 16px 18px; text-align: center; }
 .inspector-idle .idle-art { border-radius: 14px; overflow: hidden; background: #EAF3FF; }
 .inspector-idle .idle-art img { display: block; width: 100%; height: auto; }
-.inspector-idle .idle-title { margin: 16px 0 8px; font-size: 19px; font-weight: 800; color: var(--navy); }
-.inspector-idle .idle-text { font-size: 12.5px; line-height: 1.6; color: var(--navy-60); }
+.inspector-idle .idle-text { margin-top: 14px; font-size: 12.5px; line-height: 1.6; color: var(--navy-60); }
 .inspector-idle .idle-stats { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 12px; text-align: left; }
 .inspector-idle .idle-stats div { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
 .inspector-idle .idle-stats dt { color: var(--navy-60); }
