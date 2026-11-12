@@ -1,9 +1,10 @@
 // 오른쪽 속성 패널. 시안의 selectDevice가 만드는 마크업과 클래스를 따른다.
 // 구성 값은 스냅샷의 Document에서, 포트 상태와 테이블은 스냅샷의 views에서 읽는다 (AD-7).
 
-import { shortPortName } from "@ping9/shared";
+import { LIMITS, shortPortName } from "@ping9/shared";
 import type { Command, DeviceKind, DispatchResult, PortView, RouteChangeView, Snapshot, TopologyDocument } from "@ping9/shared";
 
+import panelPenguin from "../assets/panel-penguin.png";
 import { DeviceName } from "./device-name";
 import { PcSettings } from "./pc-settings";
 import { ripSummaryFor, RouteExchange, RouterRoutingTable } from "./router-inspector";
@@ -53,8 +54,17 @@ export function Inspector({
 
   if (device === undefined || view === undefined) {
     return (
-      <aside className="inspector">
-        <div className="sub">장비를 누르면 여기에 정보가 보여요</div>
+      // 아무것도 고르지 않았을 때의 카드 (T0.17)
+      <aside className="inspector inspector-idle">
+        <div className="idle-art"><img src={panelPenguin} alt="" /></div>
+        <h3 className="idle-title">관제 준비 완료!</h3>
+        <p className="idle-text">장비를 선택하면 네트워크 상태와<br />상세 정보를 확인할 수 있어요.</p>
+        <dl className="idle-stats">
+          <div><dt>연결된 장비</dt><dd><b>{document.devices.length}</b> / {LIMITS.maxDevices}</dd></div>
+          <div><dt>네트워크 상태</dt><dd>{document.devices.length === 0
+            ? <span className="idle-state empty">비어 있음</span>
+            : <span className="idle-state ready">대기 중</span>}</dd></div>
+        </dl>
       </aside>
     );
   }

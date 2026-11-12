@@ -14,8 +14,13 @@
 html, body { height: 100%; }
 body { font-family: Pretendard, -apple-system, 'Apple SD Gothic Neo', sans-serif; color: var(--navy); background: var(--ice-50); min-width: 1280px; overflow: hidden; }
 button { font: inherit; cursor: pointer; }
-.app { display: grid; grid-template-rows: 64px 1fr; height: 100vh; user-select: none; -webkit-user-select: none; }
+.app { display: grid; grid-template-rows: 64px 1fr; height: 100vh; user-select: none; -webkit-user-select: none; background: var(--ice-50); }
 .app input, .app textarea, .term-body { user-select: text; -webkit-user-select: text; }
+/* 시뮬레이션 모드 배경 (T0.17): 오로라 그림을 창 전체에 비율대로 채운다. 상단 막대는 반투명이라 그림이 비친다 */
+.app.mode-simulation { background: #3B7BE0 url(/bg-sim-aurora.png) center bottom / cover no-repeat; }
+.app.mode-simulation .topbar { background: linear-gradient(180deg, #0B3C8C59, #0B3C8C14); text-shadow: 0 1px 2px #0B2A5C33; }
+/* 그림에 ＋ 격자가 들어 있어 시뮬레이션에서는 캔버스의 점 격자를 끈다 */
+.app.mode-simulation .canvas { background-color: transparent; background-image: none; }
 
 /* top bar */
 .topbar { display: flex; align-items: center; gap: 16px; padding: 0 20px; background: linear-gradient(90deg, var(--sky-900), var(--sky-500)); color: #fff; }
@@ -41,8 +46,9 @@ button { font: inherit; cursor: pointer; }
 .ping-btn.off, .ping-btn.off:active { opacity: .55; cursor: not-allowed; transform: none; box-shadow: 0 3px 0 var(--beak-dark); }
 
 /* middle */
-.work { display: grid; grid-template-columns: 112px 1fr 270px; min-height: 0; }
-.palette { background: #fff; border-right: 1px solid var(--line); padding: 16px 12px; display: flex; flex-direction: column; gap: 10px; }
+.work { display: grid; grid-template-columns: 112px 1fr 270px; gap: 14px; padding: 6px 14px 14px; min-height: 0; }
+/* 좌우 패널은 떠 있는 카드 (T0.17) */
+.palette { background: #FFFFFFEB; border: 1px solid #FFFFFFB3; border-radius: 18px; box-shadow: 0 8px 26px #0E3A7A1F; backdrop-filter: blur(6px); padding: 16px 12px; display: flex; flex-direction: column; gap: 10px; }
 .palette h4 { font-size: 12px; color: var(--navy-60); font-weight: 600; margin-top: 4px; }
 .tool { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; border-radius: 12px; border: 1px solid var(--line); background: var(--ice-50); font-size: 13px; font-weight: 600; cursor: grab; }
 .tool svg { width: 30px; height: 30px; }
@@ -174,7 +180,21 @@ button { font: inherit; cursor: pointer; }
 .term-in input { flex: 1; background: transparent; border: none; outline: none; color: #fff; font: inherit; caret-color: var(--cyan); }
 
 /* inspector */
-.inspector { background: #fff; border-left: 1px solid var(--line); padding: 18px; overflow: auto; }
+.inspector { background: #FFFFFFEB; border: 1px solid #FFFFFFB3; border-radius: 18px; box-shadow: 0 8px 26px #0E3A7A1F; backdrop-filter: blur(6px); padding: 18px; overflow: auto; }
+/* 아무것도 고르지 않았을 때의 카드 (T0.17) */
+.inspector-idle { padding: 14px 16px 18px; text-align: center; }
+.inspector-idle .idle-art { border-radius: 14px; overflow: hidden; background: #EAF3FF; }
+.inspector-idle .idle-art img { display: block; width: 100%; height: auto; }
+.inspector-idle .idle-title { margin: 16px 0 8px; font-size: 19px; font-weight: 800; color: var(--navy); }
+.inspector-idle .idle-text { font-size: 12.5px; line-height: 1.6; color: var(--navy-60); }
+.inspector-idle .idle-stats { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 12px; text-align: left; }
+.inspector-idle .idle-stats div { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+.inspector-idle .idle-stats dt { color: var(--navy-60); }
+.inspector-idle .idle-stats dd b { font-size: 18px; color: var(--navy); }
+.inspector-idle .idle-state { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.inspector-idle .idle-state::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.inspector-idle .idle-state.ready { background: #E3F7EC; color: #1E9E5A; }
+.inspector-idle .idle-state.empty { background: var(--ice-100); color: var(--navy-60); }
 .inspector .title { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
 .inspector .title h3 { font-size: 18px; }
 .chip { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #DDF4F1; color: #1E7A6E; }

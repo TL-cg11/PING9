@@ -485,7 +485,7 @@ export function App() {
   } : null;
 
   return (
-    <div className="app">
+    <div className={`app mode-${mode}`}>
       <TopBar name={topologyName} onExport={exportTopology} onImport={(file) => void importTopology(file)} mode={mode} onModeChange={changeMode}
         onPing={mode === "simulation" ? togglePing : undefined} pingActive={pingTool !== null} />
       <main className="work">
@@ -521,7 +521,12 @@ export function App() {
             onDeviceDrag={() => setCable(current => ({ ...current, pickerDeviceId: null }))}
             cableActive={cable.active} firstPort={cable.first} pickerDeviceId={cable.pickerDeviceId}
             onPickPort={pickPort} onClosePortPicker={() => setCable(current => ({ ...current, pickerDeviceId: null }))}
-            replays={replayList} onCanvasClick={clearFinishedReplays}
+            replays={replayList} onCanvasClick={() => {
+              // 빈 곳을 누르면 선택한 장비·케이블을 푼다 (T0.17)
+              clearFinishedReplays();
+              setSelectedLinkId(null);
+              dispatch({ type: "select", deviceId: null });
+            }}
             cancelZoneRef={paletteRef} onCancelZone={setDragCancel}
             pickActive={pingTool !== null}
             anchorPanel={pingAddressPanel}
