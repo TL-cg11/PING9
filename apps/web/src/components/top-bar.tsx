@@ -8,6 +8,7 @@ import { useRef } from "react";
 import type { Mode } from "../mode";
 import { SPEEDS } from "../sim-clock";
 import type { ClockState, Speed } from "../sim-clock";
+import { TopologyName } from "./topology-name";
 
 const MODES: readonly { readonly mode: Mode; readonly label: string }[] = [
   { mode: "realtime", label: "⏱ 실시간" },
@@ -25,8 +26,10 @@ export interface SimControls {
   readonly onSpeed: (speed: Speed) => void;
 }
 
-export function TopBar({ name, onExport, onImport, mode, onModeChange, sim }: {
+export function TopBar({ name, onRename, onExport, onImport, mode, onModeChange, sim }: {
   readonly name: string;
+  /** 이름을 고친다 (T0.16). 없으면 이름을 글자로만 보인다 */
+  readonly onRename?: ((name: string) => void) | undefined;
   /** 지금 토폴로지를 파일로 받는다 (T7.1.1) */
   readonly onExport: () => void;
   /** 고른 파일을 가져온다 (T7.1.2) */
@@ -49,7 +52,7 @@ export function TopBar({ name, onExport, onImport, mode, onModeChange, sim }: {
       </div>
       <div className="crumb">
         <span className="sep">/</span>
-        <span className="name">{name}</span>
+        {onRename === undefined ? <span className="name">{name}</span> : <TopologyName name={name} onRename={onRename} />}
       </div>
       <div className="file-actions">
         <button type="button" className="ghost" onClick={onExport}>

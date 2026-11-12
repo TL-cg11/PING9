@@ -27,6 +27,15 @@ button { font: inherit; cursor: pointer; }
 .crumb { display: flex; align-items: center; gap: 10px; font-size: 15px; }
 .crumb .sep { opacity: .5; }
 .crumb .name { font-weight: 600; }
+/* 토폴로지 이름 고치기 (T0.16) */
+.crumb button.name { display: inline-flex; align-items: center; gap: 8px; max-width: 360px; margin-left: -8px; padding: 5px 8px; font-size: 15px; color: inherit; text-shadow: inherit; background: transparent; border: 1px solid transparent; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crumb button.name .pen { font-size: 13px; opacity: .55; }
+.crumb button.name:hover, .crumb button.name:focus-visible { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.35); outline: none; }
+.crumb button.name:hover .pen, .crumb button.name:focus-visible .pen { opacity: 1; }
+.crumb .name-edit { position: relative; display: inline-flex; }
+.crumb .name-edit input { width: 260px; margin-left: -8px; padding: 4px 8px; font: inherit; font-size: 15px; font-weight: 600; color: var(--navy); text-shadow: none; background: #fff; border: 2px solid var(--cyan); border-radius: 8px; outline: none; box-shadow: 0 0 0 3px rgba(143,220,255,.35); }
+.crumb .name-edit input.bad { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(229,72,77,.3); }
+.crumb .name-tip { position: absolute; top: calc(100% + 8px); left: 40px; z-index: 30; padding: 6px 10px; font-size: 12.5px; font-weight: 600; color: #b3261e; text-shadow: none; white-space: nowrap; background: #fff; border: 1px solid #f3c1c3; border-radius: 8px; box-shadow: 0 4px 14px #0003; }
 
 .spacer { flex: 1; }
 .file-actions { display: flex; gap: 8px; }
