@@ -62,6 +62,8 @@ export interface PcConfig {
   readonly mask?: string;
   readonly gateway?: string;
   readonly os?: OsKind;
+  /** 포트 켜짐 (T0.14). 칸이 없으면 켜짐. 옛 문서는 그대로 읽힌다 */
+  readonly adminUp?: boolean;
 }
 
 /** PC의 OS. 칸이 없으면 `DEFAULT_OS` */

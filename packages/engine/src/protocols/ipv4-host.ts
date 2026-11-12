@@ -24,6 +24,8 @@ export interface Ipv4HostConfig {
   macOf(port: string): string;
   /** 포트에 연결된 링크. 보냄 이벤트의 `linkId`에 쓴다. 없으면 undefined */
   linkOf(port: string): string | undefined;
+  /** 포트가 켜져 있는지 (T0.14). 꺼졌으면 보내기 전에 막는다. 없으면 늘 켜짐 */
+  isUp?(port: string): boolean;
   /** 이 장비가 내보내는 패킷의 TTL. 장비 모델이 OS로 고른다 (Windows 128, Linux 64) */
   readonly ttl: number;
 }
@@ -52,6 +54,14 @@ export class Ipv4Host {
     const { device } = this.#config;
     const address = this.#config.addressOf(port);
     const icmp: IcmpMessage = { type: "echo-request", sequence };
+
+    // 꺼진 포트로는 보내지 않는다 (T0.14 결정 5). 실제 OS도 패킷을 만들기 전에 막는다. 펭귄이 출발하지 않는다
+    if (this.#config.isUp?.(port) === false) {
+      this.#dropUnsent(ctx, port, { sourceIp: address?.ip ?? "", destinationIp: targetIp, ttl }, icmp, {
+        code: "IF_DOWN", params: { device, port },
+      });
+      return;
+    }
 
     if (address === undefined) {
       // 실제 OS는 패킷을 만들지 않는다. record에 프레임이 필요해서 "보내려던 패킷"을 만든다 (설계 결정 7)
@@ -184,7 +194,8 @@ export class Ipv4Host {
     ipv4: Ipv4Header,
     icmp: IcmpMessage,
     reason: { readonly code: "NO_IP"; readonly params: { readonly device: DeviceRef } }
-      | { readonly code: "NO_GATEWAY"; readonly params: { readonly device: DeviceRef; readonly targetIp: string } },
+      | { readonly code: "NO_GATEWAY"; readonly params: { readonly device: DeviceRef; readonly targetIp: string } }
+      | { readonly code: "IF_DOWN"; readonly params: { readonly device: DeviceRef; readonly port: string } },
     parentSeq?: number,
   ): void {
     const frame = ctx.createFrame({

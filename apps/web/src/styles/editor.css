@@ -32,6 +32,15 @@ button { font: inherit; cursor: pointer; }
 .crumb { display: flex; align-items: center; gap: 10px; font-size: 15px; }
 .crumb .sep { opacity: .5; }
 .crumb .name { font-weight: 600; }
+/* 토폴로지 이름 고치기 (T0.16) */
+.crumb button.name { display: inline-flex; align-items: center; gap: 8px; max-width: 360px; margin-left: -8px; padding: 5px 8px; font-size: 15px; color: inherit; text-shadow: inherit; background: transparent; border: 1px solid transparent; border-radius: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crumb button.name .pen { font-size: 13px; opacity: .55; }
+.crumb button.name:hover, .crumb button.name:focus-visible { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.35); outline: none; }
+.crumb button.name:hover .pen, .crumb button.name:focus-visible .pen { opacity: 1; }
+.crumb .name-edit { position: relative; display: inline-flex; }
+.crumb .name-edit input { width: 260px; margin-left: -8px; padding: 4px 8px; font: inherit; font-size: 15px; font-weight: 600; color: var(--navy); text-shadow: none; background: #fff; border: 2px solid var(--cyan); border-radius: 8px; outline: none; box-shadow: 0 0 0 3px rgba(143,220,255,.35); }
+.crumb .name-edit input.bad { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(229,72,77,.3); }
+.crumb .name-tip { position: absolute; top: calc(100% + 8px); left: 40px; z-index: 30; padding: 6px 10px; font-size: 12.5px; font-weight: 600; color: #b3261e; text-shadow: none; white-space: nowrap; background: #fff; border: 1px solid #f3c1c3; border-radius: 8px; box-shadow: 0 4px 14px #0003; }
 
 .spacer { flex: 1; }
 .file-actions { display: flex; gap: 8px; }
@@ -40,10 +49,14 @@ button { font: inherit; cursor: pointer; }
 .mode { display: flex; background: rgba(0,0,0,.18); border-radius: 12px; padding: 3px; }
 .mode button { border: none; background: transparent; color: rgba(255,255,255,.8); padding: 7px 14px; border-radius: 9px; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 .mode button.on { background: #fff; color: var(--sky-700); }
-.ping-btn { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: var(--navy); background: var(--beak); border: none; padding: 9px 18px; border-radius: 12px; box-shadow: 0 3px 0 var(--beak-dark); }
-.ping-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--beak-dark); }
-.ping-btn.on { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--beak); }
-.ping-btn.off, .ping-btn.off:active { opacity: .55; cursor: not-allowed; transform: none; box-shadow: 0 3px 0 var(--beak-dark); }
+/* 시뮬레이션의 멈춤·속도 (T0.15). 모드 탭 왼쪽 */
+.sim-controls { display: flex; align-items: center; gap: 10px; }
+.sim-run { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; color: var(--sky-700); background: #fff; border: none; padding: 8px 16px; border-radius: 10px; min-width: 104px; justify-content: center; }
+.sim-run.paused { color: var(--navy); background: var(--beak); box-shadow: 0 3px 0 var(--beak-dark); }
+.speed { display: flex; align-items: center; gap: 2px; background: rgba(255,255,255,.14); border-radius: 12px; padding: 3px 3px 3px 12px; font-size: 13px; color: rgba(255,255,255,.8); }
+.speed > span { margin-right: 6px; }
+.speed button { border: none; background: transparent; color: rgba(255,255,255,.85); padding: 6px 10px; border-radius: 9px; font-size: 14px; font-weight: 600; }
+.speed button.on { background: #fff; color: var(--sky-700); }
 
 /* middle */
 .work { display: grid; grid-template-columns: 112px 1fr 270px; gap: 14px; padding: 6px 14px 14px; min-height: 0; }
@@ -285,6 +298,17 @@ button { font: inherit; cursor: pointer; }
 .os-choice legend { float: left; margin-right: 4px; padding: 0; font-size: 12px; color: var(--navy-60); }
 .os-choice label { display: inline-flex; gap: 5px; align-items: center; font-size: 13px; color: var(--navy); cursor: pointer; }
 .os-choice input { margin: 0; accent-color: var(--sky-700); }
+/* 포트 켜고 끄기 (T0.14). 켜짐은 초록, 꺼짐은 회색. 글자를 함께 써서 색만으로 구별하지 않는다 */
+.port-row { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+.port-row .key { font-size: 12px; color: var(--navy-60); }
+.port-row .port-name { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--navy); }
+.port-switch { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; padding: 2px; border: none; border-radius: 13px; background: none; font-size: 13px; font-weight: 600; color: var(--ok); cursor: pointer; }
+.port-switch:focus-visible { outline: 2px solid var(--sky-700); outline-offset: 2px; }
+.port-switch .track { position: relative; width: 38px; height: 22px; border-radius: 11px; background: var(--ok); transition: background .15s; }
+.port-switch .knob { position: absolute; top: 2px; left: 18px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0003; transition: left .15s; }
+.port-row.off .port-switch { color: var(--navy-60); }
+.port-row.off .track { background: #B8C2D9; }
+.port-row.off .knob { left: 2px; }
 .pc-form label { display: block; font-size: 12px; color: var(--navy-60); margin-bottom: 4px; }
 .pc-form input { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--navy); background: #fff; }
 .pc-form input:focus { outline: none; border-color: var(--sky-500); box-shadow: 0 0 0 3px var(--ice-100); }

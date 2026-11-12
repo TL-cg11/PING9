@@ -1,7 +1,8 @@
 // Linux PC의 명령 정의 목록 (T0.7). console.ts가 OS가 Linux인 PC의 콘솔에 이 목록을 쓴다.
 // 정의 형태와 해석기는 Windows 목록과 같은 cli/ios의 것이다 (AD-8).
-// 이번 범위는 주소와 기본 게이트웨이만이다: `ip`, 옛 명령 `ifconfig`와 `route`.
-// ping과 `ip neigh`, 라우팅 조회(`ip route`, `route -n`)는 뒤에 더한다.
+// 주소와 기본 게이트웨이: `ip`, 옛 명령 `ifconfig`와 `route`.
+// 라우팅 조회(`ip route`, `route -n`), 링크 보기(`ip link`)와 포트 끄고 켜기(`ip link set`, `ifconfig eth0 down/up`)는 T0.14.
+// ping과 `ip neigh`는 ping.ts에 있다.
 // Linux의 인터페이스 이름 `eth0`은 콘솔에서만 쓴다. 문서 안의 포트 이름은 `Ethernet0`이다.
 
 import {
@@ -19,6 +20,7 @@ import { macAddressFor } from "../../mac";
 import { computeViews } from "../../views";
 import { customParam, defineCommand, linesFromDispatch, param } from "../ios";
 import type { CommandArgs, CommandContext, CommandDefinition, CommandOutcome, ParamValue } from "../ios";
+import { pcRoutes, portStatusOf } from "./routes";
 
 /** 콘솔에 보이는 인터페이스 이름 */
 export const LINUX_INTERFACE = "eth0";
@@ -220,6 +222,81 @@ function ifconfigShowEth0(_args: CommandArgs, context: CommandContext): CommandO
   return pc === undefined ? {} : { lines: eth0Lines(pc, context) };
 }
 
+/** `ip link`의 eth0 두 줄. 첫 줄은 `ip addr`과 같은 상태 줄이다 */
+function linkLines(pc: PcDevice, context: CommandContext): ConsoleLine[] {
+  return [
+    text(`2: ${LINUX_INTERFACE}: ${LINK_STATE[portStatusOf(pc, context)]}`),
+    text(`    link/ether ${macAddressFor(pc.id, 0)} brd ff:ff:ff:ff:ff:ff`),
+  ];
+}
+
+function showLinks(_args: CommandArgs, context: CommandContext): CommandOutcome {
+  const pc = pcOf(context);
+  if (pc === undefined) return {};
+  return {
+    lines: [
+      text("1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 state UNKNOWN"),
+      text("    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00"),
+      ...linkLines(pc, context),
+    ],
+  };
+}
+
+function showLinkEth0(_args: CommandArgs, context: CommandContext): CommandOutcome {
+  const pc = pcOf(context);
+  return pc === undefined ? {} : { lines: linkLines(pc, context) };
+}
+
+/** 포트를 끄고 켠다. 설정 패널의 토글과 같은 Command다 (AD-3). 성공하면 출력이 없다. 이미 그 상태여도 오류가 없다 */
+function setLink(adminUp: boolean) {
+  return (_args: CommandArgs, context: CommandContext): CommandOutcome => {
+    const result = context.dispatch({ type: "interface/set-admin", deviceId: context.device.id, port: PC_PORT, adminUp });
+    return { lines: linesFromDispatch(result) };
+  };
+}
+
+/**
+ * `ip route`. 케이블이 없거나 상대가 꺼져 신호가 없으면 줄 끝에 `linkdown` (실제와 같음).
+ * 포트가 꺼져 있으면 아무 줄도 없다 (결정 4)
+ */
+function showIpRoute(_args: CommandArgs, context: CommandContext): CommandOutcome {
+  const pc = pcOf(context);
+  if (pc === undefined) return {};
+  const routes = pcRoutes(pc, portStatusOf(pc, context));
+  if (routes === null) return { lines: [] };
+  const linkdown = routes.status === "up" ? "" : " linkdown";
+  return {
+    lines: [
+      ...(routes.gateway === undefined ? [] : [text(`default via ${routes.gateway} dev ${LINUX_INTERFACE}${linkdown}`)]),
+      text(`${routes.network}/${routes.prefix} dev ${LINUX_INTERFACE} proto kernel scope link src ${routes.ip}${linkdown}`),
+    ],
+  };
+}
+
+/** `route -n`의 한 줄. 칸 너비는 net-tools의 것이다 */
+function routeNRow(destination: string, gateway: string, mask: string, flags: string): ConsoleLine {
+  return text(`${destination.padEnd(15)} ${gateway.padEnd(15)} ${mask.padEnd(15)} ${flags.padEnd(5)} 0      0        0 ${LINUX_INTERFACE}`);
+}
+
+/** `route -n`. `ip route`와 같은 경로를 옛 형식으로. 경로가 없으면 머리 두 줄만 */
+function showRouteN(_args: CommandArgs, context: CommandContext): CommandOutcome {
+  const pc = pcOf(context);
+  if (pc === undefined) return {};
+  const routes = pcRoutes(pc, portStatusOf(pc, context));
+  return {
+    lines: [
+      text("Kernel IP routing table"),
+      text("Destination     Gateway         Genmask         Flags Metric Ref    Use Iface"),
+      ...(routes === null
+        ? []
+        : [
+            ...(routes.gateway === undefined ? [] : [routeNRow("0.0.0.0", routes.gateway, "0.0.0.0", "UG")]),
+            routeNRow(routes.network, "0.0.0.0", routes.mask, "U"),
+          ]),
+    ],
+  };
+}
+
 const cidrParam = customParam("cidr", "Address and prefix length, e.g. 10.0.0.2/24", readCidr);
 const addressParam = customParam("address", "Address, optionally with prefix length, e.g. 10.0.0.2/24", readAddress);
 const maskParam = param("mask", "mask", "Subnet mask");
@@ -247,6 +324,16 @@ export const LINUX_PC_COMMANDS: readonly CommandDefinition[] = [
   linux(["ifconfig", LINUX_INTERFACE], "Show eth0", ifconfigShowEth0),
   linux(["ifconfig", LINUX_INTERFACE, addressParam], "Set the address", ifconfigSet),
   linux(["ifconfig", LINUX_INTERFACE, addressParam, "netmask", maskParam], "Set the address and subnet mask", ifconfigSet),
+  linux(["ip", "route"], "Show the routing table", showIpRoute),
+  linux(["ip", "route", "show"], "Show the routing table", showIpRoute),
+  linux(["ip", "link"], "Show links", showLinks),
+  linux(["ip", "link", "show"], "Show links", showLinks),
+  linux(["ip", "link", "show", LINUX_INTERFACE], "Show the link of eth0", showLinkEth0),
+  linux(["ip", "link", "set", LINUX_INTERFACE, "down"], "Turn eth0 off", setLink(false)),
+  linux(["ip", "link", "set", LINUX_INTERFACE, "up"], "Turn eth0 on", setLink(true)),
+  linux(["ifconfig", LINUX_INTERFACE, "down"], "Turn eth0 off", setLink(false)),
+  linux(["ifconfig", LINUX_INTERFACE, "up"], "Turn eth0 on", setLink(true)),
+  linux(["route", "-n"], "Show the routing table", showRouteN),
   linux(["route", "add", "default", "gw", gatewayParam], "Set the default gateway", addDefaultRoute),
   linux(["route", "del", "default"], "Remove the default gateway", deleteDefaultRoute),
 ];

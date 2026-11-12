@@ -9,7 +9,7 @@ import type { Frame, SimContext, TimerRef } from "../../kernel";
 import { ArpModule } from "../../protocols/arp";
 import { Ipv4Host } from "../../protocols/ipv4-host";
 import type { Ipv4Address } from "../../protocols/ipv4-host";
-import { deviceRef, findDevice, portLink, portMac } from "../../topology";
+import { deviceRef, findDevice, isAdminUp, portLink, portMac } from "../../topology";
 import { computeViews } from "../../views";
 import { transmit } from "../link";
 import type { ConfigChange, DeviceModel } from "../model";
@@ -66,6 +66,7 @@ export class PcModel implements DeviceModel {
           return deviceRef(pc());
         },
         addressOf: () => addressOf(pc()),
+        isUp: (port) => isAdminUp(pc(), port),
         macOf,
         linkOf,
         get ttl() {
@@ -77,6 +78,15 @@ export class PcModel implements DeviceModel {
   }
 
   onFrame(ctx: SimContext, port: string, frame: Frame): void {
+    // 꺼진 포트로 받은 프레임은 버린다 (T0.14). Switch·Router가 받는 쪽에서 하는 것과 같다
+    const pc = pcIn(this.#getDocument(), this.deviceId);
+    if (pc !== undefined && !isAdminUp(pc, port)) {
+      ctx.record({
+        frame, deviceId: this.deviceId, inPort: port, layer: "L2", action: "drop",
+        reason: { code: "IF_DOWN", params: { device: deviceRef(pc), port } },
+      });
+      return;
+    }
     this.ipv4.onFrame(ctx, port, frame);
   }
 
@@ -84,7 +94,10 @@ export class PcModel implements DeviceModel {
     this.arp.onTimer(ctx, timer);
   }
 
-  /** 이 PC의 IP·마스크나 포트의 링크가 바뀌면 ARP 테이블을 비운다. 게이트웨이와 이름, OS는 ARP와 상관없다 */
+  /**
+   * 이 PC의 IP·마스크나 포트의 링크, 포트의 켜짐이 바뀌면 ARP 테이블을 비운다. 게이트웨이와 이름, OS는 ARP와 상관없다.
+   * 포트를 끄면 비운다: 실제 Linux도 링크가 내려가면 이웃 항목이 사라진다 (T0.14)
+   */
   onConfigChanged(change: ConfigChange): void {
     const before = pcIn(change.previous, this.deviceId);
     const after = pcIn(change.document, this.deviceId);
@@ -93,7 +106,8 @@ export class PcModel implements DeviceModel {
     const ref = { deviceId: this.deviceId, port: PC_PORT };
     const addressChanged = before.config.ip !== after.config.ip || before.config.mask !== after.config.mask;
     const linkChanged = portLink(change.previous, ref)?.linkId !== portLink(change.document, ref)?.linkId;
-    if (addressChanged || linkChanged) this.arp.onPortChanged(PC_PORT);
+    const adminChanged = isAdminUp(before, PC_PORT) !== isAdminUp(after, PC_PORT);
+    if (addressChanged || linkChanged || adminChanged) this.arp.onPortChanged(PC_PORT);
   }
 
   /** 회차를 시작할 때 Runtime이 모든 PC에 부른다. 지난 회차의 대기열과 응답 목록을 비운다 */

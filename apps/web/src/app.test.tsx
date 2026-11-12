@@ -35,11 +35,12 @@ test("모드 버튼 둘과 내보내기, 가져오기가 켜져 있다 (T0.13, T
   const text = html();
 
   const topbar = text.slice(text.indexOf('<header class="topbar">'), text.indexOf("</header>"));
-  // ping 실행은 실시간 모드라 aria-disabled로 꺼짐 (안내가 뜨게)
   expect(topbar.match(/<button[^>]*disabled=""[^>]*>/g)).toBeNull();
   expect(topbar).toMatch(/<button type="button" class="ghost">⤓ 내보내기/);
   expect(topbar).toMatch(/<button type="button" class="ghost">⤒ 가져오기/);
-  expect(topbar).toMatch(/<button[^>]*class="ping-btn off"[^>]*aria-disabled="true"/);
+  // ping 실행 버튼은 없고(T0.15), 실시간이라 멈춤·속도도 없다
+  expect(topbar).not.toContain("ping 실행");
+  expect(topbar).not.toContain("sim-controls");
   expect(topbar.match(/<button[^>]*role="tab"[^>]*>/g)?.every((tab) => !tab.includes("disabled"))).toBe(true);
 });
 

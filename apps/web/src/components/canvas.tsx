@@ -4,7 +4,7 @@
 import { osOf, shortPortName } from "@ping9/shared";
 import type { Device, DeviceKind, PortRef, Position, TopologyDocument } from "@ping9/shared";
 import { useEffect, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from "react";
+import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
 
 import { DEVICE_DRAG_TYPE, MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM, clampCanvasPosition, containsPoint, readDraggedDevice, screenToWorld, wheelZoom, zoomAtPoint, zoomViewBox } from "../canvas-interaction";
 import type { CanvasViewBox, DragCancelState } from "../canvas-interaction";
@@ -161,8 +161,8 @@ export function Canvas({
   onCanvasClick,
   cancelZoneRef,
   onCancelZone,
-  pickActive = false,
-  anchorPanel = null,
+  replayTime,
+  replayPaused = false,
 }: {
   readonly document: TopologyDocument;
   readonly selectedDeviceId: string | null;
@@ -188,10 +188,10 @@ export function Canvas({
   readonly cancelZoneRef?: RefObject<HTMLElement | null>;
   /** 새 장비 끌기와 취소 영역의 상태가 바뀔 때 */
   readonly onCancelZone?: (state: DragCancelState) => void;
-  /** 장비를 눌러 고르는 도구(`▶ ping 실행`, T0.13)가 켜져 있다. 더블클릭과 Enter로 터미널을 열지 않는다 */
-  readonly pickActive?: boolean;
-  /** 장비 옆에 띄우는 창 (ping 목적지 주소, T0.13). 포트 고르는 창과 같은 자리 계산을 쓴다 */
-  readonly anchorPanel?: { readonly deviceId: string; readonly panel: ReactNode } | null;
+  /** 펭귄 재생의 시각 (시뮬레이션 시계, T0.15). 없으면 실제 시각 */
+  readonly replayTime?: () => number;
+  /** 시뮬레이션이 멈췄다. 펭귄이 그 자리에 선다 (T0.15) */
+  readonly replayPaused?: boolean;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const viewportSizeRef = useRef<{ width: number; height: number } | null>(null);
@@ -226,7 +226,7 @@ export function Canvas({
   const [pickerAt, setPickerAt] = useState({ x: 12, y: 60 });
   const positions = new Map(document.devices.map(device => [device.id,
     device.id === draft?.deviceId ? draft.position : device.position]));
-  const pickerDevice = document.devices.find(device => device.id === (cableActive ? pickerDeviceId : anchorPanel?.deviceId));
+  const pickerDevice = document.devices.find(device => device.id === (cableActive ? pickerDeviceId : null));
   const places = document.devices.map(device => ({ id: device.id, position: positions.get(device.id)! }));
   const pathOf = (linkId: string): LinkPath | undefined => {
     const link = document.links.find(candidate => candidate.id === linkId);
@@ -548,7 +548,8 @@ export function Canvas({
             x2={cursor.x} y2={cursor.y} />
         )}
         {/* 펭귄 층: 케이블 위, 장비 아래. 펭귄이 장비 아이콘 밑에서 나와 밑으로 들어간다 (T6.1.2) */}
-        <PacketLayer replays={replays} pathOf={pathOf} positionOf={deviceId => positions.get(deviceId)} />
+        <PacketLayer replays={replays} pathOf={pathOf} positionOf={deviceId => positions.get(deviceId)}
+          {...(replayTime !== undefined ? { time: replayTime } : {})} paused={replayPaused} />
         <g>
           {orderedDevices.map((device) => (
             <g
@@ -571,14 +572,14 @@ export function Canvas({
                 raiseDevice(device.id);
                 onSelect(device.id);
               }}
-              onDoubleClick={() => { if (!cableActive && !pickActive && !suppressDoubleClick.current) onOpenTerminal(device.id); }}
+              onDoubleClick={() => { if (!cableActive && !suppressDoubleClick.current) onOpenTerminal(device.id); }}
               onKeyDown={event => {
                 const action = nodeKeyAction(event.key);
                 if (action !== null) {
                   // Space가 화면을 내리지 않게 한다. 연결 도구가 켜져 있으면 Enter도 클릭처럼 포트 선택으로 간다
                   event.preventDefault();
                   raiseDevice(device.id);
-                  if (action === "open" && !cableActive && !pickActive) onOpenTerminal(device.id);
+                  if (action === "open" && !cableActive) onOpenTerminal(device.id);
                   else onSelect(device.id);
                   return;
                 }
@@ -659,12 +660,8 @@ export function Canvas({
             onClose={() => onClosePortPicker?.()} />
         </div>
       )}
-      {!cableActive && pickerDevice !== undefined && anchorPanel !== null && (
-        <div className="port-picker-anchor" style={{ left: pickerAt.x, top: pickerAt.y }}>{anchorPanel.panel}</div>
-      )}
       <div className="hint">
         {cableActive ? "장비를 클릭해 빈 포트를 선택하세요 · Esc로 연결 도구 해제" :
-          pickActive ? "출발 장비와 목적지 장비를 차례로 누르세요 · Esc로 그만두기" :
           "휠로 확대·축소 · 빈 곳 드래그로 화면 이동 · 장비 더블클릭 또는 Enter로 터미널 열기 · Delete로 삭제"}
       </div>
     </>

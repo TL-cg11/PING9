@@ -33,11 +33,11 @@ export function portLink(document: TopologyDocument, ref: PortRef): PortLink | u
   return undefined;
 }
 
-/** 사용자가 켜 둔 포트인지. PC의 포트는 끌 수 없고, Router 인터페이스는 설정 전에는 꺼져 있다 (FR-17) */
+/** 사용자가 켜 둔 포트인지. PC 포트는 칸이 없으면 켜짐(T0.14), Router 인터페이스는 설정 전에는 꺼져 있다 (FR-17) */
 export function isAdminUp(device: Device, port: string): boolean {
   switch (device.kind) {
     case "pc":
-      return true;
+      return device.config.adminUp ?? true;
     case "switch":
       // 구성에 없는 포트는 기본값(켜짐)이다
       return device.config.ports[port]?.adminUp ?? true;

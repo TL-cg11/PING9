@@ -3,7 +3,7 @@
 
 import { osOf, pingRoundKind, shortPortName } from "@ping9/shared";
 import type { DeviceKind, ErrorInfo, PortRef, Position, TopologyDocument } from "@ping9/shared";
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { Canvas, cableLength } from "./components/canvas";
@@ -21,12 +21,10 @@ import type { CableState } from "./cable-state";
 import type { DragCancelState } from "./canvas-interaction";
 import { availablePorts } from "./format/available-ports";
 import { formatError } from "./messages/errors";
-import { PingAddressPicker } from "./components/ping-address-picker";
-import { pickAddress, pickDevice, pingAddresses, pingToolMessage, syncPingTool } from "./ping-tool";
-import type { PingStep, PingTool } from "./ping-tool";
 import { browserStorage, readMode, writeMode } from "./mode";
 import type { Mode } from "./mode";
 import { exchangeTimeline, previewTimeline } from "./replay/timeline";
+import { BROWSER_TIME, createSimClock } from "./sim-clock";
 import { TOPOLOGY_NAME, simulator, useSnapshot } from "./simulator";
 import { downloadText, exportFile, needsReplaceConfirm, readImportFile } from "./topology-file";
 import { createCommandQueue } from "./terminal/command-queue";
@@ -65,24 +63,6 @@ export function App() {
   // 가져오기 실패. 닫을 때까지 보인다 (FR-45)
   const [importError, setImportError] = useState<ErrorInfo | null>(null);
   const [cable, setCable] = useState<CableState>(CABLE_OFF);
-  // 시뮬레이션 모드의 `▶ ping 실행` (T0.13). 출발 → 목적지(→ 주소)를 고르면 출발 장비 터미널에서 친 것처럼 실행한다
-  const [pingTool, setPingTool] = useState<PingTool | null>(null);
-  const [pingNotice, setPingNotice] = useState<string | null>(null);
-  const stopPing = () => { setPingTool(null); setPingNotice(null); };
-  const togglePing = () => {
-    if (pingTool !== null) return stopPing();
-    setCable(CABLE_OFF); setDragKind(null); setConnectionMessage(null); setActionError(null);
-    setSelectedLinkId(null);
-    setPingTool({ stage: "source" });
-    setPingNotice(null);
-  };
-  const applyPing = (step: PingStep) => {
-    setPingTool(step.tool);
-    setPingNotice(step.notice ?? null);
-    if (step.send === undefined) return;
-    openTerminal(step.send.sourceId);
-    submit(step.send.sourceId, step.send.command);
-  };
   const [dragKind, setDragKind] = useState<DeviceKind | null>(null);
   // 목록에서 끌어 온 새 장비를 왼쪽 장비 목록에 다시 놓으면 취소된다 (T0.12). 캔버스가 목록의 자리를 보고 상태를 알려 준다
   const paletteRef = useRef<HTMLElement>(null);
@@ -135,13 +115,6 @@ export function App() {
   };
 
   const selectDevice = (deviceId: string) => {
-    if (pingTool !== null) {
-      // `▶ ping 실행`: 누른 장비가 출발·목적지가 된다 (T0.13)
-      setSelectedLinkId(null);
-      dispatch({ type: "select", deviceId });
-      applyPing(pickDevice(pingTool, simulator.getSnapshot().document, deviceId));
-      return;
-    }
     setSelectedLinkId(null);
     setActionError(null);
     setConnectionMessage(null);
@@ -219,13 +192,12 @@ export function App() {
       (deviceId) => simulator.console(deviceId).prompt()));
     setSelectedLinkId(current => document.links.some(link => link.id === current) ? current : null);
     setCable(current => syncCableState(current, document));
-    setPingTool(current => syncPingTool(current, document));
   }, [document]);
 
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      setCable(CABLE_OFF); setDragKind(null); setConnectionMessage(null); setRemoveAsk(null); stopPing(); setImportAsk(null);
+      setCable(CABLE_OFF); setDragKind(null); setConnectionMessage(null); setRemoveAsk(null); setImportAsk(null);
     };
     window.addEventListener("keydown", escape);
     return () => window.removeEventListener("keydown", escape);
@@ -266,16 +238,20 @@ export function App() {
   // 실시간 / 시뮬레이션 (T0.13). 펭귄은 시뮬레이션에서만 걷는다.
   // 진행 중인 ping은 회차마다 지금 모드를 읽는다(ref): 도중에 바꾸면 남은 회차가 새 모드를 따른다
   const [mode, setMode] = useState<Mode>(() => readMode(browserStorage()));
+  // 시뮬레이션 시계 (T0.15). 시뮬레이션의 펭귄과 콘솔 줄 간격이 따른다. 멈추면 둘 다 서고, 속도를 바꾸면 둘 다 바뀐다
+  const [clock] = useState(() => createSimClock(BROWSER_TIME));
+  const clockState = useSyncExternalStore(clock.subscribe, clock.state, clock.state);
   const modeRef = useRef(mode);
   const changeMode = (next: Mode) => {
     if (next === modeRef.current) return;
     modeRef.current = next;
     setMode(next);
     writeMode(browserStorage(), next);
-    // 실시간으로 바꾸면 걷던 펭귄과 남은 놓침 그림을 바로 지운다. ping 실행 도구도 끈다
+    // 실시간으로 바꾸면 걷던 펭귄과 남은 놓침 그림을 바로 지운다.
+    // 멈춰 있었으면 풀어 준다: 멈춘 채 기다리던 ping이 실시간에서 서 있지 않게. 속도는 그대로 둔다
     if (next === "realtime") {
       setReplays(new Map());
-      stopPing();
+      clock.resume();
     }
   };
   const replayList = useMemo(() => [...replays.values()], [replays]);
@@ -296,7 +272,7 @@ export function App() {
     const lengthOf = (linkId: string) => cableLength(current, linkId);
     const timeline = exchange ? exchangeTimeline(trace, lengthOf) : previewTimeline(trace, lengthOf);
     replayCount.current += 1;
-    const startedAt = performance.now();
+    const startedAt = clock.now();
     // 같은 주인의 앞 재생을 바꾸고, 다른 주인의 재생이 끝나 남아 있던 펭귄(놓침)도 지운다.
     // 다른 주인의 아직 걷는 중인 재생은 그대로 둔다
     setReplays((current) => {
@@ -309,7 +285,7 @@ export function App() {
   };
   const clearFinishedReplays = () =>
     setReplays((current) => {
-      const time = performance.now();
+      const time = clock.now();
       const next = new Map([...current].filter(([, replay]) => time - replay.startedAt < replay.timeline.durationMs));
       return next.size === current.size ? current : next;
     });
@@ -332,7 +308,8 @@ export function App() {
       try {
         const next = await runLinePaced(simulator.console(deviceId), state, input, {
           show,
-          wait: (ms) =>
+          // 시뮬레이션이면 시뮬레이션 시계로 기다린다: 멈추면 줄도 서고, 2×면 간격도 절반 (T0.15)
+          wait: (ms) => modeRef.current === "simulation" ? clock.wait(ms, controller.signal) :
             new Promise((resolve) => {
               if (controller.signal.aborted) return resolve(false);
               const timer = setTimeout(() => resolve(true), ms);
@@ -471,27 +448,18 @@ export function App() {
     setBusy(new Set());
     dispatch({ type: "sync", deviceIds: [] });
     setReplays(new Map());
-    setCable(CABLE_OFF); setDragKind(null); setSelectedLinkId(null); setRemoveAsk(null); stopPing();
+    setCable(CABLE_OFF); setDragKind(null); setSelectedLinkId(null); setRemoveAsk(null);
     setActionError(null); setConnectionMessage(null);
   };
 
-  // 목적지 장비의 주소가 여럿이면 그 장비 옆에 고르는 창 (T0.13)
-  const pingTarget = pingTool?.stage === "address" ? document.devices.find((device) => device.id === pingTool.targetId) : undefined;
-  const pingAddressPanel = pingTool !== null && pingTarget !== undefined ? {
-    deviceId: pingTarget.id,
-    panel: <PingAddressPicker device={pingTarget} addresses={pingAddresses(pingTarget)}
-      onPick={(ip) => applyPing(pickAddress(pingTool, document, ip))}
-      onClose={() => pingTool.stage === "address" && setPingTool({ stage: "target", sourceId: pingTool.sourceId })} />,
-  } : null;
-
   return (
     <div className={`app mode-${mode}`}>
-      <TopBar name={topologyName} onExport={exportTopology} onImport={(file) => void importTopology(file)} mode={mode} onModeChange={changeMode}
-        onPing={mode === "simulation" ? togglePing : undefined} pingActive={pingTool !== null} />
+      <TopBar name={topologyName} onRename={setTopologyName} onExport={exportTopology} onImport={(file) => void importTopology(file)} mode={mode} onModeChange={changeMode}
+        sim={mode === "simulation" ? { clock: clockState, onPause: clock.pause, onResume: clock.resume, onSpeed: clock.setSpeed } : undefined} />
       <main className="work">
         <Palette deviceCount={document.devices.length} linkCount={document.links.length} cableActive={cable.active}
-          onConnect={() => { setCable(cable.active ? CABLE_OFF : CABLE_READY); setConnectionMessage(null); setActionError(null); stopPing(); }}
-          onDeviceDragStart={kind => { setDragKind(kind); setCable(CABLE_OFF); setConnectionMessage(null); stopPing(); }}
+          onConnect={() => { setCable(cable.active ? CABLE_OFF : CABLE_READY); setConnectionMessage(null); setActionError(null); }}
+          onDeviceDragStart={kind => { setDragKind(kind); setCable(CABLE_OFF); setConnectionMessage(null); }}
           dragCancel={dragCancel} zoneRef={paletteRef} />
         <section className="canvas" onPointerDownCapture={releaseFocus}>
           {actionError !== null && <div className="canvas-error" role="alert">{formatError(actionError)}</div>}
@@ -504,10 +472,6 @@ export function App() {
               connectionMessage ?? (cable.first === null ? "케이블 선택됨 · 첫 번째 장비를 클릭해 포트를 고르세요" :
                 `${document.devices.find(device => device.id === cable.first?.deviceId)?.name ?? "장비"} ${shortPortName(cable.first.port)} 선택됨 · 두 번째 장비를 클릭하세요`)}</span>
             {cable.active && <button type="button" onClick={() => setCable(CABLE_OFF)}>연결 도구 해제</button>}
-          </div>}
-          {pingTool !== null && dragKind === null && !cable.active && <div className="edit-banner" role="status">
-            <span>{pingNotice ?? pingToolMessage(pingTool, document)}</span>
-            <button type="button" onClick={stopPing}>그만두기</button>
           </div>}
           <Canvas
             document={document}
@@ -528,8 +492,7 @@ export function App() {
               dispatch({ type: "select", deviceId: null });
             }}
             cancelZoneRef={paletteRef} onCancelZone={setDragCancel}
-            pickActive={pingTool !== null}
-            anchorPanel={pingAddressPanel}
+            replayTime={clock.now} replayPaused={clockState.paused}
           />
           {ui.terminals.map((placement, index) => {
             const device = document.devices.find((candidate) => candidate.id === placement.deviceId);
