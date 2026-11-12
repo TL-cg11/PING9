@@ -70,3 +70,10 @@ test("장비가 2대보다 적으면 케이블 도구가 꺼져 있다", () => {
 
   expect(palette.match(/<button[^>]*disabled=""[^>]*>/g)).toHaveLength(1);
 });
+
+test("실시간 모드에는 상세 정보 / 이벤트 탭이 없다 (T1.9.2, 시뮬레이션만)", () => {
+  const text = html();
+
+  expect(text).toContain('class="app mode-realtime"');
+  expect(text).not.toContain("side-tabs");
+});

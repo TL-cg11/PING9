@@ -3,6 +3,7 @@
 
 import { LIMITS, shortPortName } from "@ping9/shared";
 import type { Command, DeviceKind, DispatchResult, PortView, RouteChangeView, Snapshot, TopologyDocument } from "@ping9/shared";
+import type { ReactNode } from "react";
 
 import panelPenguin from "../assets/panel-penguin.png";
 import { DeviceName } from "./device-name";
@@ -31,6 +32,7 @@ export function Inspector({
   onCancelRemove,
   routeChangesOf = () => undefined,
   onPlayExchange,
+  header,
 }: {
   readonly snapshot: Snapshot;
   readonly deviceId: string | null;
@@ -47,6 +49,8 @@ export function Inspector({
   readonly routeChangesOf?: (traceId: number) => readonly RouteChangeView[] | undefined;
   /** 경로 교환 Trace를 캔버스에서 재생한다. 없으면(실시간 모드) 재생 버튼이 꺼진다 (T0.13) */
   readonly onPlayExchange?: ((traceId: number) => void) | undefined;
+  /** 시뮬레이션 모드의 상세 정보 / 이벤트 탭 (T1.9.2) */
+  readonly header?: ReactNode;
 }) {
   const { document } = snapshot;
   const device = document.devices.find((candidate) => candidate.id === deviceId);
@@ -56,6 +60,7 @@ export function Inspector({
     return (
       // 아무것도 고르지 않았을 때의 카드 (T0.17). 그림의 말풍선이 제목 역할을 하고, 글자가 그림 안에 있어 alt로 같은 문장을 준다 (T0.18)
       <aside className="inspector inspector-idle">
+        {header}
         <div className="idle-art"><img src={panelPenguin} alt="네트워크 탐험을 시작해 볼까요?" /></div>
         <p className="idle-text">장비를 선택하면 네트워크 상태와<br />상세 정보를 확인할 수 있어요.</p>
         <dl className="idle-stats">
@@ -75,6 +80,7 @@ export function Inspector({
 
   return (
     <aside className="inspector">
+      {header}
       {/* 바로 아래 PcSettings도 장비 ID를 key로 쓴다. 형제끼리 key가 겹치지 않게 앞에 말을 붙인다 */}
       <DeviceName key={`name ${device.id}`} device={device} kindLabel={KIND_LABEL[device.kind]} onDispatch={onDispatch} />
       <div className="sub">
