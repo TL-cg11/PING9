@@ -27,6 +27,7 @@ const pcConfigSchema = z.object({
   mask: shortString.optional(),
   gateway: shortString.optional(),
   os: z.enum(OS_KINDS).optional(),
+  adminUp: z.boolean().optional(),
 });
 
 const vlanSchema = z.object({ id: integer, name: shortString });

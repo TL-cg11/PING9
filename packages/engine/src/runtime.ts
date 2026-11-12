@@ -36,7 +36,7 @@ export type PingRound =
   | { readonly kind: "unreachable"; readonly traceId: number; readonly sequence: number; readonly timeUs: number }
   /** 보냈는데 응답이 오지 않음 */
   | { readonly kind: "timeout"; readonly traceId: number; readonly sequence: number }
-  /** 출발 PC가 보내지 못함 (NO_IP, NO_GATEWAY) */
+  /** 출발 PC가 보내지 못함 (NO_IP, NO_GATEWAY, 포트가 꺼짐 IF_DOWN) */
   | { readonly kind: "unsent"; readonly traceId: number; readonly sequence: number };
 
 export type PingRun =

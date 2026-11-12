@@ -120,6 +120,14 @@ describe("validateDocument: 유효한 문서", () => {
     expect(osOf({ os: "linux" })).toBe("linux");
   });
 
+  test("PC의 포트 켜짐을 받아들이고 돌려준 문서에 남긴다 (T0.14)", () => {
+    for (const adminUp of [true, false]) {
+      const doc = validDocument();
+      (doc.devices[2]!.config as { adminUp?: boolean }).adminUp = adminUp;
+      expect(validateDocument(doc)).toEqual({ ok: true, document: doc });
+    }
+  });
+
   test("IP 없이 OS만 있는 PC를 받아들인다", () => {
     expect(codeAfter((doc) => void (doc.devices[2]!.config = { os: "linux" } as never))).toBeNull();
   });
@@ -174,6 +182,7 @@ describe("validateDocument: 깨진 문서는 구별되는 코드로 거부한다
     ["PC의 게이트웨이가 다른 네트워크", (d) => void (d.devices[2]!.config.gateway = "10.0.2.1"), "GATEWAY_NOT_IN_NETWORK"],
     ["PC에 IP 없이 마스크만 있음", (d) => void delete (d.devices[2]!.config as { ip?: string }).ip, "DOCUMENT_INVALID_SHAPE"],
     ["PC의 OS가 정해진 값이 아님", (d) => void ((d.devices[2]!.config as { os?: string }).os = "macos"), "DOCUMENT_INVALID_SHAPE"],
+    ["PC의 포트 켜짐이 참거짓이 아님 (T0.14)", (d) => void ((d.devices[2]!.config as { adminUp?: unknown }).adminUp = "down"), "DOCUMENT_INVALID_SHAPE"],
     ["PC에 마스크 없이 IP만 있음", (d) => void delete (d.devices[2]!.config as { mask?: string }).mask, "DOCUMENT_INVALID_SHAPE"],
 
     // Switch

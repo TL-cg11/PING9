@@ -11,7 +11,7 @@ import type { Trace } from "./trace";
  * - `reply`: 응답을 받음
  * - `unreachable`: 출발 PC의 ARP 요청에 응답이 없음 (`ARP_TIMEOUT`)
  * - `timeout`: 보냈는데 응답이 오지 않음
- * - `unsent`: 출발 PC가 보내지 못함 (`NO_IP`, `NO_GATEWAY`)
+ * - `unsent`: 출발 PC가 보내지 못함 (`NO_IP`, `NO_GATEWAY`, 포트가 꺼짐 `IF_DOWN` T0.14)
  */
 export type PingRoundKind = "reply" | "unreachable" | "timeout" | "unsent" | "icmp-error";
 
@@ -31,7 +31,9 @@ export function pingRoundKind(trace: Trace, sourceId: string, sequence: number):
   if (atSource.some(event => event.reason.code === "ICMP_ERROR_RECEIVED" &&
     isIcmpError(event.frame.icmp) && event.frame.icmp.original.sequence === sequence)) return "icmp-error";
   const drops = atSource.filter((event) => event.action === "drop");
-  if (drops.some((event) => event.reason.code === "NO_IP" || event.reason.code === "NO_GATEWAY")) return "unsent";
+  // 출발 장비의 `IF_DOWN`은 꺼진 PC 포트로 보내려던 회차다 (T0.14). Router는 꺼진 인터페이스를 경로에서 빼므로 여기에 오지 않는다
+  if (drops.some((event) => event.reason.code === "NO_IP" || event.reason.code === "NO_GATEWAY" ||
+    event.reason.code === "IF_DOWN")) return "unsent";
   if (drops.some((event) => (event.reason.code === "ARP_TIMEOUT" || event.reason.code === "NO_ROUTE"))) return "unreachable";
   return "timeout";
 }

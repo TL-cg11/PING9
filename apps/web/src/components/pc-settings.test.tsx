@@ -6,7 +6,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
 import { Inspector } from "./inspector";
-import { OsChoice, PcSettingsView } from "./pc-settings";
+import { OsChoice, PcSettingsView, PortSwitch, portAdminCommand } from "./pc-settings";
 import type { PcSettingsViewProps } from "./pc-settings";
 
 const { pc1, pc2, mask } = TWO_PC;
@@ -142,6 +142,46 @@ describe("OsChoice (T0.7)", () => {
     expect(html).not.toMatch(/checked="" value="windows"/);
     expect(html).toContain("Windows");
     expect(html).toContain("Linux");
+  });
+});
+
+describe("포트 켜고 끄기 (T0.14)", () => {
+  const withPc1 = (config: object): TopologyDocument => ({
+    ...twoPcDocument,
+    devices: twoPcDocument.devices.map((device) =>
+      device.id === pc1.id ? ({ ...device, config: { ...device.config, ...config } } as typeof device) : device,
+    ),
+  });
+
+  test("OS 아래, IP 설정 위에 있다. 칸이 없는 PC는 켜짐", () => {
+    const html = inspect(twoPcDocument, pc1.id);
+    const at = (part: string) => html.indexOf(part);
+    expect(at("<legend>OS</legend>")).toBeLessThan(at('class="port-row"'));
+    expect(at('class="port-row"')).toBeLessThan(at("<h4>IP 설정</h4>"));
+    expect(html).toMatch(/role="switch" aria-checked="true" aria-label="포트 Ethernet0"><span class="state">켜짐<\/span>/);
+  });
+
+  test("끈 PC는 꺼짐, 회색 줄. 아래 인터페이스 점도 회색", () => {
+    const html = inspect(withPc1({ adminUp: false }), pc1.id);
+    expect(html).toContain('<div class="port-row off">');
+    expect(html).toMatch(/aria-checked="false"[^>]*><span class="state">꺼짐<\/span>/);
+    expect(html).toContain('<span class="dot off"></span>');
+  });
+
+  test("Linux PC는 콘솔과 같은 eth0", () => {
+    const html = text(<PortSwitch os="linux" adminUp={true} onChange={() => {}} />);
+    expect(html).toContain('<span class="port-name">eth0</span>');
+    expect(html).toContain('aria-label="포트 eth0"');
+  });
+
+  test("누르면 낼 Command는 문서의 포트 이름 Ethernet0로, 엔진이 받아들인다", () => {
+    expect(portAdminCommand(pc1.id, false)).toEqual({
+      type: "interface/set-admin", deviceId: pc1.id, port: "Ethernet0", adminUp: false,
+    });
+    const simulator = createSimulator();
+    simulator.load(twoPcDocument);
+    expect(simulator.dispatch(portAdminCommand(pc1.id, false)).ok).toBe(true);
+    expect(simulator.getSnapshot().views[pc1.id]?.ports[0]?.status).toBe("admin-down");
   });
 });
 

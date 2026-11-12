@@ -127,6 +127,7 @@ describe("help", () => {
       "ping -n <count> <ip>",
       "ping <ip>",
       "ping <ip> -n <count>",
+      "route print",
       "tracert -d -h <hops> <ip>",
       "tracert -d <ip>",
       "tracert -h <hops> -d <ip>",
