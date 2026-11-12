@@ -20,9 +20,15 @@ test("처음 화면에는 배치된 장비와 케이블이 없다", () => {
 test("시안의 틀(상단 막대, 장비 목록, 캔버스, 속성 패널)이 있다", () => {
   const text = html();
 
-  for (const className of ["topbar", "palette", "canvas", "inspector"]) {
+  for (const className of ["topbar", "palette", "canvas"]) {
     expect(text).toContain(`class="${className}"`);
   }
+  // 고른 장비가 없으면 속성 패널은 빈 카드다 (T0.17)
+  expect(text).toContain('class="inspector inspector-idle"');
+});
+
+test("창 전체에 지금 모드가 클래스로 붙는다 (T0.17, 시뮬레이션 배경)", () => {
+  expect(html()).toMatch(/<div class="app mode-(realtime|simulation)">/);
 });
 
 test("모드 버튼 둘과 내보내기, 가져오기가 켜져 있다 (T0.13, T7.1.1, T7.1.2)", () => {

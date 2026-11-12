@@ -99,11 +99,29 @@ describe("PC", () => {
   });
 });
 
-describe("선택이 없을 때", () => {
-  test.each([null, "nope"])("deviceId가 %j면 안내 문구만 나온다", (deviceId) => {
+describe("선택이 없을 때 (T0.17 빈 카드)", () => {
+  test.each([null, "nope"])("deviceId가 %j면 빈 카드만 나온다", (deviceId) => {
     const html = render(deviceId);
 
-    expect(html).toContain("장비를 누르면 여기에 정보가 보여요");
+    expect(html).toContain('class="inspector inspector-idle"');
+    expect(html).toContain("관제 준비 완료!");
+    expect(html).toContain("장비를 선택하면 네트워크 상태와");
     expect(html).not.toContain("터미널 열기");
+  });
+
+  test("장비 수와 상한, 장비가 있으면 대기 중", () => {
+    const html = render(null);
+    const count = twoSwitchVlanDocument.devices.length;
+
+    expect(html).toContain(`<dt>연결된 장비</dt><dd><b>${count}</b> / 50</dd>`);
+    expect(html).toContain('<span class="idle-state ready">대기 중</span>');
+    expect(html).not.toContain("비어 있음");
+  });
+
+  test("장비가 없으면 0과 비어 있음", () => {
+    const html = render(null, { ...twoSwitchVlanDocument, devices: [], links: [] });
+
+    expect(html).toContain("<b>0</b> / 50");
+    expect(html).toContain('<span class="idle-state empty">비어 있음</span>');
   });
 });
