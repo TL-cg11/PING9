@@ -35,10 +35,14 @@ button { font: inherit; cursor: pointer; }
 .mode { display: flex; background: rgba(0,0,0,.18); border-radius: 12px; padding: 3px; }
 .mode button { border: none; background: transparent; color: rgba(255,255,255,.8); padding: 7px 14px; border-radius: 9px; font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
 .mode button.on { background: #fff; color: var(--sky-700); }
-.ping-btn { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: var(--navy); background: var(--beak); border: none; padding: 9px 18px; border-radius: 12px; box-shadow: 0 3px 0 var(--beak-dark); }
-.ping-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--beak-dark); }
-.ping-btn.on { box-shadow: 0 0 0 3px #fff, 0 0 0 6px var(--beak); }
-.ping-btn.off, .ping-btn.off:active { opacity: .55; cursor: not-allowed; transform: none; box-shadow: 0 3px 0 var(--beak-dark); }
+/* 시뮬레이션의 멈춤·속도 (T0.15). 모드 탭 왼쪽 */
+.sim-controls { display: flex; align-items: center; gap: 10px; }
+.sim-run { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; color: var(--sky-700); background: #fff; border: none; padding: 8px 16px; border-radius: 10px; min-width: 104px; justify-content: center; }
+.sim-run.paused { color: var(--navy); background: var(--beak); box-shadow: 0 3px 0 var(--beak-dark); }
+.speed { display: flex; align-items: center; gap: 2px; background: rgba(255,255,255,.14); border-radius: 12px; padding: 3px 3px 3px 12px; font-size: 13px; color: rgba(255,255,255,.8); }
+.speed > span { margin-right: 6px; }
+.speed button { border: none; background: transparent; color: rgba(255,255,255,.85); padding: 6px 10px; border-radius: 9px; font-size: 14px; font-weight: 600; }
+.speed button.on { background: #fff; color: var(--sky-700); }
 
 /* middle */
 .work { display: grid; grid-template-columns: 112px 1fr 270px; min-height: 0; }

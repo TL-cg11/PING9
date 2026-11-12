@@ -91,3 +91,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T0.13 시뮬레이션 모드 (계획에 없는 새 ID. 펭귄과 ping 실행 버튼은 시뮬레이션에서만) | [T0.13-simulation-mode.md](T0.13-simulation-mode.md) | 화면 | yysong1249 | 검토 대기 ([PR #52](https://github.com/TL-cg11/PING9/pull/52), PR #49 위). 요구사항 추가라 팀 확인 필요 |
 | T7.1.1 내보내기 | [T7.1.1-export.md](T7.1.1-export.md) | 화면·공통 | yysong1249 | 검토 대기 ([PR #53](https://github.com/TL-cg11/PING9/pull/53)) |
 | T7.1.2 가져오기 (지금 캔버스를 바꿈. 서버·목록 화면이 없어 계획과 다름) | [T7.1.2-import.md](T7.1.2-import.md) | 화면·공통 | yysong1249 | 검토 대기 ([PR #53](https://github.com/TL-cg11/PING9/pull/53), T7.1.1과 같은 PR) |
+| T0.15 시뮬레이션 조작: 멈춤·다시 실행, 속도 (계획에 없는 새 ID. `▶ ping 실행`을 뺌) | [T0.15-simulation-controls.md](T0.15-simulation-controls.md) | 화면 | yysong1249 | 검토 대기 ([PR #54](https://github.com/TL-cg11/PING9/pull/54)). 요구사항 추가라 팀 확인 필요 |

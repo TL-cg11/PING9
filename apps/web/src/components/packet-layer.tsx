@@ -85,7 +85,7 @@ const KIND_NAME: Readonly<Record<FrameKind, string>> = {
 export interface Replay {
   readonly key: string;
   readonly timeline: Timeline;
-  /** `performance.now()` 기준 */
+  /** 시뮬레이션 시계(`sim-clock.ts`) 기준 (T0.15) */
   readonly startedAt: number;
 }
 
@@ -145,35 +145,45 @@ function reducedMotion(): boolean {
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+const realTime = () => (typeof performance === "undefined" ? 0 : performance.now());
+
 export function PacketLayer({
   replays,
   pathOf,
   positionOf,
   now: fixedNow,
+  time = realTime,
+  paused = false,
 }: {
   readonly replays: readonly Replay[];
   readonly pathOf: (linkId: string) => LinkPath | undefined;
   readonly positionOf: (deviceId: string) => Position | undefined;
   /** 테스트용 고정 시각. 주면 스스로 시계를 돌리지 않는다 */
   readonly now?: number;
+  /** 재생의 시각. 시뮬레이션 시계를 넘긴다 (T0.15) */
+  readonly time?: () => number;
+  /** 시계가 멈췄다. 펭귄이 그 자리에 서고 다시 그리지 않는다 (T0.15) */
+  readonly paused?: boolean;
 }) {
-  const [clock, setClock] = useState(() => (typeof performance === "undefined" ? 0 : performance.now()));
+  const [clock, setClock] = useState(time);
   const now = fixedNow ?? clock;
 
-  // 걷는 펭귄이 있는 동안만 매 프레임 다시 그린다. 넘어진 펭귄만 남으면 멈춘다
+  // 걷는 펭귄이 있는 동안만 매 프레임 다시 그린다. 넘어진 펭귄만 남거나 시계가 멈추면 그친다
   useEffect(() => {
     if (fixedNow !== undefined || replays.length === 0) return;
+    setClock(time());
+    if (paused) return;
     let frame = 0;
     const tick = () => {
-      const time = performance.now();
-      setClock(time);
-      if (replays.some((replay) => time - replay.startedAt < replay.timeline.durationMs + 100)) {
+      const current = time();
+      setClock(current);
+      if (replays.some((replay) => current - replay.startedAt < replay.timeline.durationMs + 100)) {
         frame = requestAnimationFrame(tick);
       }
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [replays, fixedNow]);
+  }, [replays, fixedNow, time, paused]);
 
   const reduced = reducedMotion();
   const placed = replays.flatMap((replay) =>
