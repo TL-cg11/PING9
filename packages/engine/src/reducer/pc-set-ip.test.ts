@@ -138,6 +138,35 @@ describe("pc/set-ip: OS는 그대로 (T0.7)", () => {
   });
 });
 
+describe("pc/set-ip: 포트의 켜짐·꺼짐은 그대로 (T0.14)", () => {
+  const withPc1Port = (adminUp: boolean): TopologyDocument => ({
+    ...twoPcDocument,
+    devices: twoPcDocument.devices.map((device) =>
+      device.id === pc1.id && device.kind === "pc" ? { ...device, config: { ...device.config, adminUp } } : device,
+    ),
+  });
+
+  test("IP를 바꿔도 꺼 둔 포트가 켜지지 않는다", () => {
+    expect(configOf(setIp({ ip: "10.0.0.50", mask: "255.255.255.0" }, withPc1Port(false)))).toEqual({
+      ip: "10.0.0.50",
+      mask: "255.255.255.0",
+      adminUp: false,
+    });
+  });
+
+  test("IP를 지워도 꺼짐이 남는다", () => {
+    expect(configOf(setIp({}, withPc1Port(false)))).toEqual({ adminUp: false });
+  });
+
+  test("껐다 켠 PC의 켜짐 값도 남는다", () => {
+    expect(configOf(setIp({ ip: "10.0.0.50", mask: "255.255.255.0" }, withPc1Port(true)))).toEqual({
+      ip: "10.0.0.50",
+      mask: "255.255.255.0",
+      adminUp: true,
+    });
+  });
+});
+
 describe("pc/set-ip: 중복 IP 알림 (FR-27)", () => {
   test("다른 PC와 같은 IP면 설정하면서 알린다", () => {
     const result = setIp({ ip: pc2.ip, mask: TWO_PC.mask });
