@@ -75,7 +75,7 @@ export function setPcIp(
     return fail(errorInfo("INVALID_IPV4", { value: echo(command.gateway) }));
   }
 
-  // IP 구성만 바꾼다. OS(T0.7)는 IP와 상관없이 그대로 둔다
+  // IP 구성만 바꾼다. OS(T0.7)와 포트의 켜짐·꺼짐(T0.14)은 IP와 상관없이 그대로 둔다
   let address: PcConfig;
   const notices: Notice[] = [];
 
@@ -109,7 +109,13 @@ export function setPcIp(
     if (others.length > 0) notices.push({ code: "DUPLICATE_IP", params: { ip, others } });
   }
 
-  const config: PcConfig = device.config.os === undefined ? address : { ...address, os: device.config.os };
+  // 주소가 아닌 칸은 있던 그대로 옮긴다. 없던 칸은 만들지 않는다
+  const { os, adminUp } = device.config;
+  const config: PcConfig = {
+    ...address,
+    ...(os === undefined ? {} : { os }),
+    ...(adminUp === undefined ? {} : { adminUp }),
+  };
 
   // 받은 Document는 고치지 않고 새 객체를 만든다
   return {

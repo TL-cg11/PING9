@@ -34,6 +34,12 @@ const ripRouteCount = (simulator: Simulator, deviceId: string) => {
   return view?.kind === "router" ? view.routingTable.filter(route => route.source === "rip").length : 0;
 };
 
+/** 그 Router가 RIP로 배운 경로 가운데 `network`로 가는 것이 있는가 */
+const hasRipRoute = (simulator: Simulator, deviceId: string, network: string) => {
+  const view = simulator.getSnapshot().views[deviceId];
+  return view?.kind === "router" && view.routingTable.some(route => route.source === "rip" && route.network === network);
+};
+
 async function pingWorks(simulator: Simulator): Promise<boolean> {
   const result = await simulator.console(RIP_LAB.pc1.id).exec(`ping -n 1 ${RIP_LAB.pc2.ip}`);
   return result.lines.some(line => line.kind === "text" && line.text.includes("bytes=32"));
@@ -78,6 +84,30 @@ describe("언제 교환하나", () => {
     expect(simulator.dispatch({ type: "device/move", deviceId: RIP_LAB.r1, position: { x: 1, y: 1 } }).ok).toBe(true);
     expect(simulator.dispatch({ type: "pc/set-ip", deviceId: RIP_LAB.pc1.id, ip: "10.0.1.11", mask: "255.255.255.0", gateway: "10.0.1.1" }).ok)
       .toBe(true);
+    expect(lastExchange(simulator)).toBe(before);
+  });
+
+  test("Router에 꽂힌 PC의 포트를 끄면 교환해서 그 LAN을 잊고, 켜면 다시 배워 ping이 된다 (T0.14)", async () => {
+    const simulator = open(threeRouterRipDocument);
+    const first = lastExchange(simulator);
+    expect(hasRipRoute(simulator, RIP_LAB.r1, "10.0.3.0")).toBe(true);
+
+    // PC2의 포트가 꺼지면 R3의 그 인터페이스에 신호가 없어 10.0.3.0/24가 연결 경로에서 빠진다
+    expect(simulator.dispatch({ type: "interface/set-admin", deviceId: RIP_LAB.pc2.id, port: "Ethernet0", adminUp: false }).ok).toBe(true);
+    const whileOff = lastExchange(simulator);
+    expect(whileOff).not.toBe(first);
+    expect(hasRipRoute(simulator, RIP_LAB.r1, "10.0.3.0")).toBe(false);
+
+    expect(simulator.dispatch({ type: "interface/set-admin", deviceId: RIP_LAB.pc2.id, port: "Ethernet0", adminUp: true }).ok).toBe(true);
+    expect(lastExchange(simulator)).not.toBe(whileOff);
+    expect(hasRipRoute(simulator, RIP_LAB.r1, "10.0.3.0")).toBe(true);
+    expect(await pingWorks(simulator)).toBe(true);
+  });
+
+  test("끈 적 없는 PC의 포트를 켜는 것은 달라지는 것이 없어 교환하지 않는다 (T0.14)", () => {
+    const simulator = open(threeRouterRipDocument);
+    const before = lastExchange(simulator);
+    expect(simulator.dispatch({ type: "interface/set-admin", deviceId: RIP_LAB.pc1.id, port: "Ethernet0", adminUp: true }).ok).toBe(true);
     expect(lastExchange(simulator)).toBe(before);
   });
 
