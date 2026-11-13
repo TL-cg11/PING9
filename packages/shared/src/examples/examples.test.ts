@@ -203,7 +203,7 @@ describe("예시 Snapshot과 ConsoleResult", () => {
     const traceIds = lines.flatMap((line) => (line.kind === "trace" ? [line.traceId] : []));
     const replies = lines.filter((line) => line.kind === "text" && line.text.startsWith("Reply from"));
 
-    expect(prompt).toBe("PC1>");
+    expect(prompt).toBe("PC1 User>");
     expect(traceIds).toEqual([1, 2, 3, 4]);
     expect(replies).toHaveLength(4);
     expect(lines.every((line) => line.kind === "text" || line.kind === "trace")).toBe(true);

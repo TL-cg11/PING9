@@ -7,20 +7,25 @@
 import { LIMITS, errorInfo, osOf } from "@ping9/shared";
 import type { ConsoleLine, ConsoleResult, Device, DeviceKind, HelpEntry, PcDevice } from "@ping9/shared";
 
-import { iosComplete, iosExec, iosHelp, iosPrompt } from "./cli/ios";
+import { iosCandidates, iosComplete, iosExec, iosHelp, iosPrompt } from "./cli/ios";
+import type { PathCompleter } from "./cli/ios";
+import { pathCompletions } from "./cli/pc/file-tree";
 import type { CommandDefinition, IosConsoleEnv } from "./cli/ios";
-import { pcCommandsFor, pcPrompt, unknownCommandText, unsupportedSyntaxAt } from "./cli/pc";
+import { initialFiles, parseEcho, pcCommandsFor, pcPrompt, runEcho, unknownCommandText, unsupportedSyntaxAt } from "./cli/pc";
+import type { PcFiles } from "./cli/pc";
 import { splitWords } from "./cli/ios/parse";
 import { ROUTER_COMMANDS } from "./cli/router";
 import { SWITCH_COMMANDS } from "./cli/switch";
 
 export interface ConsolePort {
-  /** 현재 프롬프트 (예: `PC1>`, `R1(config-if)#`) */
+  /** 현재 프롬프트 (예: `PC1 User>`, `R1(config-if)#`) */
   prompt(): string;
   /** 한 줄을 실행한다. 틀린 입력에도 거부(reject)하지 않고 오류 줄을 돌려준다 */
   exec(line: string): Promise<ConsoleResult>;
   /** Tab 완성. 완성할 것이 없으면 null */
   complete(line: string): string | null;
+  /** Tab을 두 번 눌렀을 때 보일 후보 (T0.19). 없으면 빈 목록 */
+  candidates(line: string): readonly string[];
   /** `?` 도움말 */
   help(line: string): HelpEntry[];
 }
@@ -52,12 +57,17 @@ function definitionsFor(device: Device): readonly CommandDefinition[] | undefine
 
 export function createConsolePort(deviceId: string, env: IosConsoleEnv): ConsolePort {
   const findDevice = () => env.getDocument().devices.find((device) => device.id === deviceId);
+  // PC의 경로 자리에서 Tab이 파일·폴더 이름을 채운다 (T0.19)
+  const pathsOf = (device: Device): PathCompleter | undefined =>
+    device.kind === "pc" ? (typed, dirsOnly) => pathCompletions(filesOf(device), typed, dirsOnly) : undefined;
+  // 파일 트리가 없는 환경(일부 테스트)에서는 늘 처음 상태다
+  const filesOf = (pc: PcDevice): PcFiles => env.getFiles?.(pc.id, osOf(pc.config)) ?? initialFiles(osOf(pc.config));
 
   const prompt = (): string => {
     const device = findDevice();
     if (device === undefined) return ">";
-    // PC에는 모드가 없고 OS마다 프롬프트가 다르다 (Windows `PC1>`, Linux `PC2$`)
-    if (device.kind === "pc") return pcPrompt(device);
+    // PC에는 모드가 없고 OS마다 프롬프트가 다르다 (Windows `PC1 User>`, Linux `user@PC2 ~ $`, T0.19)
+    if (device.kind === "pc") return pcPrompt(device, filesOf(device));
     return definitionsFor(device) === undefined ? `${device.name}>` : iosPrompt(device, env);
   };
 
@@ -90,6 +100,16 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
           code: "CLI_LINE_TOO_LONG",
           params: { limit: LIMITS.maxConsoleLineLength },
         });
+      }
+
+      // `echo <글>`, `echo <글> > <파일>`은 리다이렉트 기호 검사의 예외다 (T0.19 설계안 결정 3)
+      if (device.kind === "pc") {
+        const echo = parseEcho(text, osOf(device.config));
+        if (echo !== undefined) {
+          const outcome = runEcho(filesOf(device), echo);
+          if (outcome.files !== undefined) env.setFiles?.(device.id, outcome.files);
+          return result(...(outcome.lines ?? []).map((line): ConsoleLine => ({ kind: "text", text: line })));
+        }
       }
 
       // PC 콘솔은 한 줄에 명령 하나다. 파이프, 리다이렉트, 명령 연결은 실행하지 않는다 (T0.9)
@@ -127,7 +147,12 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
 
     complete: (line: string): string | null => {
       const target = assistTarget(line);
-      return target === undefined ? null : iosComplete(target.text, target.device, target.definitions, env);
+      return target === undefined ? null : iosComplete(target.text, target.device, target.definitions, env, pathsOf(target.device));
+    },
+
+    candidates: (line: string): readonly string[] => {
+      const target = assistTarget(line);
+      return target === undefined ? [] : iosCandidates(target.text, target.device, target.definitions, env, pathsOf(target.device));
     },
 
     help: (line: string): HelpEntry[] => {

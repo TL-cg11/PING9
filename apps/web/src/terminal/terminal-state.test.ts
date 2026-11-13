@@ -292,12 +292,12 @@ describe("화면 기록", () => {
   });
 
   test("추적 줄은 아직 그리지 않는다", () => {
-    const state = received(initialTerminal("PC1>"), {
+    const state = received(initialTerminal("PC1 User>"), {
       lines: [
         { kind: "text", text: "Reply from 10.0.10.3" },
         { kind: "trace", traceId: 1 },
       ],
-      prompt: "PC1>",
+      prompt: "PC1 User>",
     });
 
     expect(state.lines).toEqual([{ kind: "text", text: "Reply from 10.0.10.3" }]);
@@ -333,7 +333,25 @@ describe("프롬프트 맞추기 (T0.7)", () => {
     simulator.dispatch({ type: "pc/set-os", deviceId: TWO_PC.pc1.id, os: "linux" });
     const after = refreshPrompts(terminals, promptOf)[TWO_PC.pc1.id]!;
 
-    expect(after.prompt).toBe("PC1$");
-    expect(after.lines[0]).toEqual({ kind: "input", prompt: "PC1>", text: "ipconfig" });
+    expect(after.prompt).toBe("user@PC1 ~ $");
+    expect(after.lines[0]).toEqual({ kind: "input", prompt: "PC1 User>", text: "ipconfig" });
+  });
+});
+
+describe("화면 지우기 (T0.19)", () => {
+  test("cls는 친 줄을 포함해 그때까지의 기록을 지우고, 다음 줄부터 다시 쌓는다", async () => {
+    const simulator = createSimulator();
+    simulator.load(twoPcDocument);
+    const port = simulator.console(TWO_PC.pc1.id);
+    let state = initialTerminal(port.prompt());
+    state = await runLine(port, state, "cd");
+    expect(state.lines).toHaveLength(2);
+    state = await runLine(port, state, "cls");
+    expect(state.lines).toEqual([]);
+    state = await runLine(port, state, "cd");
+    expect(state.lines).toEqual([
+      { kind: "input", prompt: "PC1 User>", text: "cd" },
+      { kind: "text", text: "C:\\Users\\User" },
+    ]);
   });
 });

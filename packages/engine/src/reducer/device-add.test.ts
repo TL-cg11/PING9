@@ -44,8 +44,8 @@ describe("device/add", () => {
     expect(simulator.dispatch(command({ kind: "pc", id: id(102) })).ok).toBe(true);
     const configs = simulator.getSnapshot().document.devices.map(device => device.config);
     expect(configs).toEqual([{ os: "linux" }, { os: "windows" }, {}]);
-    expect(simulator.console(id(100)).prompt()).toBe("PC1$");
-    expect(simulator.console(id(101)).prompt()).toBe("PC2>");
+    expect(simulator.console(id(100)).prompt()).toBe("user@PC1 ~ $");
+    expect(simulator.console(id(101)).prompt()).toBe("PC2 User>");
   });
 
   test.each([

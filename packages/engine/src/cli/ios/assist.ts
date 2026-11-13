@@ -97,26 +97,113 @@ export function helpFor(
   return [...keywords, ...params.values(), ...end];
 }
 
+/** Tab 후보 하나 (T0.19) */
+export interface CompletionOption {
+  /** 치다 만 단어 자리에 넣을 글 */
+  readonly insert: string;
+  /** 후보 목록에 보일 글 (Linux 폴더는 `docs/`) */
+  readonly label: string;
+  /** 다 채운 뒤 빈칸을 붙인다. 폴더는 붙이지 않고 구분자로 끝난다 */
+  readonly final: boolean;
+  /** 겹치는 앞부분을 셀 때 대소문자를 구분한다 */
+  readonly caseSensitive: boolean;
+}
+
+/** 경로 자리의 후보를 찾는 함수. PC 콘솔만 준다 */
+export type PathCompleter = (typed: string, dirsOnly: boolean) => readonly CompletionOption[];
+
+interface Completion {
+  /** 치다 만 단어가 시작하는 위치. 단어가 없으면 줄 끝 */
+  readonly start: number;
+  readonly typed: string;
+  readonly options: readonly CompletionOption[];
+  /** 친 단어와 똑같은 키워드. 다른 후보가 있어도 이것으로 채운다 (해석기와 같은 순서) */
+  readonly exact?: CompletionOption;
+}
+
+function completionAt(
+  line: string,
+  mode: CliMode,
+  kind: DeviceKind,
+  definitions: readonly CommandDefinition[],
+  paths?: PathCompleter,
+): Completion {
+  const cursor = cursorAt(line, mode, kind, definitions);
+  const typed = cursor.partial?.text ?? "";
+  const start = cursor.partial?.position ?? line.length;
+  // IOS 장비는 지금처럼 치다 만 단어가 있어야 채운다. PC는 bash처럼 빈 자리에서도 후보를 보인다
+  if (cursor.partial === undefined && paths === undefined) return { start, typed, options: [] };
+
+  const keywordOptions = [...keywordsAt(cursor)].map(([keyword, owners]): CompletionOption => ({
+    insert: keyword,
+    label: keyword,
+    final: true,
+    caseSensitive: owners.some((owner) => owner.caseSensitive === true),
+  }));
+  const exact = keywordOptions.find((option) =>
+    keywordsAt(cursor).get(option.insert)?.some((owner) => sameKeyword(option.insert, typed, owner)),
+  );
+
+  const pathKinds = new Set<"any" | "dir">();
+  for (const definition of cursor.alive) {
+    const token = definition.tokens[cursor.index];
+    if (token !== undefined && typeof token !== "string" && token.files !== undefined) pathKinds.add(token.files);
+  }
+  const fileOptions = paths === undefined || pathKinds.size === 0 ? [] : paths(typed, !pathKinds.has("any"));
+  // 파일 이름 자리에서는 옵션(`-l`, `/s`)을 친 때만 옵션을 후보로 둔다
+  const keywords = fileOptions.length > 0 && !/^[-/]/.test(typed)
+    ? keywordOptions.filter((option) => !/^[-/]/.test(option.insert))
+    : keywordOptions;
+
+  const seen = new Set<string>();
+  const options = [...keywords, ...fileOptions].filter((option) => !seen.has(option.insert) && seen.add(option.insert));
+  return { start, typed, options, ...(exact === undefined ? {} : { exact }) };
+}
+
+function commonPrefix(options: readonly CompletionOption[]): string {
+  const sensitive = options.every((option) => option.caseSensitive);
+  let prefix = options[0]?.insert ?? "";
+  for (const { insert } of options.slice(1)) {
+    let length = 0;
+    while (
+      length < prefix.length && length < insert.length &&
+      (sensitive ? prefix[length] === insert[length] : prefix[length]!.toLowerCase() === insert[length]!.toLowerCase())
+    ) length += 1;
+    prefix = prefix.slice(0, length);
+  }
+  return prefix;
+}
+
 /**
- * Tab 완성: 치다 만 마지막 단어가 키워드 하나로 정해지면 그 키워드와 빈칸으로 바꾼 줄을 돌려준다.
- * 앞의 단어는 줄여 쓴 그대로 둔다. 후보가 없거나 둘 이상이거나 매개변수 자리면 null이다.
+ * Tab 완성 (T3.2.2, T0.19). 후보가 하나면 채우고 빈칸을 붙인다(폴더는 구분자로 끝남).
+ * 여럿이면 겹치는 앞부분까지 채운다. 더 채울 것이 없으면 null이다 (그때 Tab을 한 번 더 누르면 후보 목록).
+ * 앞의 단어는 줄여 쓴 그대로 둔다.
  */
 export function completeLine(
   line: string,
   mode: CliMode,
   kind: DeviceKind,
   definitions: readonly CommandDefinition[],
+  paths?: PathCompleter,
 ): string | null {
-  const cursor = cursorAt(line, mode, kind, definitions);
-  if (cursor.partial === undefined) return null;
+  const completion = completionAt(line, mode, kind, definitions, paths);
+  const head = line.slice(0, completion.start);
+  const only = completion.exact ?? (completion.options.length === 1 ? completion.options[0] : undefined);
+  if (only !== undefined) return `${head}${only.insert}${only.final ? " " : ""}`;
+  if (completion.options.length === 0) return null;
+  const prefix = commonPrefix(completion.options);
+  return prefix.length > completion.typed.length ? `${head}${prefix}` : null;
+}
 
-  const typed = cursor.partial.text;
-  const found = [...keywordsAt(cursor)];
-  // 해석기와 같은 순서다: 똑같은 키워드가 먼저, 없으면 하나뿐인 접두사 일치
-  const keyword =
-    found.find(([candidate, owners]) => owners.some((owner) => sameKeyword(candidate, typed, owner)))?.[0] ??
-    (found.length === 1 ? found[0]?.[0] : undefined);
-  if (keyword === undefined) return null;
-
-  return `${line.slice(0, cursor.partial.position)}${keyword} `;
+/** Tab 후보 목록 (T0.19). 이름순 */
+export function completionLabels(
+  line: string,
+  mode: CliMode,
+  kind: DeviceKind,
+  definitions: readonly CommandDefinition[],
+  paths?: PathCompleter,
+): string[] {
+  return completionAt(line, mode, kind, definitions, paths)
+    .options.map((option) => option.label)
+    .sort((left, right) => (left.toLowerCase() < right.toLowerCase() ? -1 : left.toLowerCase() > right.toLowerCase() ? 1 : 0));
 }

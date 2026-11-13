@@ -23,7 +23,13 @@ export interface ConsoleTraceLine {
   readonly traceId: number;
 }
 
+/** 화면 지우기 (`clear`, `cls`, T0.19). web은 이 줄 앞까지의 화면 기록을 지운다 */
+export interface ConsoleClearLine {
+  readonly kind: "clear";
+}
+
 export type ConsoleLine =
+  | ConsoleClearLine
   | ConsoleTextLine
   | ConsoleErrorLine
   | ConsoleNoticeLine

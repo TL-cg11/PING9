@@ -37,8 +37,8 @@ const errorOf = (result: ConsoleResult): ConsoleLine | undefined =>
 
 describe("OS에 따라 명령 목록과 프롬프트가 다르다", () => {
   test("Linux PC의 프롬프트는 `이름$`, Windows는 `이름>`", () => {
-    expect(open().port.prompt()).toBe("PC1$");
-    expect(open(twoPcDocument).port.prompt()).toBe("PC1>");
+    expect(open().port.prompt()).toBe("user@PC1 ~ $");
+    expect(open(twoPcDocument).port.prompt()).toBe("PC1 User>");
   });
 
   test("Linux PC에서 `ipconfig`는 알 수 없는 명령어다", async () => {
@@ -55,17 +55,17 @@ describe("OS에 따라 명령 목록과 프롬프트가 다르다", () => {
 
   test("OS를 바꾸면 다음 명령부터 새 목록과 프롬프트를 쓴다", async () => {
     const { simulator, port } = open(twoPcDocument);
-    expect(port.prompt()).toBe("PC1>");
+    expect(port.prompt()).toBe("PC1 User>");
 
     expect(simulator.dispatch({ type: "pc/set-os", deviceId: pc1.id, os: "linux" }).ok).toBe(true);
 
-    expect(port.prompt()).toBe("PC1$");
+    expect(port.prompt()).toBe("user@PC1 ~ $");
     expect(texts(await port.exec("ip a"))[0]).toMatch(/^1: lo:/);
   });
 
   test("실행 결과의 프롬프트도 OS의 것이다", async () => {
-    expect((await open().port.exec("ip addr")).prompt).toBe("PC1$");
-    expect((await open().port.exec("")).prompt).toBe("PC1$");
+    expect((await open().port.exec("ip addr")).prompt).toBe("user@PC1 ~ $");
+    expect((await open().port.exec("")).prompt).toBe("user@PC1 ~ $");
   });
 
   test("Tab 완성과 `?` 도움말이 Linux 목록을 쓴다", () => {

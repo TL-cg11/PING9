@@ -133,7 +133,7 @@ describe("다른 장비", () => {
         { kind: "text", text: "operable program or batch file." },
         { kind: "notice", code: "PC_UNKNOWN_COMMAND", params: { token: "enable" } },
       ],
-      prompt: "PC1>",
+      prompt: "PC1 User>",
     });
   });
 });

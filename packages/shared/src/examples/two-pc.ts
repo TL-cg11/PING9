@@ -299,7 +299,7 @@ export const twoPcSnapshot: Snapshot = {
  * 왕복 시간은 가상 시간이다: 첫 회차는 ARP가 먼저 오가서 4ms, 나머지는 2ms.
  */
 export const twoPcPingConsoleResult: ConsoleResult = {
-  prompt: "PC1>",
+  prompt: "PC1 User>",
   lines: [
     { kind: "text", text: "Pinging 192.168.1.2 with 32 bytes of data:" },
     { kind: "text", text: "Reply from 192.168.1.2: bytes=32 time=4ms TTL=128" },

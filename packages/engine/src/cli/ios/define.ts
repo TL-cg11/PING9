@@ -9,11 +9,13 @@ import type {
   DeviceKind,
   DispatchResult,
   ErrorInfo,
+  OsKind,
   TopologyDocument,
 } from "@ping9/shared";
 import type { ArpEntryView, MacTableEntryView, RouteEntryView } from "@ping9/shared";
 
 import type { PingRequest, PingRun, TracerouteRequest } from "../../runtime";
+import type { PcFiles } from "../pc/file-tree";
 
 export type CliMode = "user" | "privileged" | "config" | "config-if" | "config-vlan" | "config-router";
 
@@ -35,6 +37,8 @@ export interface ParamToken {
    * 장비 종류에 따라 달라지는 값(인터페이스 이름)이나 한 명령어만 쓰는 형식(VLAN 목록)에 쓴다.
    */
   readonly read?: (text: string, kind: DeviceKind) => ParamValue;
+  /** PC 파일 명령의 경로 자리 (T0.19). Tab이 파일·폴더 이름을 채운다. `dir`이면 폴더만 */
+  readonly files?: "any" | "dir";
 }
 
 /** 매개변수 자리의 글을 읽은 결과 */
@@ -73,6 +77,15 @@ export interface CommandContext {
   dispatch(command: Command): DispatchResult;
   /** Document가 아닌 동적 상태(ping, ARP 테이블). Simulator가 채운다. 없으면 그 명령어는 실행할 수 없다 */
   readonly runtime?: RuntimeAccess;
+  /** PC의 파일 트리 (T0.19). Runtime에만 있다. 없으면 파일 명령은 아무것도 하지 않는다 */
+  readonly files?: FileAccess;
+}
+
+/** 장비 하나의 파일 트리를 읽고 바꾸는 길 (T0.19) */
+export interface FileAccess {
+  /** 지금 트리. 없거나 OS가 바뀌었으면 그 OS의 처음 상태 */
+  get(os: OsKind): PcFiles;
+  set(files: PcFiles): void;
 }
 
 /**
