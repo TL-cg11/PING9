@@ -110,4 +110,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T15.2.1 VyOS 방식 VPN CLI | [T15.2.1-vyos-vpn-cli.md](T15.2.1-vyos-vpn-cli.md) | 공통·엔진·CLI·화면·문서 | ssunyoung2 | 로컬 구현·검증 완료, 리뷰 전 |
 | T15.2.2 최신 main과 VyOS VPN 통합 | [T15.2.2-vyos-main-integration.md](T15.2.2-vyos-main-integration.md) | 통합·엔진·화면·문서 | ssunyoung2 | 로컬 통합·검증 완료, 리뷰 전 |
 | T15.2.3 VPN 명령어 작성법과 예시 | [T15.2.3-vpn-command-syntax.md](T15.2.3-vpn-command-syntax.md) | 문서 | ssunyoung2 | 문서 수정·검증 완료, 리뷰 전 |
-| T15.2.4 VPN·VyOS 최종 검사와 PR | [T15.2.4-vpn-vyos-pr.md](T15.2.4-vpn-vyos-pr.md) | 검증·Git·문서 | ssunyoung2 | 최종 검사 완료, PR 준비 |
+| T15.2.4 VPN·VyOS 최종 검사와 PR | [T15.2.4-vpn-vyos-pr.md](T15.2.4-vpn-vyos-pr.md) | 검증·Git·문서 | ssunyoung2 | [PR #63](https://github.com/TL-cg11/PING9/pull/63) 리뷰 대기 |
