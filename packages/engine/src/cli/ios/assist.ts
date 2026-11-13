@@ -116,6 +116,8 @@ interface Completion {
   /** 치다 만 단어가 시작하는 위치. 단어가 없으면 줄 끝 */
   readonly start: number;
   readonly typed: string;
+  /** 치다 만 단어가 없다 (빈 줄이거나 빈칸 뒤) */
+  readonly empty: boolean;
   readonly options: readonly CompletionOption[];
   /** 친 단어와 똑같은 키워드. 다른 후보가 있어도 이것으로 채운다 (해석기와 같은 순서) */
   readonly exact?: CompletionOption;
@@ -131,8 +133,7 @@ function completionAt(
   const cursor = cursorAt(line, mode, kind, definitions);
   const typed = cursor.partial?.text ?? "";
   const start = cursor.partial?.position ?? line.length;
-  // IOS 장비는 지금처럼 치다 만 단어가 있어야 채운다. PC는 bash처럼 빈 자리에서도 후보를 보인다
-  if (cursor.partial === undefined && paths === undefined) return { start, typed, options: [] };
+  const empty = cursor.partial === undefined;
 
   const keywordOptions = [...keywordsAt(cursor)].map(([keyword, owners]): CompletionOption => ({
     insert: keyword,
@@ -157,7 +158,7 @@ function completionAt(
 
   const seen = new Set<string>();
   const options = [...keywords, ...fileOptions].filter((option) => !seen.has(option.insert) && seen.add(option.insert));
-  return { start, typed, options, ...(exact === undefined ? {} : { exact }) };
+  return { start, typed, empty, options, ...(exact === undefined ? {} : { exact }) };
 }
 
 function commonPrefix(options: readonly CompletionOption[]): string {
@@ -187,15 +188,20 @@ export function completeLine(
   paths?: PathCompleter,
 ): string | null {
   const completion = completionAt(line, mode, kind, definitions, paths);
+  // Switch와 Router의 Tab 한 번은 치다 만 단어가 있어야 채운다. PC는 bash처럼 빈 자리에서도 채운다
+  if (paths === undefined && completion.empty) return null;
   const head = line.slice(0, completion.start);
   const only = completion.exact ?? (completion.options.length === 1 ? completion.options[0] : undefined);
   if (only !== undefined) return `${head}${only.insert}${only.final ? " " : ""}`;
   if (completion.options.length === 0) return null;
+  // 공통 부분까지 채우는 것은 경로 완성이 있는 PC뿐이다 (T0.19). Switch와 Router는 하나로 정해질 때만 완성한다.
+  // 여럿이면 그대로 두고, Tab을 한 번 더 누르면 후보를 나열한다
+  if (paths === undefined) return null;
   const prefix = commonPrefix(completion.options);
   return prefix.length > completion.typed.length ? `${head}${prefix}` : null;
 }
 
-/** Tab 후보 목록 (T0.19). 이름순 */
+/** Tab 후보 목록 (T0.19). 이름순. 모든 장비가 쓴다: 빈 자리에서는 그 자리의 키워드(PC는 파일·폴더도) 전부 */
 export function completionLabels(
   line: string,
   mode: CliMode,

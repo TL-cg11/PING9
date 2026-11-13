@@ -4,7 +4,7 @@ import { describe, expect, test } from "vitest";
 
 import { SWITCH_COMMANDS } from "../switch";
 
-import { completeLine, helpFor } from "./assist";
+import { completeLine, completionLabels, helpFor } from "./assist";
 import { defineCommand, param } from "./define";
 import type { CliMode, CommandDefinition } from "./define";
 import { parseLine } from "./parse";
@@ -144,6 +144,55 @@ describe("completeLine", () => {
     ["r", "config"],
   ])("%j (%s): 완성할 것이 없다", (line, mode) => {
     expect(complete(line, mode as CliMode)).toBeNull();
+  });
+});
+
+describe("completeLine: 경로 완성이 없는 장비(Switch, Router)", () => {
+  // 앞 글자가 같은 키워드 둘. PC의 Tab은 공통 부분까지 채우지만(T0.19) IOS 장비는 채우지 않는다
+  const SHARED = [
+    defineCommand({ modes: ["privileged"], tokens: ["show", "interface"], help: "Show one interface", run }),
+    defineCommand({ modes: ["privileged"], tokens: ["show", "interfaces", "trunk"], help: "Show trunks", run }),
+  ];
+
+  test("여러 키워드로 읽히면 공통 부분만 채우지 않고 그대로 둔다", () => {
+    expect(completeLine("show i", "privileged", "switch", SHARED)).toBeNull();
+    expect(completeLine("show interf", "privileged", "router", SHARED)).toBeNull();
+  });
+
+  test("똑같은 키워드가 있으면 그것으로 완성한다", () => {
+    expect(completeLine("show interface", "privileged", "switch", SHARED)).toBe("show interface ");
+  });
+
+  test("경로 완성이 있으면(PC) 공통 부분까지 채운다", () => {
+    expect(completeLine("show i", "privileged", "switch", SHARED, () => [])).toBe("show interface");
+  });
+
+  test("빈 자리에서는 올 단어가 하나뿐이어도 채우지 않는다", () => {
+    expect(completeLine("configure ", "privileged", "switch", DEFS)).toBeNull();
+    expect(completeLine("", "user", "switch", DEFS)).toBeNull();
+  });
+});
+
+describe("completionLabels: Tab을 두 번 눌렀을 때의 후보 (경로 완성이 없는 장비도)", () => {
+  test("치다 만 글자로 시작하는 키워드, 이름순", () => {
+    expect(completionLabels("e", "user", "switch", DEFS)).toEqual(["enable", "exit"]);
+    expect(completionLabels("show v", "privileged", "switch", DEFS)).toEqual(["version", "vlan"]);
+  });
+
+  test("빈 자리에서는 그 자리의 키워드 전부", () => {
+    expect(completionLabels("", "user", "switch", DEFS)).toEqual(["enable", "exit"]);
+    expect(completionLabels("show ", "privileged", "switch", DEFS)).toEqual(["version", "vlan"]);
+    expect(completionLabels("configure ", "privileged", "switch", DEFS)).toEqual(["terminal"]);
+  });
+
+  test("값을 적는 자리와 모르는 단어에는 후보가 없다", () => {
+    expect(completionLabels("vlan ", "config", "switch", DEFS)).toEqual([]);
+    expect(completionLabels("zz", "privileged", "switch", DEFS)).toEqual([]);
+  });
+
+  test("다른 장비 종류의 명령어는 나오지 않는다", () => {
+    expect(completionLabels("r", "config", "switch", DEFS)).toEqual([]);
+    expect(completionLabels("r", "config", "router", DEFS)).toEqual(["router-only"]);
   });
 });
 

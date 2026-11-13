@@ -152,6 +152,7 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
 
     candidates: (line: string): readonly string[] => {
       const target = assistTarget(line);
+      // Tab을 두 번 누르면 PC도 Switch·Router도 그 자리에서 칠 수 있는 것을 나열한다 (T0.19)
       return target === undefined ? [] : iosCandidates(target.text, target.device, target.definitions, env, pathsOf(target.device));
     },
 

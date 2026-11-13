@@ -37,6 +37,70 @@ describe("complete", () => {
   });
 });
 
+describe("candidates: Tab을 두 번 누르면 지금 칠 수 있는 명령어를 나열한다", () => {
+  const keywords = (entries: readonly { readonly token: string }[]) => tokens(entries).filter((token) => !token.startsWith("<")).sort();
+
+  test("치다 만 글자로 시작하는 명령어", async () => {
+    const { port } = open();
+
+    // 사용자 모드의 e는 enable과 exit 둘 다 된다
+    expect(port.candidates("e")).toEqual(["enable", "exit"]);
+
+    await port.exec("enable");
+
+    expect(port.candidates("c")).toEqual(["configure"]);
+    expect(port.candidates("sh")).toEqual(["show"]);
+    expect(port.candidates("zz")).toEqual([]);
+  });
+
+  test("빈 자리에서는 그 자리의 명령어 전부. ?가 보이는 단어와 같다", async () => {
+    const { port } = open();
+
+    expect(port.candidates("")).toEqual(["enable", "exit"]);
+
+    await port.exec("enable");
+
+    expect(port.candidates("show ")).toEqual(keywords(port.help("show ")));
+    expect(port.candidates("show ")).toContain("vlan");
+    expect(port.candidates("")).toEqual(keywords(port.help("")));
+  });
+
+  test("값을 적는 자리에는 나열할 것이 없다", async () => {
+    const { port } = open();
+    await port.exec("enable");
+    await port.exec("configure terminal");
+
+    // vlan 뒤는 번호 자리다
+    expect(tokens(port.help("vlan "))).toEqual(["<id>"]);
+    expect(port.candidates("vlan ")).toEqual([]);
+  });
+
+  test("나열은 세션과 문서를 바꾸지 않는다", () => {
+    const { simulator, port } = open();
+    const before = simulator.getSnapshot();
+
+    port.candidates("e");
+
+    expect(port.prompt()).toBe("SW1>");
+    expect(simulator.getSnapshot()).toBe(before);
+  });
+
+  test("Tab 한 번의 완성은 그대로다: 하나로 정해질 때만, 빈 자리에서는 채우지 않는다", async () => {
+    const { port } = open();
+
+    expect(port.complete("en")).toBe("enable ");
+    expect(port.complete("e")).toBeNull();
+    expect(port.complete("")).toBeNull();
+
+    await port.exec("enable");
+
+    // configure 뒤에 올 단어는 terminal 하나지만 빈 자리라 채우지 않는다
+    expect(port.candidates("configure ")).toEqual(["terminal"]);
+    expect(port.complete("configure ")).toBeNull();
+    expect(port.complete("configure t")).toBe("configure terminal ");
+  });
+});
+
 describe("help", () => {
   test("지금 모드에서 칠 수 있는 단어와 영어 설명", async () => {
     const { port } = open();
