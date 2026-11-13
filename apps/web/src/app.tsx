@@ -12,6 +12,7 @@ import { isRemoveKey, removeKeyAction } from "./components/canvas-keys";
 import { Inspector } from "./components/inspector";
 import { LinkInspector } from "./components/link-inspector";
 import { Palette } from "./components/palette";
+import { useSideWidth } from "./components/side-resize";
 import type { Replay } from "./components/packet-layer";
 import { TerminalWindow } from "./components/terminal-window";
 import { focusCanvasNode, focusTerminalInput } from "./focus";
@@ -64,6 +65,8 @@ export function App() {
   const [importError, setImportError] = useState<ErrorInfo | null>(null);
   const [cable, setCable] = useState<CableState>(CABLE_OFF);
   const [dragKind, setDragKind] = useState<DeviceKind | null>(null);
+  // 오른쪽 패널 폭. 손잡이로 끌어 바꾼다 (T0.18)
+  const side = useSideWidth();
   // 목록에서 끌어 온 새 장비를 왼쪽 장비 목록에 다시 놓으면 취소된다 (T0.12). 캔버스가 목록의 자리를 보고 상태를 알려 준다
   const paletteRef = useRef<HTMLElement>(null);
   const [dragCancel, setDragCancel] = useState<DragCancelState>("idle");
@@ -456,7 +459,8 @@ export function App() {
     <div className={`app mode-${mode}`}>
       <TopBar name={topologyName} onRename={setTopologyName} onExport={exportTopology} onImport={(file) => void importTopology(file)} mode={mode} onModeChange={changeMode}
         sim={mode === "simulation" ? { clock: clockState, onPause: clock.pause, onResume: clock.resume, onSpeed: clock.setSpeed } : undefined} />
-      <main className="work">
+      <main className={`work${side.dragging ? " side-dragging" : ""}`} style={{ gridTemplateColumns: `112px minmax(0, 1fr) ${side.width}px` }}>
+        {side.handle}
         <Palette deviceCount={document.devices.length} linkCount={document.links.length} cableActive={cable.active}
           onConnect={() => { setCable(cable.active ? CABLE_OFF : CABLE_READY); setConnectionMessage(null); setActionError(null); }}
           onDeviceDragStart={kind => { setDragKind(kind); setCable(CABLE_OFF); setConnectionMessage(null); }}

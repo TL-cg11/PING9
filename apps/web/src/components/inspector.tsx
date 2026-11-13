@@ -54,10 +54,9 @@ export function Inspector({
 
   if (device === undefined || view === undefined) {
     return (
-      // 아무것도 고르지 않았을 때의 카드 (T0.17)
+      // 아무것도 고르지 않았을 때의 카드 (T0.17). 그림의 말풍선이 제목 역할을 하고, 글자가 그림 안에 있어 alt로 같은 문장을 준다 (T0.18)
       <aside className="inspector inspector-idle">
-        <div className="idle-art"><img src={panelPenguin} alt="" /></div>
-        <h3 className="idle-title">관제 준비 완료!</h3>
+        <div className="idle-art"><img src={panelPenguin} alt="네트워크 탐험을 시작해 볼까요?" /></div>
         <p className="idle-text">장비를 선택하면 네트워크 상태와<br />상세 정보를 확인할 수 있어요.</p>
         <dl className="idle-stats">
           <div><dt>연결된 장비</dt><dd><b>{document.devices.length}</b> / {LIMITS.maxDevices}</dd></div>

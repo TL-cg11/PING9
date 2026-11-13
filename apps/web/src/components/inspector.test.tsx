@@ -99,12 +99,14 @@ describe("PC", () => {
   });
 });
 
-describe("선택이 없을 때 (T0.17 빈 카드)", () => {
+describe("선택이 없을 때 (T0.17 빈 카드, T0.18 그림)", () => {
   test.each([null, "nope"])("deviceId가 %j면 빈 카드만 나온다", (deviceId) => {
     const html = render(deviceId);
 
     expect(html).toContain('class="inspector inspector-idle"');
-    expect(html).toContain("관제 준비 완료!");
+    // 제목은 그림의 말풍선이 대신한다 (T0.18)
+    expect(html).toContain('alt="네트워크 탐험을 시작해 볼까요?"');
+    expect(html).not.toContain("관제 준비 완료!");
     expect(html).toContain("장비를 선택하면 네트워크 상태와");
     expect(html).not.toContain("터미널 열기");
   });
