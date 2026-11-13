@@ -12,6 +12,8 @@ import { checkRipConfig, checkRouterInterfaceOverlap, checkStaticRoute } from ".
 import { topologyDocumentSchema, traceSchema } from "./schema";
 import type { ParsedDocument } from "./schema";
 import type { Trace } from "./trace";
+import { checkTunnels, routerInterfaces } from "./tunnel-config";
+import { checkIpsec } from "./ipsec-config";
 import {
   checkDeviceName,
   checkTopologyName,
@@ -178,7 +180,7 @@ function checkRouterConfig(
     });
   }
   for (const route of config.staticRoutes) {
-    const error = checkStaticRoute(deviceId, route, config.interfaces);
+    const error = checkStaticRoute(deviceId, route, routerInterfaces(config));
     if (error) return error;
   }
   if (config.rip !== undefined) {
@@ -188,7 +190,7 @@ function checkRouterConfig(
       new Set(config.rip.passiveInterfaces).size !== config.rip.passiveInterfaces.length;
     if (repeated) return shapeError(`${path}.rip`);
   }
-  return null;
+  return checkTunnels(deviceId, config) ?? checkIpsec(config);
 }
 
 function checkDeviceConfig(device: ParsedDevice, path: string): ErrorInfo | null {

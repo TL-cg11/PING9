@@ -15,6 +15,7 @@ import { initialFiles, parseEcho, pcCommandsFor, pcPrompt, runEcho, unknownComma
 import type { PcFiles } from "./cli/pc";
 import { splitWords } from "./cli/ios/parse";
 import { ROUTER_COMMANDS } from "./cli/router";
+import { vyosExec, vyosPrompt, vyosHelp, vyosComplete } from "./cli/vyos/console";
 import { SWITCH_COMMANDS } from "./cli/switch";
 
 export interface ConsolePort {
@@ -66,6 +67,7 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
   const prompt = (): string => {
     const device = findDevice();
     if (device === undefined) return ">";
+    if (device.kind === "router" && device.config.cliStyle === "vyos") return vyosPrompt(device, env);
     // PC에는 모드가 없고 OS마다 프롬프트가 다르다 (Windows `PC1 User>`, Linux `user@PC2 ~ $`, T0.19)
     if (device.kind === "pc") return pcPrompt(device, filesOf(device));
     return definitionsFor(device) === undefined ? `${device.name}>` : iosPrompt(device, env);
@@ -102,6 +104,7 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
         });
       }
 
+      if (device.kind === "router" && device.config.cliStyle === "vyos") return vyosExec(text, device, env);
       // `echo <글>`, `echo <글> > <파일>`은 리다이렉트 기호 검사의 예외다 (T0.19 설계안 결정 3)
       if (device.kind === "pc") {
         const echo = parseEcho(text, osOf(device.config));
@@ -147,17 +150,20 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
 
     complete: (line: string): string | null => {
       const target = assistTarget(line);
+      if (target?.device.kind === "router" && target.device.config.cliStyle === "vyos") return vyosComplete(target.text, target.device, env);
       return target === undefined ? null : iosComplete(target.text, target.device, target.definitions, env, pathsOf(target.device));
     },
 
     candidates: (line: string): readonly string[] => {
       const target = assistTarget(line);
       // Tab을 두 번 누르면 PC도 Switch·Router도 그 자리에서 칠 수 있는 것을 나열한다 (T0.19)
+      if (target?.device.kind === "router" && target.device.config.cliStyle === "vyos") return vyosHelp(target.text, target.device, env).map(entry => entry.token);
       return target === undefined ? [] : iosCandidates(target.text, target.device, target.definitions, env, pathsOf(target.device));
     },
 
     help: (line: string): HelpEntry[] => {
       const target = assistTarget(line);
+      if (target?.device.kind === "router" && target.device.config.cliStyle === "vyos") return vyosHelp(target.text, target.device, env);
       return target === undefined ? [] : iosHelp(target.text, target.device, target.definitions, env);
     },
   };

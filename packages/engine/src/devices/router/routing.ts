@@ -1,5 +1,5 @@
 // 라우팅 계산은 패킷 전송과 분리한다. Router 모델과 스냅샷/CLI에서 재사용한다.
-import { checkInterfaceAddress, DEFAULT_DISTANCE, isSameNetwork, maskToPrefixLength, networkAddress, parseIpv4, PORT_NAMES } from "@ping9/shared";
+import { checkInterfaceAddress, DEFAULT_DISTANCE, isSameNetwork, maskToPrefixLength, networkAddress, parseIpv4, PORT_NAMES, routerInterfaces, greEnabled } from "@ping9/shared";
 import type { PortView, RouteEntryView, RouterConfig } from "@ping9/shared";
 
 /** 실제 나가는 포트를 포함한 사용 가능한 경로. */
@@ -27,11 +27,15 @@ const UNUSABLE_DISTANCE = 255;
  * 같은 목적지(네트워크/마스크)는 AD가 가장 작은 경로만 남긴다. 같은 AD는 모두 남기고 `lookupRoute`가 고른다 (T11.1.1).
  * 정적 경로의 다음 홉은 켜진 직접 연결망으로만 해석한다. 재귀 경로는 사용하지 않는다.
  */
-export function routingTable(
+function physicalRoutingTable(
   config: RouterConfig, ports: readonly PortView[], learned: readonly RoutingEntry[] = [],
 ): readonly RoutingEntry[] {
   const connected = connectedRoutes(config, ports);
-  const ownIps = new Set(Object.values(config.interfaces).map(iface => iface.ip));
+  return tableFromConnected(config, connected, learned);
+}
+
+function tableFromConnected(config: RouterConfig, connected: readonly RoutingEntry[], learned: readonly RoutingEntry[]): readonly RoutingEntry[] {
+  const ownIps = new Set(Object.values(routerInterfaces(config)).map(iface => iface.ip));
   const active = config.staticRoutes.flatMap(route => {
     if (ownIps.has(route.nextHop)) return [];
     const exit = connected.find(candidate => isSameNetwork(route.nextHop, candidate.network, candidate.mask) &&
@@ -77,4 +81,28 @@ export function lookupRoute(table: readonly RoutingEntry[], destination: string)
     if (length > bestLength || (length === bestLength && betterTie)) { best = route; bestLength = length; }
   }
   return best === null ? null : { route: best, port: best.port, nextHop: best.source === "connected" ? destination : best.nextHop! };
+}
+
+/** Tunnel up은 로컬 source/underlay 경로 상태다. GRE에는 상대와의 handshake가 없다. */
+export function tunnelStates(config: RouterConfig, ports: readonly PortView[], learned: readonly RoutingEntry[] = []) {
+  const physical = physicalRoutingTable(config, ports, learned);
+  return Object.entries(config.tunnels ?? {}).map(([name, tunnel]) => {
+    const source = tunnel.source === undefined ? undefined : config.interfaces[tunnel.source];
+    const decision = tunnel.destination === undefined ? null : lookupRoute(physical, tunnel.destination);
+    const status = !tunnel.adminUp ? "admin-down" : !greEnabled(config) || tunnel.ip === undefined || tunnel.mask === undefined ||
+      source?.ip === undefined || !source.adminUp || !ports.some(port => port.name === tunnel.source && port.status === "up") ||
+      decision === null ? "down" : "up";
+    return { name, status, sourceIp: source?.ip, destination: tunnel.destination } as const;
+  });
+}
+
+/** 논리망은 물리망과 따로 계산한다. underlay는 Tunnel을 재귀 조회하지 않는다. */
+export function routingTable(config: RouterConfig, ports: readonly PortView[], learned: readonly RoutingEntry[] = []): readonly RoutingEntry[] {
+  const logical = tunnelStates(config, ports, learned).flatMap(state => {
+    const tunnel = config.tunnels![state.name]!;
+    if (state.status !== "up") return [];
+    return [{ source: "connected" as const, network: networkAddress(tunnel.ip!, tunnel.mask!)!, mask: tunnel.mask!,
+      port: state.name, distance: DEFAULT_DISTANCE.connected, metric: 0 }];
+  });
+  return tableFromConnected(config, [...connectedRoutes(config, ports), ...logical], learned);
 }

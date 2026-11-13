@@ -17,6 +17,8 @@ export interface DeviceRef {
 // ---------------------------------------------------------------------------
 
 export interface ErrorParamsByCode {
+  IPSEC_INVALID_CONFIG: { readonly detail: string };
+  TUNNEL_INVALID_CONFIG: { readonly detail: string };
   // 값 하나의 형식 (shared의 값 검증 함수. CLI 해석기와 reducer가 함께 씀)
   INVALID_IPV4: { readonly value: string };
   /** 0.0.0.0, 255.255.255.255, 127.x, 224.x 이상 (MAL-5) */
@@ -152,6 +154,8 @@ export function errorInfo<C extends ErrorCode>(
 }
 
 const ERROR_CODE_SET = {
+  IPSEC_INVALID_CONFIG: true,
+  TUNNEL_INVALID_CONFIG: true,
   INVALID_IPV4: true,
   RESERVED_IPV4: true,
   INVALID_MASK: true,
@@ -245,6 +249,8 @@ export const NOTICE_CODES = Object.keys(NOTICE_CODE_SET) as readonly NoticeCode[
 // ---------------------------------------------------------------------------
 
 export interface DropParamsByReason {
+  IPSEC_REJECTED: { readonly device: DeviceRef; readonly profile: string; readonly detail: string };
+  GRE_REJECTED: { readonly device: DeviceRef; readonly detail: string };
   /** 보내려는 포트에 링크가 없음 */
   NO_LINK: { readonly device: DeviceRef; readonly port: string };
   /** 포트나 인터페이스가 꺼져 있음 */
@@ -285,6 +291,8 @@ export interface DropParamsByReason {
 export type DropReason = keyof DropParamsByReason;
 
 const DROP_REASON_SET = {
+  IPSEC_REJECTED: true,
+  GRE_REJECTED: true,
   NO_LINK: true,
   IF_DOWN: true,
   NO_IP: true,
@@ -309,6 +317,10 @@ export const DROP_REASONS = Object.keys(DROP_REASON_SET) as readonly DropReason[
 // ---------------------------------------------------------------------------
 
 export interface EventParamsByCode {
+  IPSEC_PROTECTED: { readonly device: DeviceRef; readonly profile: string; readonly peer: string; readonly spi: number; readonly sequence: number };
+  IPSEC_UNPROTECTED: { readonly device: DeviceRef; readonly profile: string; readonly peer: string; readonly spi: number; readonly sequence: number };
+  GRE_ENCAPSULATED: { readonly device: DeviceRef; readonly tunnel: string; readonly peer: string };
+  GRE_DECAPSULATED: { readonly device: DeviceRef; readonly tunnel: string; readonly peer: string };
   ICMP_ERROR_SENT: { readonly device: DeviceRef; readonly sourceIp: string; readonly targetIp: string; readonly error: "destination-unreachable" | "time-exceeded" };
   ICMP_ERROR_RECEIVED: { readonly device: DeviceRef; readonly sourceIp: string; readonly targetIp: string; readonly error: "destination-unreachable" | "time-exceeded" };
   IPV4_RECEIVED: { readonly device: DeviceRef; readonly sourceIp: string; readonly targetIp: string };
@@ -419,6 +431,10 @@ export type Reason<C extends ReasonCode = ReasonCode> = {
 }[C];
 
 const EVENT_CODE_SET = {
+  IPSEC_PROTECTED: true,
+  IPSEC_UNPROTECTED: true,
+  GRE_ENCAPSULATED: true,
+  GRE_DECAPSULATED: true,
   ICMP_ERROR_SENT: true,
   ICMP_ERROR_RECEIVED: true,
   IPV4_RECEIVED: true,

@@ -2,7 +2,7 @@
 
 import type { DeviceRef, DropReason, Reason } from "./codes";
 
-export const TRACE_LAYERS = ["L2", "ARP", "L3", "ICMP", "RIP"] as const;
+export const TRACE_LAYERS = ["L2", "ARP", "L3", "ICMP", "RIP", "GRE", "IPSEC"] as const;
 export type TraceLayer = (typeof TRACE_LAYERS)[number];
 
 export const TRACE_ACTIONS = ["create", "receive", "learn", "forward", "reply", "drop"] as const;
@@ -37,6 +37,8 @@ export interface Ipv4Header {
   readonly sourceIp: string;
   readonly destinationIp: string;
   readonly ttl: number;
+  /** GRE/ESP 전달 IPv4 헤더에는 각각 프로토콜 47/50을 명시한다. 옛 ICMP/RIP 자료는 생략 가능 */
+  readonly protocol?: 47 | 50;
 }
 
 /** UDP 헤더. 지금은 RIP(520)만 쓴다 (T11.2.2, E11 결정 2). 포트별 처리는 E8.1이 넓힌다 */
@@ -84,8 +86,25 @@ export function isIcmpError(icmp: IcmpMessage | undefined): icmp is Extract<Icmp
  * 한 시점의 프레임 내용. 계층별로 나뉜다 (FR-42).
  * ARP 프레임이면 `arp`만, ICMP 프레임이면 `ipv4`와 `icmp`가 있다.
  */
+/** 첫 GRE 범위는 IPv4 ICMP, 1단 캡슐화다. 내부에 Ethernet/ARP는 넣지 않는다. */
+export interface GrePacket {
+  readonly version: 0;
+  readonly protocolType: 2048;
+  readonly payload: { readonly ipv4: Ipv4Header; readonly icmp: IcmpMessage };
+}
+
+/** 교육용 ESP tunnel 모델. payload/keyId는 추적을 위한 평문 자료이며 실제 ESP wire format/암호문이 아니다. */
+export interface EspPacket {
+  readonly spi: number;
+  readonly sequence: number;
+  readonly simulation: { readonly kind: "educational-no-encryption"; readonly keyId: string; readonly policy?: string; readonly senderId?: string; readonly receiverId?: string };
+  readonly payload: { readonly ipv4: Ipv4Header; readonly icmp: IcmpMessage };
+}
+
 export interface FrameSnapshot {
   readonly ethernet: EthernetHeader;
+  readonly gre?: GrePacket;
+  readonly esp?: EspPacket;
   readonly arp?: ArpPacket;
   readonly ipv4?: Ipv4Header;
   readonly icmp?: IcmpMessage;

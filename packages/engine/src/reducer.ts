@@ -20,6 +20,10 @@ import { setPcOs } from "./reducer/pc-set-os";
 import { clearRouterInterfaceIp, setRouterInterfaceIp } from "./reducer/router-interface-ip";
 import { addRipNetwork, disableRip, enableRip, removeRipNetwork, setRipPassive } from "./reducer/router-rip";
 import { addRoute, removeRoute } from "./reducer/router-route";
+import { removeTunnel, setTunnel } from "./reducer/router-tunnel";
+import { removeIpsec, setIpsec } from "./reducer/router-ipsec";
+import { commitVyos, setCliStyle } from "./reducer/router-vyos";
+import { setVpnMode } from "./reducer/router-vpn-mode";
 import {
   setSwitchportAccessVlan,
   setSwitchportAllowedVlans,
@@ -42,6 +46,13 @@ export type CommandHandler<T extends CommandType> = (
 
 // 처리기의 본문은 reducer/ 폴더의 각자 파일에 두고, 여기에는 자기 Command의 줄만 더한다
 const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
+  "router/set-cli-style": setCliStyle,
+  "router/commit-vyos": commitVyos,
+  "router/set-vpn-mode": setVpnMode,
+  "ipsec/set": setIpsec,
+  "ipsec/remove": removeIpsec,
+  "tunnel/set": setTunnel,
+  "tunnel/remove": removeTunnel,
   "device/add": addDevice,
   "device/move": moveDevice,
   "device/rename": renameDevice,

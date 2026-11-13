@@ -18,6 +18,8 @@ const LIMIT_MESSAGES: Readonly<Record<LimitName, (max: number) => string>> = {
 };
 
 export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsByCode[C]) => string } = {
+  IPSEC_INVALID_CONFIG: ({ detail }) => `IPsec 설정을 확인해 주세요: ${detail}`,
+  TUNNEL_INVALID_CONFIG: ({ detail }) => `GRE 설정을 확인해 주세요: ${detail}`,
   // 값 하나의 형식
   INVALID_IPV4: ({ value }) => `IP 주소의 형식이 맞지 않아요: ${value}`,
   RESERVED_IPV4: ({ value }) => `장비에 쓸 수 없는 IP 주소예요: ${value}`,

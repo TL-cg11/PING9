@@ -1,11 +1,12 @@
 // reducer: `interface/set-admin` (T3.3.2, FR-18). 포트를 끄고 켠다.
 // Switch의 포트와 Router의 인터페이스(T4.1.1), PC의 포트(T0.14)를 다룬다.
 
-import { errorInfo, isPortName } from "@ping9/shared";
+import { errorInfo, isPortName, isTunnelName } from "@ping9/shared";
 
 import { describeValue } from "../describe";
 import type { CommandHandler } from "../reducer";
 import { checkSwitchPort, findSwitch, withSwitchPort } from "./switch-common";
+import { updateTunnel } from "./router-tunnel";
 
 export const setInterfaceAdmin: CommandHandler<"interface/set-admin"> = (document, command) => {
   const pc = document.devices.find(device => device.id === command.deviceId);
@@ -30,6 +31,9 @@ export const setInterfaceAdmin: CommandHandler<"interface/set-admin"> = (documen
   }
   const router = document.devices.find(device => device.id === command.deviceId);
   if (router?.kind === "router") {
+    if (typeof command.port === "string" && isTunnelName(command.port) && typeof command.adminUp === "boolean") {
+      return updateTunnel(document, router, command.port, { adminUp: command.adminUp });
+    }
     if (typeof command.port !== "string" || !isPortName("router", command.port)) {
       return { ok: false, error: errorInfo("UNKNOWN_PORT", {
         deviceId: router.id, kind: "router", port: describeValue(command.port),
@@ -40,19 +44,14 @@ export const setInterfaceAdmin: CommandHandler<"interface/set-admin"> = (documen
     }
     return {
       ok: true,
-      document: {
-        ...document,
-        devices: document.devices.map(device => device === router ? {
-          ...router,
-          config: {
-            ...router.config,
-            interfaces: {
-              ...router.config.interfaces,
-              [command.port]: { ...router.config.interfaces[command.port], adminUp: command.adminUp },
-            },
+      document: { ...document, devices: document.devices.map(device => device !== router ? device : {
+        ...router, config: { ...router.config,
+          ...(router.config.vyos === undefined ? {} : { vyos: undefined }),
+          interfaces: { ...router.config.interfaces,
+            [command.port]: { ...router.config.interfaces[command.port], adminUp: command.adminUp },
           },
-        } : device),
-      },
+        },
+      }) },
       notices: [],
     };
   }

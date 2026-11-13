@@ -7,6 +7,7 @@ import type {
   ArpEntryView,
   DeviceView,
   ErrorInfo,
+  IpsecSaView,
   MacTableEntryView,
   RipRouteHop,
   RouteChangeView,
@@ -77,6 +78,7 @@ export interface Runtime {
   macTable(deviceId: string): readonly MacTableEntryView[];
   /** Router가 지금 쓰는 라우팅 테이블. 배운 RIP 경로를 포함한다 (T11.2.2). Router가 아니면 빈 목록 */
   routingTable(deviceId: string): readonly RouteEntryView[];
+  ipsecSa(deviceId: string): readonly IpsecSaView[];
   /**
    * 경로 교환 1회 (T11.2.2). RIP를 켠 Router마다 배운 경로를 지우고 Request부터 다시 주고받는다.
    * RIP를 켠 Router가 없으면 실행하지 않고 null. Trace는 목록에 `kind: "rip"`으로 보관하고, 앞의 RIP Trace를 바꾼다 (T11.2.3)
@@ -123,7 +125,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
   const routerModel = (deviceId: string): RouterModel | undefined => {
     let model = routers.get(deviceId);
     if (model === undefined && findDevice(getDocument(), deviceId)?.kind === "router") {
-      model = new RouterModel(deviceId, getDocument);
+      model = new RouterModel(deviceId, getDocument, () => kernel.now());
       routers.set(deviceId, model);
     }
     return model;
@@ -302,6 +304,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
       return switches.get(deviceId)?.macTable() ?? [];
     },
 
+    ipsecSa(deviceId) { return routerModel(deviceId)?.ipsecSa() ?? []; },
     routingTable(deviceId) {
       return routerModel(deviceId)?.routingTable() ?? [];
     },
@@ -344,7 +347,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     fillViews(views) {
       for (const [deviceId, model] of routers) {
         const view = views[deviceId];
-        if (view?.kind === "router") views[deviceId] = { ...view, arpTable: model.arpTable(), routingTable: model.routingTable() };
+        if (view?.kind === "router") views[deviceId] = model.view();
       }
       for (const [deviceId, model] of pcs) {
         const view = views[deviceId];

@@ -7,12 +7,14 @@ import { linesFromDispatch } from "./session";
 
 /** `exit`는 한 단계 위로 간다. user 모드에서는 그대로다 */
 const EXIT_TO: Readonly<Record<CliMode, CliMode>> = {
+  "vyos-config": "user",
   user: "user",
   privileged: "user",
   config: "privileged",
   "config-if": "config",
   "config-vlan": "config",
   "config-router": "config",
+  "config-ipsec": "config",
 };
 
 export const BASE_COMMANDS: readonly CommandDefinition[] = [
@@ -35,13 +37,13 @@ export const BASE_COMMANDS: readonly CommandDefinition[] = [
     run: () => ({ session: { mode: "config" } }),
   }),
   defineCommand({
-    modes: ["user", "privileged", "config", "config-if", "config-vlan", "config-router"],
+    modes: ["user", "privileged", "config", "config-if", "config-vlan", "config-router", "config-ipsec"],
     tokens: ["exit"],
     help: "Leave the current mode",
     run: (_args, context) => ({ session: { mode: EXIT_TO[context.session.mode] } }),
   }),
   defineCommand({
-    modes: ["privileged", "config", "config-if", "config-vlan", "config-router"],
+    modes: ["privileged", "config", "config-if", "config-vlan", "config-router", "config-ipsec"],
     tokens: ["end"],
     help: "Return to privileged mode",
     run: () => ({ session: { mode: "privileged" } }),

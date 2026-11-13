@@ -11,6 +11,7 @@ export const INITIAL_SESSION: CliSession = { mode: "user" };
 /** 프롬프트. 예: `SW1>`, `SW1#`, `SW1(config)#`, `SW1(config-if)#`, `SW1(config-vlan)#`, `R1(config-router)#` */
 export function promptFor(deviceName: string, session: CliSession): string {
   switch (session.mode) {
+    case "vyos-config": return `vyos@${deviceName}#`;
     case "user":
       return `${deviceName}>`;
     case "privileged":
@@ -21,6 +22,8 @@ export function promptFor(deviceName: string, session: CliSession): string {
       return `${deviceName}(config-if)#`;
     case "config-vlan":
       return `${deviceName}(config-vlan)#`;
+    case "config-ipsec":
+      return `${deviceName}(config-ipsec)#`;
     case "config-router":
       return `${deviceName}(config-router)#`;
   }
@@ -31,6 +34,7 @@ export function promptFor(deviceName: string, session: CliSession): string {
  * (예: config-vlan에 있는 동안 다른 곳에서 그 VLAN을 지움)
  */
 export function effectiveSession(session: CliSession, device: Device): CliSession {
+  if (session.mode === "vyos-config") return { mode: "user" };
   if (session.mode === "config-vlan") {
     // VLAN 1은 구성에 없어도 있는 것으로 친다 (switchVlans)
     const exists =
@@ -41,8 +45,10 @@ export function effectiveSession(session: CliSession, device: Device): CliSessio
   if (session.mode === "config-router" && (device.kind !== "router" || device.config.rip === undefined)) {
     return { mode: "config" };
   }
+  if (session.mode === "config-ipsec" && (device.kind !== "router" || session.targetIpsec === undefined || device.config.ipsec?.[session.targetIpsec] === undefined)) return { mode: "config" };
   if (session.mode === "config-if") {
-    const exists = session.targetPort !== undefined && isPortName(device.kind, session.targetPort);
+    const exists = session.targetPort !== undefined && (isPortName(device.kind, session.targetPort) ||
+      (device.kind === "router" && device.config.tunnels?.[session.targetPort] !== undefined));
     if (!exists) return { mode: "config" };
   }
   return session;

@@ -4,7 +4,8 @@
 import { PORT_NAMES } from "@ping9/shared";
 import type { Device, DeviceView, PortStatus, PortView, TopologyDocument } from "@ping9/shared";
 
-import { routingTable } from "./devices/router/routing";
+import { IpsecModule } from "./devices/router/ipsec";
+import { routingTable, tunnelStates } from "./devices/router/routing";
 import { findDevice, isAdminUp, portLink } from "./topology";
 import type { PortLink } from "./topology";
 
@@ -41,7 +42,9 @@ export function computeViews(document: TopologyDocument): Record<string, DeviceV
         views[device.id] = { kind: "switch", ports, macTable: [] };
         break;
       case "router":
-        views[device.id] = { kind: "router", ports, arpTable: [], routingTable: routingTable(device.config, ports) };
+        views[device.id] = { kind: "router", ports, arpTable: [], routingTable: routingTable(device.config, ports),
+          ...(device.config.ipsec === undefined ? {} : { ipsec: new IpsecModule(() => device).view(ports, 0) }),
+          ...(device.config.tunnels === undefined ? {} : { tunnels: tunnelStates(device.config, ports) }) };
         break;
     }
   }

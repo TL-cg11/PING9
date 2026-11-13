@@ -1,5 +1,7 @@
 # Task 진행 기록
 
+VPN 신규 계획: [GRE·IPsec 구현 계획](../proposals/vpn-gre-ipsec.md).
+
 Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만듭니다. 진행 방식, 결과, 검증 출력, 계획과 달라진 점을 남겨 다른 팀원이 코드를 읽지 않고도 무엇이 어떻게 끝났는지 알 수 있게 합니다.
 
 ## 규칙
@@ -100,3 +102,12 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T1.9 이벤트 목록과 실패 사유 (T1.9.1, T1.9.2, T1.9.3, T1.10.2). 오른쪽 패널의 탭, 재생에 맞춰 줄이 나타남 | [T1.9-event-list.md](T1.9-event-list.md) | 화면 | yysong1249 | 검토 대기 ([PR #60](https://github.com/TL-cg11/PING9/pull/60), PR #59 위). 계획(하단 도크)과 자리가 달라 팀 확인 필요 |
 | T0.19 PC 콘솔의 파일 명령어, 폴더가 보이는 프롬프트, Tab 후보 (계획에 없는 새 ID. T0.9 후속) | [T0.19-pc-files.md](T0.19-pc-files.md) | 엔진, 화면, 공통 | yysong1249 | PR 전. VPC 명세서와 어긋나고 예시 자료 프롬프트가 바뀌어 팀 확인 필요 |
 | T0.19 후속: Switch·Router 콘솔도 Tab을 두 번 누르면 후보를 나열 (Tab 한 번은 그대로) | [T0.19-switch-router-tab.md](T0.19-switch-router-tab.md) | 엔진 | SDY | 병합됨 ([PR #62](https://github.com/TL-cg11/PING9/pull/62), 팀원 검토 없이). 계획에 없는 추가라 팀 확인 필요 |
+| T15.0.1 VPN 범위·구현 계획 | [T15.0.1-vpn-plan.md](T15.0.1-vpn-plan.md) | 설계·문서 | ssunyoung2 | 범위 수정: GRE·IPsec, GRE 구현 착수 |
+| T15.1.1 GRE·IPsec 첫 구현 | [T15.1.1-vpn-gre-ipsec.md](T15.1.1-vpn-gre-ipsec.md) | 엔진·공통·CLI·화면 | ssunyoung2 | 로컬 구현·검증 완료, 리뷰 전 |
+| T15.1.2 라우터 VPN 모드 선택 | [T15.1.2-vpn-mode-selector.md](T15.1.2-vpn-mode-selector.md) | 공통·엔진·CLI·화면 | ssunyoung2 | 로컬 구현·검증 완료, 리뷰 전 |
+| T15.1.3 최신 main과 VPN 통합 | [T15.1.3-vpn-main-integration.md](T15.1.3-vpn-main-integration.md) | 통합·엔진·공통·화면 | ssunyoung2 | 로컬 통합·검증 완료, 리뷰 전 |
+| T15.1.4 VPN 명령어 표 정리 | [T15.1.4-vpn-command-reference.md](T15.1.4-vpn-command-reference.md) | 문서 | ssunyoung2 | 문서 수정·검증 완료, 리뷰 전 |
+| T15.2.1 VyOS 방식 VPN CLI | [T15.2.1-vyos-vpn-cli.md](T15.2.1-vyos-vpn-cli.md) | 공통·엔진·CLI·화면·문서 | ssunyoung2 | 로컬 구현·검증 완료, 리뷰 전 |
+| T15.2.2 최신 main과 VyOS VPN 통합 | [T15.2.2-vyos-main-integration.md](T15.2.2-vyos-main-integration.md) | 통합·엔진·화면·문서 | ssunyoung2 | 로컬 통합·검증 완료, 리뷰 전 |
+| T15.2.3 VPN 명령어 작성법과 예시 | [T15.2.3-vpn-command-syntax.md](T15.2.3-vpn-command-syntax.md) | 문서 | ssunyoung2 | 문서 수정·검증 완료, 리뷰 전 |
+| T15.2.4 VPN·VyOS 최종 검사와 PR | [T15.2.4-vpn-vyos-pr.md](T15.2.4-vpn-vyos-pr.md) | 검증·Git·문서 | ssunyoung2 | 최종 검사 완료, PR 준비 |

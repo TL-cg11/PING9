@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { DROP_REASONS, REASON_CODES } from "./codes";
 import type { TopologyDocument } from "./document";
-import { OS_KINDS, SWITCHPORT_MODES } from "./document";
+import { OS_KINDS, SWITCHPORT_MODES, VPN_MODES } from "./document";
 import { LIMITS } from "./limits";
 import type { Trace } from "./trace";
 import { TRACE_ACTIONS, TRACE_LAYERS, TRACE_STATUSES } from "./trace";
@@ -63,9 +63,25 @@ const ripConfigSchema = z.object({
 });
 
 const routerConfigSchema = z.object({
+  cliStyle: z.enum(["ios", "vyos"]).optional(),
+  vyos: z.record(z.string().max(256), shortString).refine(value => Object.keys(value).length <= 512).optional(),
+  vpnMode: z.enum(VPN_MODES).optional(),
   interfaces: z.record(shortString, routerInterfaceConfigSchema),
   staticRoutes: z.array(staticRouteSchema),
   rip: ripConfigSchema.optional(),
+  tunnels: z.record(shortString, routerInterfaceConfigSchema.extend({
+    mode: z.literal("gre"), source: shortString.optional(), destination: shortString.optional(),
+  })).optional(),
+  ipsec: z.record(shortString, z.object({
+    bypassWhenDisabled: z.boolean().optional(),
+    policy: z.string().max(512).optional(),
+    localId: shortString.optional(),
+    remoteId: shortString.optional(),
+    adminUp: z.boolean(), interface: shortString.optional(), peer: shortString.optional(), keyId: shortString.optional(),
+    local: z.object({ network: shortString, mask: shortString }).optional(),
+    remote: z.object({ network: shortString, mask: shortString }).optional(),
+    inboundSpi: integer.optional(), outboundSpi: integer.optional(), lifetimeSeconds: integer.optional(),
+  })).optional(),
 });
 
 const deviceBase = { id: shortString, name: shortString, position: positionSchema };
@@ -94,6 +110,13 @@ export type ParsedDocument = z.infer<typeof topologyDocumentSchema>;
 const reasonCodes = new Set<string>(REASON_CODES);
 const dropReasons = new Set<string>(DROP_REASONS);
 
+const ipv4Schema = z.object({ sourceIp: shortString, destinationIp: shortString, ttl: integer, protocol: z.union([z.literal(47), z.literal(50)]).optional() });
+const icmpSchema = z.discriminatedUnion("type", [
+    z.object({ type: z.enum(["echo-request", "echo-reply"]), sequence: integer }),
+    z.object({ type: z.enum(["destination-unreachable", "time-exceeded"]), sequence: integer,
+      original: z.object({ sourceIp: shortString, destinationIp: shortString, sequence: integer }) }),
+  ]);
+
 const frameSnapshotSchema = z.object({
   ethernet: z.object({
     sourceMac: shortString,
@@ -109,14 +132,15 @@ const frameSnapshotSchema = z.object({
       targetIp: shortString,
     })
     .optional(),
-  ipv4: z
-    .object({ sourceIp: shortString, destinationIp: shortString, ttl: integer })
-    .optional(),
-  icmp: z.discriminatedUnion("type", [
-    z.object({ type: z.enum(["echo-request", "echo-reply"]), sequence: integer }),
-    z.object({ type: z.enum(["destination-unreachable", "time-exceeded"]), sequence: integer,
-      original: z.object({ sourceIp: shortString, destinationIp: shortString, sequence: integer }) }),
-  ]).optional(),
+  ipv4: ipv4Schema.optional(),
+  esp: z.object({ spi: integer.min(256).max(0xffffffff), sequence: integer.min(1).max(0xffffffff),
+    simulation: z.object({ kind: z.literal("educational-no-encryption"), keyId: shortString, policy: z.string().max(512).optional(), senderId: shortString.optional(), receiverId: shortString.optional() }),
+    payload: z.object({ ipv4: ipv4Schema, icmp: icmpSchema }),
+  }).optional(),
+  gre: z.object({ version: z.literal(0), protocolType: z.literal(2048),
+    payload: z.object({ ipv4: ipv4Schema, icmp: icmpSchema }),
+  }).optional(),
+  icmp: icmpSchema.optional(),
   udp: z.object({ sourcePort: integer, destinationPort: integer }).optional(),
   rip: z.object({
     command: z.enum(["request", "response"]),

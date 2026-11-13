@@ -322,6 +322,15 @@ button { font: inherit; cursor: pointer; }
 .port-row.off .port-switch { color: var(--navy-60); }
 .port-row.off .track { background: #B8C2D9; }
 .port-row.off .knob { left: 2px; }
+.vpn-settings { margin-top: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--ice-100); }
+.vpn-choice { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
+.vpn-choice legend { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.vpn-choice label { display: flex; gap: 8px; align-items: center; padding: 8px; border: 1px solid transparent; border-radius: 8px; font-size: 12px; cursor: pointer; }
+.vpn-choice label.selected { background: #fff; border-color: var(--sky-500); }
+.vpn-choice input { margin: 0; accent-color: var(--sky-700); }
+.vpn-help { font-size: 12px; line-height: 1.6; margin-top: 10px; }
+.vpn-note { font-size: 11px; line-height: 1.6; color: var(--navy-60); margin-top: 6px; }
+.vpn-error { font-size: 12px; color: var(--danger); margin-top: 8px; }
 .pc-form label { display: block; font-size: 12px; color: var(--navy-60); margin-bottom: 4px; }
 .pc-form input { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--navy); background: #fff; }
 .pc-form input:focus { outline: none; border-color: var(--sky-500); box-shadow: 0 0 0 3px var(--ice-100); }
