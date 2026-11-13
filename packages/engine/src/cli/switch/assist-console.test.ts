@@ -37,6 +37,31 @@ describe("complete", () => {
   });
 });
 
+describe("candidates: Tab을 두 번 눌러도 나열하지 않는다", () => {
+  // 후보 목록은 PC 콘솔의 것이다 (T0.19). Switch는 실제 IOS처럼 `?`가 나열한다
+  test("여러 명령어로 읽히는 글자에도 빈 목록이다", async () => {
+    const { port } = open();
+
+    // 사용자 모드의 e는 enable과 exit 둘 다 된다
+    expect(port.candidates("e")).toEqual([]);
+    expect(port.candidates("")).toEqual([]);
+
+    await port.exec("enable");
+
+    expect(port.candidates("c")).toEqual([]);
+    expect(port.candidates("sh")).toEqual([]);
+    expect(port.candidates("show ")).toEqual([]);
+  });
+
+  test("나열하지 않아도 Tab 한 번의 완성과 ? 도움말은 그대로다", () => {
+    const { port } = open();
+
+    expect(port.complete("en")).toBe("enable ");
+    expect(port.complete("e")).toBeNull();
+    expect(tokens(port.help("e"))).toEqual(["enable", "exit"]);
+  });
+});
+
 describe("help", () => {
   test("지금 모드에서 칠 수 있는 단어와 영어 설명", async () => {
     const { port } = open();

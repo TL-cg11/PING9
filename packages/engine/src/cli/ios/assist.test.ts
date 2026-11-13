@@ -147,6 +147,27 @@ describe("completeLine", () => {
   });
 });
 
+describe("completeLine: 경로 완성이 없는 장비(Switch, Router)", () => {
+  // 앞 글자가 같은 키워드 둘. PC의 Tab은 공통 부분까지 채우지만(T0.19) IOS 장비는 채우지 않는다
+  const SHARED = [
+    defineCommand({ modes: ["privileged"], tokens: ["show", "interface"], help: "Show one interface", run }),
+    defineCommand({ modes: ["privileged"], tokens: ["show", "interfaces", "trunk"], help: "Show trunks", run }),
+  ];
+
+  test("여러 키워드로 읽히면 공통 부분만 채우지 않고 그대로 둔다", () => {
+    expect(completeLine("show i", "privileged", "switch", SHARED)).toBeNull();
+    expect(completeLine("show interf", "privileged", "router", SHARED)).toBeNull();
+  });
+
+  test("똑같은 키워드가 있으면 그것으로 완성한다", () => {
+    expect(completeLine("show interface", "privileged", "switch", SHARED)).toBe("show interface ");
+  });
+
+  test("경로 완성이 있으면(PC) 공통 부분까지 채운다", () => {
+    expect(completeLine("show i", "privileged", "switch", SHARED, () => [])).toBe("show interface");
+  });
+});
+
 describe("도움말·완성과 해석기의 일치 (AD-8): Switch의 실제 명령 정의", () => {
   const SAMPLE: Readonly<Record<string, string>> = { "vlan-id": "30", word: "LAB" };
   // 글을 직접 읽는 매개변수는 종류가 아니라 이름으로 예시 값을 고른다

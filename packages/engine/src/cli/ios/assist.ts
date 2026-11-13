@@ -191,6 +191,8 @@ export function completeLine(
   const only = completion.exact ?? (completion.options.length === 1 ? completion.options[0] : undefined);
   if (only !== undefined) return `${head}${only.insert}${only.final ? " " : ""}`;
   if (completion.options.length === 0) return null;
+  // 공통 부분까지 채우는 것은 경로 완성이 있는 PC뿐이다 (T0.19). Switch와 Router는 하나로 정해질 때만 완성한다
+  if (paths === undefined) return null;
   const prefix = commonPrefix(completion.options);
   return prefix.length > completion.typed.length ? `${head}${prefix}` : null;
 }

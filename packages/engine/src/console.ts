@@ -152,7 +152,9 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
 
     candidates: (line: string): readonly string[] => {
       const target = assistTarget(line);
-      return target === undefined ? [] : iosCandidates(target.text, target.device, target.definitions, env, pathsOf(target.device));
+      // 후보를 나열하는 것은 PC 콘솔뿐이다 (T0.19). Switch와 Router는 실제 IOS처럼 `?`가 나열한다
+      if (target === undefined || target.device.kind !== "pc") return [];
+      return iosCandidates(target.text, target.device, target.definitions, env, pathsOf(target.device));
     },
 
     help: (line: string): HelpEntry[] => {

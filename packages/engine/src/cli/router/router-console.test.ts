@@ -74,6 +74,18 @@ describe("Router 공통 CLI", () => {
   });
 });
 
+describe("Router의 candidates (Tab 두 번)", () => {
+  test("여러 명령어로 읽히는 글자에도 나열하지 않는다. 목록은 ?가 한다", async () => {
+    const { port } = open();
+    await run(port, "enable");
+
+    // 특권 모드의 c는 clear와 configure 둘 다 된다
+    expect(port.help("c").map((entry) => entry.token)).toEqual(["clear", "configure"]);
+    expect(port.candidates("c")).toEqual([]);
+    expect(port.complete("c")).toBeNull();
+  });
+});
+
 describe("Router interface/set-admin", () => {
   test("リンク両端が動作中なら up、Routerを切ると相手は peer-down", () => {
     const { simulator } = open();
