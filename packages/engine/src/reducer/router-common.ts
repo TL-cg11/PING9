@@ -27,6 +27,9 @@ export function checkRouterPort(device: RouterDevice, port: unknown): ErrorInfo 
 export function withRouterConfig(
   document: TopologyDocument, device: RouterDevice, config: RouterConfig, notices: readonly Notice[] = [],
 ): ReduceResult {
+  // 다른 편집 경로에서 바뀐 compiled 설정으로 옛 VyOS 트리를 덮어쓰지 않는다.
+  const relevant = (value: RouterConfig) => JSON.stringify([value.interfaces, value.staticRoutes, value.tunnels, value.ipsec]);
+  if (config.vyos !== undefined && config.vyos === device.config.vyos && relevant(config) !== relevant(device.config)) config = { ...config, vyos: undefined };
   const checked = validateDocument({
     ...document,
     devices: document.devices.map(candidate => candidate.id === device.id

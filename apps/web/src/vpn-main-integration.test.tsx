@@ -1,0 +1,30 @@
+import { createSimulator } from "@ping9/engine";
+import type { RouterDevice } from "@ping9/shared";
+import { greLabDocument, ipsecLabDocument, VPN_LAB as LAB } from "@ping9/shared/examples";
+import { renderToString } from "react-dom/server";
+import { expect, test } from "vitest";
+import { Inspector } from "./components/inspector";
+import { exportFile, readImportFile } from "./topology-file";
+
+test.each([["gre", greLabDocument], ["ipsec", ipsecLabDocument]] as const)("최신 main의 가져오기·PC 포트·이름 변경과 %s VPN이 함께 동작한다", async (mode, document) => {
+  const sim = createSimulator(); expect(sim.load(document).ok).toBe(true);
+  for (const deviceId of [LAB.r1, LAB.r2]) expect(sim.dispatch({ type: "router/set-vpn-mode", deviceId, mode }).ok).toBe(true);
+  expect(sim.dispatch({ type: "device/rename", deviceId: LAB.r1, name: "VPN_R1" }).ok).toBe(true);
+  const exported = exportFile("VPN 통합 실습", sim.getSnapshot().document);
+  const result = await readImportFile({ size: new TextEncoder().encode(exported.text).length, text: async () => exported.text });
+  expect(result.ok).toBe(true);
+  if (!result.ok) return;
+  const restored = createSimulator(); expect(restored.load(result.document).ok).toBe(true);
+  expect(result.name).toBe("VPN 통합 실습");
+  const router = restored.getSnapshot().document.devices.find(device => device.id === LAB.r1) as RouterDevice;
+  expect(router.name).toBe("VPN_R1"); expect(router.config.vpnMode).toBe(mode);
+  const ping = async () => (await restored.console(LAB.pcA).exec("ping -n 1 192.168.2.10")).lines.some(line => line.kind === "text" && line.text.includes("bytes=32"));
+  expect(await ping()).toBe(true);
+  const panel = renderToString(<Inspector snapshot={restored.getSnapshot()} deviceId={LAB.r1} onOpenTerminal={() => {}} onDispatch={command => restored.dispatch(command)} onRemove={() => {}} />);
+  for (const text of ["VPN 사용", "라우팅 테이블", "장비 삭제"]) expect(panel).toContain(text);
+  expect(restored.dispatch({ type: "interface/set-admin", deviceId: LAB.pcA, port: "Ethernet0", adminUp: false }).ok).toBe(true);
+  expect(restored.dispatch({ type: "pc/set-ip", deviceId: LAB.pcA, ip: "192.168.1.10", mask: "255.255.255.0", gateway: "192.168.1.1" }).ok).toBe(true);
+  expect(await ping()).toBe(false);
+  expect(restored.dispatch({ type: "interface/set-admin", deviceId: LAB.pcA, port: "Ethernet0", adminUp: true }).ok).toBe(true);
+  expect(await ping()).toBe(true);
+});

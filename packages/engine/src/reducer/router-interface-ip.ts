@@ -1,14 +1,16 @@
-import { checkInterfaceAddress, checkRouterInterfaceOverlap, errorInfo } from "@ping9/shared";
+import { checkInterfaceAddress, checkRouterInterfaceOverlap, errorInfo, isTunnelName, routerInterfaces } from "@ping9/shared";
 import type { Notice } from "@ping9/shared";
 
 import { describeValue } from "../describe";
 import type { CommandHandler } from "../reducer";
 import { checkRouterPort, findRouter, withRouterConfig } from "./router-common";
+import { updateTunnel } from "./router-tunnel";
 
 export const setRouterInterfaceIp: CommandHandler<"interface/set-ip"> = (document, command) => {
   const found = findRouter(document, command.deviceId);
   if (!found.ok) return found;
   const device = found.device;
+  if (typeof command.port === "string" && isTunnelName(command.port)) return updateTunnel(document, device, command.port, { ip: command.ip, mask: command.mask });
   const portError = checkRouterPort(device, command.port);
   if (portError !== null) return { ok: false, error: portError };
 
@@ -20,7 +22,7 @@ export const setRouterInterfaceIp: CommandHandler<"interface/set-ip"> = (documen
   }
   const addressError = checkInterfaceAddress(command.ip, command.mask);
   if (addressError !== null) return { ok: false, error: addressError };
-  const overlap = checkRouterInterfaceOverlap(device.id, command.port, command.ip, command.mask, device.config.interfaces);
+  const overlap = checkRouterInterfaceOverlap(device.id, command.port, command.ip, command.mask, routerInterfaces(device.config));
   if (overlap !== null) return { ok: false, error: overlap };
 
   const others = document.devices.filter(other => other.id !== device.id && (
@@ -44,6 +46,14 @@ export const clearRouterInterfaceIp: CommandHandler<"interface/clear-ip"> = (doc
   const found = findRouter(document, command.deviceId);
   if (!found.ok) return found;
   const device = found.device;
+  if (typeof command.port === "string" && isTunnelName(command.port)) {
+    const tunnel = device.config.tunnels?.[command.port];
+    if (tunnel !== undefined) {
+      const { mode, adminUp, source, destination } = tunnel;
+      const rest = { mode, adminUp, ...(source === undefined ? {} : { source }), ...(destination === undefined ? {} : { destination }) };
+      return withRouterConfig(document, device, { ...device.config, tunnels: { ...device.config.tunnels, [command.port]: rest } });
+    }
+  }
   const portError = checkRouterPort(device, command.port);
   if (portError !== null) return { ok: false, error: portError };
   return withRouterConfig(document, device, {

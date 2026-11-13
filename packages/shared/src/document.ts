@@ -112,6 +112,39 @@ export interface StaticRoute {
   readonly distance?: number;
 }
 
+/** 논리 GRE 인터페이스. 물리 케이블/ARP 포트와 분리한다. 미완성 설정도 저장할 수 있다. */
+export interface GreTunnelConfig extends RouterInterfaceConfig {
+  readonly mode: "gre";
+  /** 바깥 IP를 가진 물리 인터페이스의 전체 이름 */
+  readonly source?: string;
+  readonly destination?: string;
+}
+
+export interface Ipv4Subnet {
+  readonly network: string;
+  readonly mask: string;
+}
+
+/** 실제 암호화/IKE가 없는 교육용 ESP tunnel 정책. keyId는 공개 실습 식별자다. */
+export interface IpsecProfileConfig {
+  /** 교육용 정책 일치 검사. 실제 알고리즘 실행/IKE 협상을 뜻하지 않는다. */
+  readonly policy?: string;
+  readonly localId?: string;
+  readonly remoteId?: string;
+  readonly adminUp: boolean;
+  /** VyOS disable은 보호 정책을 비활성화한다. 기존 IOS 교육 모델은 fail-closed를 유지한다. */
+  readonly bypassWhenDisabled?: boolean;
+  readonly interface?: string;
+  readonly peer?: string;
+  readonly local?: Ipv4Subnet;
+  readonly remote?: Ipv4Subnet;
+  readonly keyId?: string;
+  readonly inboundSpi?: number;
+  readonly outboundSpi?: number;
+  /** 기본 3600초. 가상 시계로 판단하며 자동 rekey는 하지 않는다. */
+  readonly lifetimeSeconds?: number;
+}
+
 /** RIP 구성 (T11.2.1). version 2, no auto-summary로 고정이라 저장하지 않는다 */
 export interface RipConfig {
   /** `network`로 넣은 주소. 클래스풀 네트워크(A: /8, B: /16, C: /24)로 맞춰 저장. 작은 주소부터 */
@@ -121,11 +154,21 @@ export interface RipConfig {
 }
 
 /** Router 구성. `interfaces`에 없는 인터페이스는 설정된 적이 없는 것이다 */
+export const VPN_MODES = ["off", "gre", "ipsec"] as const;
+export type VpnMode = (typeof VPN_MODES)[number];
+
 export interface RouterConfig {
+  readonly cliStyle?: "ios" | "vyos";
+  /** 적용된 VyOS 지원 설정. candidate는 저장하지 않는다. */
+  readonly vyos?: Readonly<Record<string, string>>;
+  /** 생략하면 기존 터널/정책 설정을 따른다. off는 명시적으로 일반 라우팅을 선택한다. */
+  readonly vpnMode?: VpnMode;
   readonly interfaces: Readonly<Record<string, RouterInterfaceConfig>>;
   readonly staticRoutes: readonly StaticRoute[];
   /** 없으면 RIP를 쓰지 않음. `router rip`로 생기고 `no router rip`로 사라진다 (T11.2.1) */
   readonly rip?: RipConfig;
+  readonly tunnels?: Readonly<Record<string, GreTunnelConfig>>;
+  readonly ipsec?: Readonly<Record<string, IpsecProfileConfig>>;
 }
 
 interface DeviceBase {

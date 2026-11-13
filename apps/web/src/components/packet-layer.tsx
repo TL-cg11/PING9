@@ -50,6 +50,7 @@ const PICTURES: Readonly<Record<Color, { a: string; b: string; stand: string; dr
 
 /** 물고기 색. ICMP 요청은 파랑, 응답은 노랑, ARP는 초록, ICMP 오류는 빨강, RIP는 보라 (T11.5.1) */
 const COLOR: Readonly<Record<FrameKind, Color>> = {
+  "gre-request": "blue", "gre-reply": "yellow", "esp": "blue",
   "icmp-request": "blue",
   "icmp-reply": "yellow",
   "arp-request": "green",
@@ -65,6 +66,7 @@ const colorOf = (kind: FrameKind): Color => COLOR[kind];
  * RIP는 요청 `R?`, 응답 `R!`. ICMP 오류는 글자 없이 빨강만 (T11.5.1 결정 5·6)
  */
 const MARK: Readonly<Partial<Record<FrameKind, string>>> = {
+  "gre-request": "G", "gre-reply": "G", "esp": "E",
   "arp-request": "?",
   "arp-reply": "!",
   "rip-request": "R?",
@@ -73,6 +75,9 @@ const MARK: Readonly<Partial<Record<FrameKind, string>>> = {
 const markOf = (kind: FrameKind): string | undefined => MARK[kind];
 
 const KIND_NAME: Readonly<Record<FrameKind, string>> = {
+  "esp": "IPsec ESP 시뮬레이션 (암호화 없음)",
+  "gre-request": "GRE로 감싼 ping 요청",
+  "gre-reply": "GRE로 감싼 ping 응답",
   "arp-request": "ARP 요청",
   "arp-reply": "ARP 응답",
   "icmp-request": "ping 요청",
