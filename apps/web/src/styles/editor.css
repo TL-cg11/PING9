@@ -19,8 +19,15 @@ button { font: inherit; cursor: pointer; }
 /* 시뮬레이션 모드 배경 (T0.17): 오로라 그림을 창 전체에 비율대로 채운다. 상단 막대는 반투명이라 그림이 비친다 */
 .app.mode-simulation { background: #3B7BE0 url(/bg-sim-aurora.png) center bottom / cover no-repeat; }
 .app.mode-simulation .topbar { background: linear-gradient(180deg, #0B3C8C59, #0B3C8C14); text-shadow: 0 1px 2px #0B2A5C33; }
-/* 그림에 ＋ 격자가 들어 있어 시뮬레이션에서는 캔버스의 점 격자를 끈다 */
+/* 캔버스의 점 격자 대신 아래 눈밭 격자를 쓴다 */
 .app.mode-simulation .canvas { background-color: transparent; background-image: none; }
+/* 시뮬레이션 격자 (T0.18): 실시간과 같은 점 격자를 평평한 눈밭에만 보인다. 하늘, 산, 바다, 얼음 덩어리에는 없다.
+   눈밭 마스크(bg-sim-snow-mask.png)는 배경 그림과 크기가 같고 같은 방식(cover, 아래 가운데)으로 맞춰서 창 크기가 바뀌어도 눈밭을 따라간다.
+   점은 캔버스 왼쪽 위(왼쪽 14 + 장비 목록 112 + 틈 14, 위쪽 막대 64 + 6)에서 시작해 실시간과 같은 자리에 찍힌다 */
+.app.mode-simulation { position: relative; isolation: isolate; }
+.app.mode-simulation::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image: radial-gradient(circle, #C4DBF7 1.4px, transparent 1.6px); background-size: 24px 24px; background-position: 140px 70px;
+  -webkit-mask: url(/bg-sim-snow-mask.png) center bottom / cover no-repeat; mask: url(/bg-sim-snow-mask.png) center bottom / cover no-repeat; }
 
 /* top bar */
 .topbar { display: flex; align-items: center; gap: 16px; padding: 0 20px; background: linear-gradient(90deg, var(--sky-900), var(--sky-500)); color: #fff; }
@@ -59,7 +66,14 @@ button { font: inherit; cursor: pointer; }
 .speed button.on { background: #fff; color: var(--sky-700); }
 
 /* middle */
-.work { display: grid; grid-template-columns: 112px 1fr 270px; gap: 14px; padding: 6px 14px 14px; min-height: 0; }
+.work { position: relative; display: grid; grid-template-columns: 112px 1fr 270px; gap: 14px; padding: 6px 14px 14px; min-height: 0; }
+/* 오른쪽 패널 폭 조절 손잡이 (T0.18). 캔버스와 패널 사이 틈(14px)의 가운데에 선다. 폭은 app.tsx가 grid-template-columns로 정한다 */
+.side-resize { position: absolute; top: 6px; bottom: 14px; width: 12px; margin-right: 1px; cursor: ew-resize; touch-action: none; z-index: 20; outline: none; }
+.side-resize::after { content: ""; position: absolute; top: 50%; left: 50%; width: 4px; height: 44px; transform: translate(-50%, -50%); border-radius: 2px; background: #0E3A7A2E; transition: background .15s, height .15s; }
+.side-resize:hover::after, .side-resize:focus-visible::after, .side-resize.dragging::after { height: 72px; background: var(--sky-700); }
+.side-resize:focus-visible::after { box-shadow: 0 0 0 3px rgba(143,220,255,.55); }
+.work.side-dragging { cursor: ew-resize; user-select: none; }
+.work.side-dragging .canvas, .work.side-dragging .inspector { pointer-events: none; }
 /* 좌우 패널은 떠 있는 카드 (T0.17) */
 .palette { background: #FFFFFFEB; border: 1px solid #FFFFFFB3; border-radius: 18px; box-shadow: 0 8px 26px #0E3A7A1F; backdrop-filter: blur(6px); padding: 16px 12px; display: flex; flex-direction: column; gap: 10px; }
 .palette h4 { font-size: 12px; color: var(--navy-60); font-weight: 600; margin-top: 4px; }
@@ -198,8 +212,7 @@ button { font: inherit; cursor: pointer; }
 .inspector-idle { padding: 14px 16px 18px; text-align: center; }
 .inspector-idle .idle-art { border-radius: 14px; overflow: hidden; background: #EAF3FF; }
 .inspector-idle .idle-art img { display: block; width: 100%; height: auto; }
-.inspector-idle .idle-title { margin: 16px 0 8px; font-size: 19px; font-weight: 800; color: var(--navy); }
-.inspector-idle .idle-text { font-size: 12.5px; line-height: 1.6; color: var(--navy-60); }
+.inspector-idle .idle-text { margin-top: 14px; font-size: 12.5px; line-height: 1.6; color: var(--navy-60); }
 .inspector-idle .idle-stats { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 12px; text-align: left; }
 .inspector-idle .idle-stats div { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
 .inspector-idle .idle-stats dt { color: var(--navy-60); }
@@ -368,3 +381,63 @@ button { font: inherit; cursor: pointer; }
 /* 가져오기 실패. 닫을 때까지 보인다 (FR-45) */
 .import-error { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 7; display: flex; align-items: center; gap: 10px; max-width: calc(100% - 24px); padding: 10px 14px; border: 1px solid #F3B8AE; border-radius: 10px; background: var(--danger-bg); color: #8A1F12; font-size: 13px; box-shadow: 0 3px 12px #E5484D1F; }
 .import-error button { flex: none; border: none; background: transparent; color: inherit; font-size: 16px; font-weight: 700; line-height: 1; }
+
+/* 오른쪽 패널의 상세 정보 / 이벤트 탭 (T1.9.2, T1.9.3, T1.10.2). 시뮬레이션 모드만 */
+.side-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: -6px -6px 14px; padding: 4px; background: #EAF2FD; border-radius: 12px; }
+.inspector-idle .side-tabs { margin: -2px -4px 12px; }
+.side-tabs button { border: 0; border-radius: 9px; padding: 8px 0; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: #5A7398; cursor: pointer; }
+.side-tabs button:hover { color: var(--navy); }
+.side-tabs button.on { background: #fff; color: var(--navy); box-shadow: 0 1px 4px #0E3A7A22; }
+.side-tabs button:focus-visible { outline: 2px solid var(--sky-700); outline-offset: 1px; }
+.side-tabs .badge { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #E5484D; margin-left: 5px; vertical-align: 2px; }
+.side-tabs .cnt { font-size: 11px; color: #7A8FB0; margin-left: 4px; font-weight: 500; }
+
+.side-events { display: flex; flex-direction: column; overflow: hidden; }
+.side-events .ev-list { flex: 1; min-height: 0; overflow: auto; margin: 0 -6px; padding: 0 6px 4px; }
+.ev-empty { margin-top: 30px; text-align: center; color: var(--navy-60); font-size: 12.5px; line-height: 1.7; }
+.ev-empty .t { font-size: 15px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+.ev-empty code { font-family: 'JetBrains Mono', monospace; background: var(--ice-100); padding: 1px 5px; border-radius: 5px; }
+.ev-trace { display: flex; align-items: center; gap: 8px; padding: 0 4px 0 10px; border: 1px solid #D5E3F5; border-radius: 10px; background: #fff; }
+.ev-trace select { flex: 1; min-width: 0; border: 0; background: transparent; padding: 8px 0; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--navy); cursor: pointer; }
+.ev-trace select:focus-visible { outline: none; }
+.ev-trace:focus-within { border-color: var(--sky-500); box-shadow: 0 0 0 3px var(--ice-100); }
+.ev-trace .st { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.ev-trace .st.fail { background: #E5484D; } .ev-trace .st.ok { background: #2BB673; }
+.ev-trace .st.run { background: #2F7BEA; animation: ev-pulse 1s ease-in-out infinite; }
+@keyframes ev-pulse { 50% { opacity: .35; } }
+.ev-run { margin-top: 10px; padding: 9px 12px; border-radius: 12px; background: #EEF5FF; border: 1px solid #CFE0F7; font-size: 12.5px; color: #2F5FA8; font-weight: 600; }
+.ev-ok { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: #EAF8F0; border: 1px solid #BFE6CF; font-size: 13px; font-weight: 700; color: #17784A; }
+.ev-cause { display: block; width: 100%; text-align: left; margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: #FFF1F1; border: 1px solid #F6C9CB; font: inherit; cursor: pointer; }
+.ev-cause:hover { background: #FFE8E8; }
+.ev-cause:focus-visible { outline: 2px solid var(--sky-700); outline-offset: 1px; }
+.ev-cause > span { display: block; }
+.ev-cause .h { font-size: 12px; font-weight: 700; color: #C9373C; margin-bottom: 4px; }
+.ev-cause .m { font-size: 13px; line-height: 1.5; color: var(--navy); font-weight: 600; }
+.ev-cause .fix { margin-top: 6px; font-size: 12px; color: #4A6488; line-height: 1.6; }
+.ev-cause .fix code { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; background: #fff; border: 1px solid #F0D6D7; padding: 1px 5px; border-radius: 5px; color: var(--navy); }
+.ev-cause .go { margin-top: 8px; font-size: 12px; font-weight: 700; color: #C9373C; }
+.ev-head { display: flex; justify-content: space-between; margin: 14px 0 6px; font-size: 12px; color: var(--navy-60); font-weight: 600; }
+.ev-list { list-style: none; margin: 0; padding: 0; }
+.ev-row { border-bottom: 1px dashed #E1EBF7; border-radius: 8px; animation: ev-in .25s ease-out; }
+@keyframes ev-in { from { opacity: 0; transform: translateY(-3px); } }
+.ev-row > button { display: grid; grid-template-columns: 22px 42px 1fr; gap: 6px; align-items: start; width: 100%; padding: 7px 6px; border: 0; background: transparent; text-align: left; font: inherit; font-size: 12.5px; line-height: 1.45; color: var(--navy); cursor: pointer; border-radius: 8px; }
+.ev-row > button:hover { background: #F2F7FE; }
+.ev-row > button:focus-visible { outline: 2px solid var(--sky-700); outline-offset: -2px; }
+.ev-row .n { color: #8DA2C0; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding-top: 1px; }
+.ev-row .d { font-weight: 700; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ev-row .l { display: inline-block; font-style: normal; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 5px; margin-right: 5px; vertical-align: 1px; }
+.ev-row .l.L2 { background: #E3EEFF; color: #2F6BD8; } .ev-row .l.ARP { background: #FFF2DB; color: #B7791F; }
+.ev-row .l.ICMP { background: #E6F6EC; color: #23874F; } .ev-row .l.L3 { background: #EFE8FF; color: #6B4BD8; } .ev-row .l.RIP { background: #FDE8F4; color: #B83A85; }
+.ev-row .x { color: #E5484D; font-weight: 800; }
+.ev-row.drop > button { color: #9AA8BE; } .ev-row.drop .d { color: #9AA8BE; }
+.ev-row.cause { background: #FFF1F1; border: 1px solid #F6C9CB; }
+.ev-row.now { background: #EEF5FF; box-shadow: inset 3px 0 0 #2F7BEA; }
+.ev-row.sel { outline: 2px solid #2F7BEA; outline-offset: -1px; }
+.ev-more { margin: 0 6px 8px; padding: 8px 10px; background: #fff; border: 1px solid #DCE6F3; border-radius: 8px; font-size: 11.5px; display: grid; gap: 3px; }
+.ev-more div { display: grid; grid-template-columns: 62px 1fr; gap: 6px; }
+.ev-more dt { color: var(--navy-60); } .ev-more dd { margin: 0; font-family: 'JetBrains Mono', monospace; color: var(--navy); word-break: break-all; }
+/* 이벤트 줄을 고르면 캔버스의 장비와 케이블을 강조한다 */
+.node.ev-hl { filter: drop-shadow(0 0 6px #2F7BEACC) drop-shadow(0 0 12px #2F7BEA88); }
+.node.ev-hl.cause { filter: drop-shadow(0 0 6px #E5484DCC) drop-shadow(0 0 12px #E5484D88); }
+.link.ev-hl { filter: drop-shadow(0 0 4px #2F7BEA); }
+.link.ev-hl.cause { filter: drop-shadow(0 0 4px #E5484D) drop-shadow(0 0 2px #E5484D); }

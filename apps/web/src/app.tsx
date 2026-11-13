@@ -8,10 +8,13 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 
 import { Canvas, cableLength } from "./components/canvas";
 import { ConfirmDialog } from "./components/confirm-dialog";
+import { EventPanel, highlightOf, SideTabs } from "./components/event-panel";
+import type { SideTab } from "./components/event-panel";
 import { isRemoveKey, removeKeyAction } from "./components/canvas-keys";
 import { Inspector } from "./components/inspector";
 import { LinkInspector } from "./components/link-inspector";
 import { Palette } from "./components/palette";
+import { useSideWidth } from "./components/side-resize";
 import type { Replay } from "./components/packet-layer";
 import { TerminalWindow } from "./components/terminal-window";
 import { focusCanvasNode, focusTerminalInput } from "./focus";
@@ -64,6 +67,8 @@ export function App() {
   const [importError, setImportError] = useState<ErrorInfo | null>(null);
   const [cable, setCable] = useState<CableState>(CABLE_OFF);
   const [dragKind, setDragKind] = useState<DeviceKind | null>(null);
+  // 오른쪽 패널 폭. 손잡이로 끌어 바꾼다 (T0.18)
+  const side = useSideWidth();
   // 목록에서 끌어 온 새 장비를 왼쪽 장비 목록에 다시 놓으면 취소된다 (T0.12). 캔버스가 목록의 자리를 보고 상태를 알려 준다
   const paletteRef = useRef<HTMLElement>(null);
   const [dragCancel, setDragCancel] = useState<DragCancelState>("idle");
@@ -255,6 +260,29 @@ export function App() {
     }
   };
   const replayList = useMemo(() => [...replays.values()], [replays]);
+
+  // 오른쪽 패널의 상세 정보 / 이벤트 탭 (T1.9.2, 시뮬레이션 모드만). 탭은 사용자가 누를 때만 바뀐다
+  const [sideTab, setSideTab] = useState<SideTab>("detail");
+  // 이벤트 탭이 보여 줄 추적. null이면 마지막으로 재생을 시작한 ping을 따라간다
+  const [pickedTrace, setPickedTrace] = useState<number | null>(null);
+  const [lastPlayed, setLastPlayed] = useState<number | null>(null);
+  const [selectedSeq, setSelectedSeq] = useState<number | null>(null);
+  // 이벤트 탭을 마지막으로 봤을 때의 최신 추적. 그 뒤에 새 기록이 생기면 탭에 점을 단다
+  const [seenTrace, setSeenTrace] = useState<number | null>(null);
+  const latestTrace = snapshot.traces[0]?.id ?? null;
+  const shownTrace = pickedTrace ?? lastPlayed ?? latestTrace ?? undefined;
+  const shownTraceData = shownTrace === undefined ? undefined : simulator.getTrace(shownTrace);
+  const shownReplay = replayList.find((replay) => replay.traceId !== undefined && replay.traceId === shownTrace);
+  // 고른 이벤트의 장비와 케이블을 캔버스에서 강조한다 (T1.9.3)
+  const eventHighlight = mode === "simulation" && sideTab === "events" && selectedSeq !== null && shownTraceData !== undefined
+    ? highlightOf(shownTraceData, selectedSeq) : undefined;
+  useEffect(() => {
+    if (sideTab === "events") setSeenTrace(latestTrace);
+  }, [sideTab, latestTrace]);
+  const sideHeader = mode === "simulation" ? (
+    <SideTabs tab={sideTab} onTab={setSideTab} unread={latestTrace !== null && latestTrace !== seenTrace}
+      count={shownTraceData?.events.length} />
+  ) : undefined;
   const replayCount = useRef(0);
   const setReplayOf = (deviceId: string, replay: Replay | undefined) =>
     setReplays((current) => {
@@ -278,9 +306,11 @@ export function App() {
     setReplays((current) => {
       const next = new Map([...current].filter(([id, replay]) =>
         id !== key && startedAt - replay.startedAt < replay.timeline.durationMs));
-      next.set(key, { key: `replay-${replayCount.current}`, timeline, startedAt });
+      next.set(key, { key: `replay-${replayCount.current}`, timeline, startedAt, traceId });
       return next;
     });
+    // 이벤트 목록은 새로 시작한 ping을 따라간다
+    if (!exchange) { setLastPlayed(traceId); setPickedTrace(null); setSelectedSeq(null); }
     return timeline.durationMs;
   };
   const clearFinishedReplays = () =>
@@ -460,13 +490,15 @@ export function App() {
     setReplays(new Map());
     setCable(CABLE_OFF); setDragKind(null); setSelectedLinkId(null); setRemoveAsk(null);
     setActionError(null); setConnectionMessage(null);
+    setPickedTrace(null); setLastPlayed(null); setSelectedSeq(null); setSeenTrace(null);
   };
 
   return (
     <div className={`app mode-${mode}`}>
       <TopBar name={topologyName} onRename={setTopologyName} onExport={exportTopology} onImport={(file) => void importTopology(file)} mode={mode} onModeChange={changeMode}
         sim={mode === "simulation" ? { clock: clockState, onPause: clock.pause, onResume: clock.resume, onSpeed: clock.setSpeed } : undefined} />
-      <main className="work">
+      <main className={`work${side.dragging ? " side-dragging" : ""}`} style={{ gridTemplateColumns: `112px minmax(0, 1fr) ${side.width}px` }}>
+        {side.handle}
         <Palette deviceCount={document.devices.length} linkCount={document.links.length} cableActive={cable.active}
           onConnect={() => { setCable(cable.active ? CABLE_OFF : CABLE_READY); setConnectionMessage(null); setActionError(null); }}
           onDeviceDragStart={kind => { setDragKind(kind); setCable(CABLE_OFF); setConnectionMessage(null); }}
@@ -503,6 +535,7 @@ export function App() {
             }}
             cancelZoneRef={paletteRef} onCancelZone={setDragCancel}
             replayTime={clock.now} replayPaused={clockState.paused}
+            eventHighlight={eventHighlight}
           />
           {ui.terminals.map((placement, index) => {
             const device = document.devices.find((candidate) => candidate.id === placement.deviceId);
@@ -531,7 +564,13 @@ export function App() {
             );
           })}
         </section>
-        {selectedLink !== undefined ? <LinkInspector document={document} link={selectedLink} onRemove={removeSelectedLink} /> : <Inspector
+        {mode === "simulation" && sideTab === "events" ? (
+          <EventPanel header={sideHeader} document={document} traces={snapshot.traces} getTrace={simulator.getTrace}
+            traceId={shownTrace} onPickTrace={(traceId) => { setPickedTrace(traceId); setSelectedSeq(null); }}
+            replay={shownReplay} time={clock.now} paused={clockState.paused}
+            selectedSeq={selectedSeq} onSelectSeq={setSelectedSeq} />
+        ) : selectedLink !== undefined ? <LinkInspector document={document} link={selectedLink} onRemove={removeSelectedLink} header={sideHeader} /> : <Inspector
+          header={sideHeader}
           snapshot={snapshot}
           deviceId={ui.selectedDeviceId}
           onOpenTerminal={openTerminal}

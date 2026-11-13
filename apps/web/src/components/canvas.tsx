@@ -163,6 +163,7 @@ export function Canvas({
   onCancelZone,
   replayTime,
   replayPaused = false,
+  eventHighlight,
 }: {
   readonly document: TopologyDocument;
   readonly selectedDeviceId: string | null;
@@ -192,6 +193,8 @@ export function Canvas({
   readonly replayTime?: () => number;
   /** 시뮬레이션이 멈췄다. 펭귄이 그 자리에 선다 (T0.15) */
   readonly replayPaused?: boolean;
+  /** 이벤트 목록에서 고른 줄의 장비와 케이블 (T1.9.3) */
+  readonly eventHighlight?: { readonly deviceId: string; readonly linkId?: string; readonly cause: boolean } | undefined;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const viewportSizeRef = useRef<{ width: number; height: number } | null>(null);
@@ -509,7 +512,7 @@ export function Canvas({
             const { look, ends, geometry, centers } = linkShape(document, link, from, to);
 
             return (
-              <g key={link.id} className={link.id === selectedLinkId ? "link selected" : "link"}
+              <g key={link.id} className={`${link.id === selectedLinkId ? "link selected" : "link"}${link.id === eventHighlight?.linkId ? (eventHighlight.cause ? " ev-hl cause" : " ev-hl") : ""}`}
                 data-link-id={link.id}
                 role={onSelectLink === undefined ? undefined : "button"}
                 tabIndex={onSelectLink === undefined ? undefined : 0}
@@ -555,7 +558,8 @@ export function Canvas({
             <g
               key={device.id}
               className={`${device.id === selectedDeviceId || device.id === draft?.deviceId ? "node sel" : "node"}${
-                device.id === firstPort?.deviceId ? " cable-source" : ""}${device.id === draft?.deviceId ? " dragging" : ""}`}
+                device.id === firstPort?.deviceId ? " cable-source" : ""}${device.id === draft?.deviceId ? " dragging" : ""}${
+                device.id === eventHighlight?.deviceId ? (eventHighlight.cause ? " ev-hl cause" : " ev-hl") : ""}`}
               transform={`translate(${positions.get(device.id)!.x - HALF_WIDTH},${positions.get(device.id)!.y - ABOVE})`}
               data-device-id={device.id}
               // 키보드로도 고르고 콘솔을 연다 (T1.6.2, NFR-12).

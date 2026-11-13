@@ -87,6 +87,8 @@ export interface Replay {
   readonly timeline: Timeline;
   /** 시뮬레이션 시계(`sim-clock.ts`) 기준 (T0.15) */
   readonly startedAt: number;
+  /** 재생하는 추적. 이벤트 목록이 재생에 맞춰 자란다 (T1.9.2) */
+  readonly traceId?: number;
 }
 
 export interface LinkPath {
