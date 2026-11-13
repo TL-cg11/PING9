@@ -99,4 +99,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T0.18 오른쪽 패널 폭 조절, 빈 카드 그림 교체, 시뮬레이션 배경과 눈밭 격자 (계획에 없는 새 ID) | [T0.18-panel-resize-and-sim-grid.md](T0.18-panel-resize-and-sim-grid.md) | 화면 | yysong1249 | 검토 대기 ([PR #59](https://github.com/TL-cg11/PING9/pull/59)). 디자인 변경이라 팀 확인 필요 |
 | T1.9 이벤트 목록과 실패 사유 (T1.9.1, T1.9.2, T1.9.3, T1.10.2). 오른쪽 패널의 탭, 재생에 맞춰 줄이 나타남 | [T1.9-event-list.md](T1.9-event-list.md) | 화면 | yysong1249 | 검토 대기 ([PR #60](https://github.com/TL-cg11/PING9/pull/60), PR #59 위). 계획(하단 도크)과 자리가 달라 팀 확인 필요 |
 | T0.19 PC 콘솔의 파일 명령어, 폴더가 보이는 프롬프트, Tab 후보 (계획에 없는 새 ID. T0.9 후속) | [T0.19-pc-files.md](T0.19-pc-files.md) | 엔진, 화면, 공통 | yysong1249 | PR 전. VPC 명세서와 어긋나고 예시 자료 프롬프트가 바뀌어 팀 확인 필요 |
-| T0.19 버그 수정: Switch·Router 콘솔의 Tab이 PC처럼 바뀐 것을 되돌림 (두 번 눌러도 나열하지 않음) | [T0.19-switch-router-tab-fix.md](T0.19-switch-router-tab-fix.md) | 엔진 | SDY | 검토 대기 ([PR #62](https://github.com/TL-cg11/PING9/pull/62)). T0.19(yysong1249)의 수정이라 담당자 확인 필요 |
+| T0.19 후속: Switch·Router 콘솔도 Tab을 두 번 누르면 후보를 나열 (Tab 한 번은 그대로) | [T0.19-switch-router-tab.md](T0.19-switch-router-tab.md) | 엔진 | SDY | 병합됨 ([PR #62](https://github.com/TL-cg11/PING9/pull/62), 팀원 검토 없이). 계획에 없는 추가라 팀 확인 필요 |

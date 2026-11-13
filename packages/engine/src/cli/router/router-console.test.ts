@@ -75,14 +75,24 @@ describe("Router 공통 CLI", () => {
 });
 
 describe("Router의 candidates (Tab 두 번)", () => {
-  test("여러 명령어로 읽히는 글자에도 나열하지 않는다. 목록은 ?가 한다", async () => {
+  test("치다 만 글자로 시작하는 명령어를 나열한다. Tab 한 번은 하나로 정해질 때만 완성한다", async () => {
     const { port } = open();
     await run(port, "enable");
 
     // 특권 모드의 c는 clear와 configure 둘 다 된다
-    expect(port.help("c").map((entry) => entry.token)).toEqual(["clear", "configure"]);
-    expect(port.candidates("c")).toEqual([]);
+    expect(port.candidates("c")).toEqual(["clear", "configure"]);
     expect(port.complete("c")).toBeNull();
+    expect(port.complete("conf")).toBe("configure ");
+  });
+
+  test("빈 자리에서는 그 자리의 명령어 전부", async () => {
+    const { port } = open();
+    await run(port, "enable");
+
+    const keywords = port.help("show ip ").map((entry) => entry.token).filter((token) => !token.startsWith("<")).sort();
+    expect(port.candidates("show ip ")).toEqual(keywords);
+    expect(port.candidates("show ip ")).toContain("route");
+    expect(port.complete("show ip ")).toBeNull();
   });
 });
 
