@@ -101,3 +101,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T0.19 PC 콘솔의 파일 명령어, 폴더가 보이는 프롬프트, Tab 후보 (계획에 없는 새 ID. T0.9 후속) | [T0.19-pc-files.md](T0.19-pc-files.md) | 엔진, 화면, 공통 | yysong1249 | PR 전. VPC 명세서와 어긋나고 예시 자료 프롬프트가 바뀌어 팀 확인 필요 |
 | T0.19 후속: Switch·Router 콘솔도 Tab을 두 번 누르면 후보를 나열 (Tab 한 번은 그대로) | [T0.19-switch-router-tab.md](T0.19-switch-router-tab.md) | 엔진 | SDY | 병합됨 ([PR #62](https://github.com/TL-cg11/PING9/pull/62), 팀원 검토 없이). 계획에 없는 추가라 팀 확인 필요 |
 | T14.2.1 Firewall 장비와 iptables 필터 (3차의 Story 14.2·14.3. 새 ID). 임시 아이콘 | [T14.2.1-firewall-iptables.md](T14.2.1-firewall-iptables.md) | 공통, 엔진, 화면 | SDY | 병합됨 ([PR #65](https://github.com/TL-cg11/PING9/pull/65), 팀원 검토 없이). 3차를 앞당긴 것이고 `shared`에 장비 종류·Command·코드를 더해 팀 확인 필요 |
+| T6.4.1 ① 캔버스의 포트 주소 끝자리와 케이블 대역, 펭귄이 케이블 글자를 밟고 장비 위로 지나감, ARP 표시 키움 | [T6.4.1-port-address-labels.md](T6.4.1-port-address-labels.md) | 화면 | yysong1249 | PR 전. `PortStatus`와 범례는 남음. 주소를 views 대신 설정에서 읽고, T6.1.2의 펭귄 층 순서를 바꿔 팀 확인 필요 |
