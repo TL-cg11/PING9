@@ -204,11 +204,14 @@ export class FirewallModel implements DeviceModel {
     action: "forward" | "reply" | "create", parentSeq?: number, originalFrame?: Frame, inPort?: string): void {
     const device = this.#device();
     const { port, nextHop } = decision;
+    // 터널로 감싼 패킷(GRE 47, ESP 50)은 안을 열어 보지 않고 감싼 내용째로 넘긴다 (T14.2.2). Router의 전달과 같다
+    const gre = ipv4.protocol === 47 ? originalFrame?.snapshot.gre : undefined;
+    const esp = ipv4.protocol === 50 ? originalFrame?.snapshot.esp : undefined;
     const pending: PendingSend = {
       ...(originalFrame === undefined ? {} : { originalFrame }),
       build: (destinationMac): FrameSnapshot => ({
         ethernet: { sourceMac: portMac(device, port), destinationMac }, ipv4,
-        ...(icmp === undefined ? {} : { icmp }),
+        ...(icmp === undefined ? {} : { icmp }), ...(gre === undefined ? {} : { gre }), ...(esp === undefined ? {} : { esp }),
         // 전달하는 패킷의 TCP·UDP와 응용 계층은 그대로 옮긴다 (T0.20)
         ...(originalFrame === undefined ? {} : transportLayersOf(originalFrame.snapshot)),
       }),
