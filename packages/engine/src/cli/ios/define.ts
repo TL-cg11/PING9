@@ -14,7 +14,7 @@ import type {
 } from "@ping9/shared";
 import type { ArpEntryView, IpsecSaView, MacTableEntryView, RouteEntryView } from "@ping9/shared";
 
-import type { PingRequest, PingRun, TracerouteRequest } from "../../runtime";
+import type { PingRequest, PingRun, ServiceRequest, ServiceRun, TracerouteRequest } from "../../runtime";
 import type { PcFiles } from "../pc/file-tree";
 
 export type CliMode = "user" | "privileged" | "config" | "config-if" | "config-vlan" | "config-router" | "config-ipsec" | "vyos-config";
@@ -99,6 +99,8 @@ export interface RuntimeAccess {
   ping(request: PingRequest): PingRun;
   /** traceroute (T11.4.1). hop마다 추적 하나 */
   traceroute(request: TracerouteRequest): PingRun;
+  /** 서비스 요청 하나 (`curl`, `nslookup` 등, T0.20). 추적 하나를 보관한다 */
+  exchange(request: ServiceRequest): ServiceRun;
   arpTable(deviceId: string): readonly ArpEntryView[];
   /** IP를 주면 그 항목만. 지운 것이 있으면 true */
   clearArp(deviceId: string, ip?: string): boolean;

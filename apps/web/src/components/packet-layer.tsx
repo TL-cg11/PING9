@@ -58,6 +58,11 @@ const COLOR: Readonly<Record<FrameKind, Color>> = {
   "icmp-error": "red",
   "rip-request": "purple",
   "rip-response": "purple",
+  // TCP·UDP 서비스는 ping과 같은 색을 쓴다: 요청은 파랑, 응답은 노랑 (T0.20)
+  "tcp-request": "blue",
+  "tcp-response": "yellow",
+  "udp-request": "blue",
+  "udp-response": "yellow",
 };
 const colorOf = (kind: FrameKind): Color => COLOR[kind];
 
@@ -71,6 +76,11 @@ const MARK: Readonly<Partial<Record<FrameKind, string>>> = {
   "arp-reply": "!",
   "rip-request": "R?",
   "rip-response": "R!",
+  // ping과 색이 같아 글자로 가른다: TCP는 T, UDP는 U (T0.20)
+  "tcp-request": "T",
+  "tcp-response": "T",
+  "udp-request": "U",
+  "udp-response": "U",
 };
 const markOf = (kind: FrameKind): string | undefined => MARK[kind];
 
@@ -85,6 +95,10 @@ const KIND_NAME: Readonly<Record<FrameKind, string>> = {
   "icmp-error": "ICMP 오류 알림",
   "rip-request": "RIP 요청",
   "rip-response": "RIP 응답",
+  "tcp-request": "TCP 요청",
+  "tcp-response": "TCP 응답",
+  "udp-request": "UDP 요청",
+  "udp-response": "UDP 응답",
 };
 
 export interface Replay {

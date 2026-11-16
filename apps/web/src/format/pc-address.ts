@@ -2,12 +2,13 @@
 // 값 하나의 형식은 CLI 해석기와 같은 shared 함수로 보고, 토폴로지 규칙은 reducer가 본다 (AD-3).
 
 import { checkIpv4, checkMask, maskToPrefixLength, prefixLengthToMask } from "@ping9/shared";
-import type { Command, DispatchResult, ErrorInfo, Notice, OsKind, PcConfig } from "@ping9/shared";
+import type { Command, DispatchResult, ErrorInfo, Notice, PcConfig, PcOsChoice } from "@ping9/shared";
 
-/** 화면에 보일 OS 이름 (T0.7) */
-export const OS_NAMES: Readonly<Record<OsKind, string>> = {
+/** 화면에 보일 OS 이름 (T0.7). Server는 서비스를 돌리는 Linux다 (T0.20) */
+export const OS_NAMES: Readonly<Record<PcOsChoice, string>> = {
   windows: "Windows",
   linux: "Linux",
+  server: "Server",
 };
 
 export const PC_FIELDS = ["ip", "mask", "gateway"] as const;

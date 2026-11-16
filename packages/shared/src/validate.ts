@@ -11,6 +11,7 @@ import { checkFirewallConfig } from "./firewall-config";
 import { CURRENT_SCHEMA_VERSION, LIMITS } from "./limits";
 import { checkRipConfig, checkRouterInterfaceOverlap, checkStaticRoute } from "./router-config";
 import { topologyDocumentSchema, traceSchema } from "./schema";
+import { checkPcServices } from "./server-config";
 import type { ParsedDocument } from "./schema";
 import type { Trace } from "./trace";
 import { checkTunnels, routerInterfaces } from "./tunnel-config";
@@ -95,6 +96,10 @@ function checkPcConfig(
   config: Extract<ParsedDevice, { kind: "pc" }>["config"],
   path: string,
 ): ErrorInfo | null {
+  // 서비스 구성은 주소와 상관없이 본다 (T0.20)
+  const servicesError = checkPcServices(config, path);
+  if (servicesError) return servicesError;
+
   const { ip, mask, gateway } = config;
   if (ip === undefined) {
     return mask === undefined && gateway === undefined ? null : shapeError(`${path}.ip`);

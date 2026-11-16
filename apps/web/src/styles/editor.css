@@ -314,7 +314,8 @@ button { font: inherit; cursor: pointer; }
 .pc-form .field { margin-bottom: 10px; }
 .pc-form .prefix { display: block; margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--navy-60); }
 /* PC의 OS 고르기 (T0.7). IP 설정 위 */
-.os-choice { border: none; margin: 0 0 14px; padding: 0; display: flex; gap: 14px; align-items: center; }
+/* 고를 것이 셋이라(T0.20) 사이를 좁히고, 패널이 좁으면 줄을 바꾼다 */
+.os-choice { border: none; margin: 0 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
 .os-choice legend { float: left; margin-right: 4px; padding: 0; font-size: 12px; color: var(--navy-60); }
 .os-choice label { display: inline-flex; gap: 5px; align-items: center; font-size: 13px; color: var(--navy); cursor: pointer; }
 .os-choice input { margin: 0; accent-color: var(--sky-700); }
@@ -329,6 +330,10 @@ button { font: inherit; cursor: pointer; }
 .port-row.off .port-switch { color: var(--navy-60); }
 .port-row.off .track { background: #B8C2D9; }
 .port-row.off .knob { left: 2px; }
+/* 서버의 DNS 이름 (T0.20). 줄 끝의 지우기 버튼과 추가 칸 */
+.dns-remove { border: none; background: none; padding: 0 2px; font-size: 16px; line-height: 1; color: var(--navy-60); cursor: pointer; }
+.dns-remove:hover, .dns-remove:focus-visible { color: var(--danger); }
+.dns-form { margin-top: 10px; }
 .vpn-settings { margin-top: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--ice-100); }
 .vpn-choice { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
 .vpn-choice legend { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
@@ -449,6 +454,8 @@ button { font: inherit; cursor: pointer; }
 .ev-row .l { display: inline-block; font-style: normal; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 5px; margin-right: 5px; vertical-align: 1px; }
 .ev-row .l.L2 { background: #E3EEFF; color: #2F6BD8; } .ev-row .l.ARP { background: #FFF2DB; color: #B7791F; }
 .ev-row .l.ICMP { background: #E6F6EC; color: #23874F; } .ev-row .l.L3 { background: #EFE8FF; color: #6B4BD8; } .ev-row .l.RIP { background: #FDE8F4; color: #B83A85; }
+/* TCP, UDP, 응용 계층 (T0.20) */
+.ev-row .l.TCP { background: #E0F4FA; color: #17788F; } .ev-row .l.UDP { background: #FCEBDD; color: #B25A1B; } .ev-row .l.APP { background: #ECEFF6; color: #3D4A6B; }
 .ev-row .x { color: #E5484D; font-weight: 800; }
 .ev-row.drop > button { color: #9AA8BE; } .ev-row.drop .d { color: #9AA8BE; }
 .ev-row.cause { background: #FFF1F1; border: 1px solid #F6C9CB; }

@@ -8,11 +8,13 @@ import type { DeviceView, PcDevice, TopologyDocument } from "@ping9/shared";
 import type { Frame, SimContext, TimerRef } from "../../kernel";
 import { ArpModule } from "../../protocols/arp";
 import { Ipv4Host } from "../../protocols/ipv4-host";
+import { TransportHost } from "../../protocols/transport";
 import type { Ipv4Address } from "../../protocols/ipv4-host";
 import { deviceRef, findDevice, isAdminUp, portLink, portMac } from "../../topology";
 import { computeViews } from "../../views";
 import { transmit } from "../link";
 import type { ConfigChange, DeviceModel } from "../model";
+import { listeningService, serviceResponse } from "./services";
 
 export const PC_PORT = PORT_NAMES.pc[0];
 
@@ -34,6 +36,8 @@ export class PcModel implements DeviceModel {
   readonly deviceId: string;
   readonly arp: ArpModule;
   readonly ipv4: Ipv4Host;
+  /** TCP·UDP와 서비스 (T0.20). 서버로 쓰는 PC는 듣고, 모든 PC가 요청을 보낸다 */
+  readonly transport: TransportHost;
   readonly #getDocument: () => TopologyDocument;
 
   constructor(deviceId: string, getDocument: () => TopologyDocument) {
@@ -75,6 +79,19 @@ export class PcModel implements DeviceModel {
       },
       this.arp,
     );
+    this.transport = new TransportHost({
+      get device() {
+        return deviceRef(pc());
+      },
+      port: PC_PORT,
+      ipv4: this.ipv4,
+      listening: (protocol, port) => listeningService(pc(), protocol, port),
+      respond: (service, message) => serviceResponse(pc(), service, message),
+    });
+    this.ipv4.setTransport({
+      onPacket: (ctx, port, frame, address) => { this.transport.onPacket(ctx, port, frame, address); },
+      onIcmpError: (ctx, frame) => { this.transport.onIcmpError(ctx, frame); },
+    });
   }
 
   onFrame(ctx: SimContext, port: string, frame: Frame): void {
@@ -114,6 +131,7 @@ export class PcModel implements DeviceModel {
   startRun(): void {
     this.arp.discardPending();
     this.ipv4.startRun();
+    this.transport.startRun();
   }
 
   view(): DeviceView {

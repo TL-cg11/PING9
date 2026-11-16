@@ -4,7 +4,7 @@
 // 캔버스와 왼쪽 장비 목록이 같은 그림을 쓴다. 모두 32×32 기준이다.
 
 import type { SVGProps } from "react";
-import type { DeviceKind, OsKind } from "@ping9/shared";
+import type { DeviceKind, PcOsChoice } from "@ping9/shared";
 
 type Box = Pick<SVGProps<SVGSVGElement>, "x" | "y" | "width" | "height">;
 
@@ -14,9 +14,10 @@ const LINE = { strokeLinecap: "round", strokeLinejoin: "round" } as const;
  * 이글루. OS마다 창과 문이 다르다 (T0.7). 작게 그려도 구분되도록 모양으로 나눈다.
  * - Linux: 둥근 문과 그 위의 검은 터미널 간판(`>_`)
  * - Windows: 큰 유리창(제목 줄이 있는 앱 창 모양)과 넓은 네모 문
+ * - Server: 문 위에 불빛이 켜진 장비 선반 (T0.20). 임시 그림이다
  * - OS 없음: T0.6의 원래 그림(둥근 문과 노란 작은 창). OS를 고르기 전인 장비 목록이 쓴다
  */
-function Igloo({ os }: { readonly os: OsKind | undefined }) {
+function Igloo({ os }: { readonly os: PcOsChoice | undefined }) {
   const blue = "#1A5FA8";
   // 이글루는 납작해서 다른 그림보다 작아 보인다. 바닥선을 기준으로 1.2배 키운다
   return (
@@ -34,6 +35,15 @@ function Igloo({ os }: { readonly os: OsKind | undefined }) {
           <path d="M13 25.5v-3.5a3 3 0 0 1 6 0v3.5Z" fill={blue} />
           <rect x="20" y="18.2" width="3.2" height="2.5" rx="0.7" fill="#F5C36B" stroke={blue} strokeWidth="0.7" />
         </>
+      ) : os === "server" ? (
+        <g className="igloo-server">
+          <path d="M13 25.5v-2.9a3 3 0 0 1 6 0v2.9Z" fill={blue} />
+          <rect x="11" y="14.6" width="10" height="5.8" rx="0.9" fill="#0E1A38" />
+          <path d="M11 17.5h10" fill="none" stroke="#3A4A78" strokeWidth="0.5" />
+          <circle cx="12.6" cy="16.05" r="0.5" fill="#6FE3A1" />
+          <circle cx="12.6" cy="18.95" r="0.5" fill="#6FE3A1" />
+          <path d="M14.6 16.05h4.8M14.6 18.95h4.8" fill="none" stroke="#7FD3F7" strokeWidth="0.55" {...LINE} />
+        </g>
       ) : os === "linux" ? (
         <g className="igloo-linux">
           <path d="M13 25.5v-2.9a3 3 0 0 1 6 0v2.9Z" fill={blue} />
@@ -142,7 +152,7 @@ function FireWall() {
  * `os`는 PC에만 쓴다 (T0.7). 캔버스는 `osOf`로 늘 넘긴다.
  * 넘기지 않으면 OS가 없는 원래 이글루다 (장비 목록)
  */
-export function DeviceIcon({ kind, os, ...box }: { readonly kind: DeviceKind; readonly os?: OsKind } & Box) {
+export function DeviceIcon({ kind, os, ...box }: { readonly kind: DeviceKind; readonly os?: PcOsChoice } & Box) {
   const osClass = kind === "pc" && os !== undefined ? ` icon-os-${os}` : "";
   return (
     <svg className={`icon icon-${kind}${osClass}`} viewBox="0 0 32 32" aria-hidden="true" {...box}>

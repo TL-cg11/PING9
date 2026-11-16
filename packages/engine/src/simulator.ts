@@ -110,6 +110,11 @@ export function createSimulator(): Simulator {
       if (run.ok && run.rounds.length > 0) runtimeChanged();
       return run;
     },
+    exchange(request) {
+      const run = runtime.exchange(request, docVersion);
+      if (run.ok) runtimeChanged();
+      return run;
+    },
     arpTable: (deviceId) => runtime.arpTable(deviceId),
     macTable: (deviceId) => runtime.macTable(deviceId),
     routingTable: (deviceId) => runtime.routingTable(deviceId),

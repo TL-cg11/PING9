@@ -4,6 +4,7 @@ import type { FrameSnapshot, IcmpErrorType, IcmpMessage, Ipv4Header, Reason, Rou
 import type { Frame, SimContext, TimerRef } from "../../kernel";
 import { ArpModule } from "../../protocols/arp";
 import type { PendingSend } from "../../protocols/arp";
+import { transportLayersOf } from "../../protocols/transport";
 import { deviceRef, findDevice, isAdminUp, portLink, portMac } from "../../topology";
 import { portViewsOf } from "../../views";
 import { transmit } from "../link";
@@ -126,6 +127,16 @@ export class RouterModel implements DeviceModel {
         ctx.record({ frame, deviceId: device.id, inPort: port, layer: "ICMP", action: "receive", parentSeq: received,
           reason: { code: "ICMP_ECHO_REPLY_RECEIVED", params: { device: ref, sourceIp: ipv4.sourceIp, targetIp: ipv4.destinationIp } } });
         this.#replies.add(icmp.sequence);
+      } else if (icmp === undefined) {
+        // Router는 서비스를 돌리지 않는다 (T0.20). 자기 주소로 온 TCP·UDP는 이유를 남기고 ICMP 도달 불가로 답한다
+        const transport = frame.snapshot.tcp ?? frame.snapshot.udp;
+        if (transport === undefined) return;
+        const closed = ctx.record({ frame, deviceId: device.id, inPort: port, parentSeq: received,
+          layer: frame.snapshot.tcp === undefined ? "UDP" : "TCP", action: "drop",
+          reason: { code: "PORT_CLOSED", params: {
+            device: ref, protocol: frame.snapshot.tcp === undefined ? "udp" : "tcp", port: transport.destinationPort,
+          } } });
+        this.#error(ctx, frame, "destination-unreachable", closed);
       }
       return;
     }
@@ -157,6 +168,8 @@ export class RouterModel implements DeviceModel {
       build: (destinationMac): FrameSnapshot => ({
         ethernet: { sourceMac: portMac(device, port), destinationMac }, ipv4,
         ...(icmp === undefined ? {} : { icmp }), ...(gre === undefined ? {} : { gre }), ...(esp === undefined ? {} : { esp }),
+        // 전달하는 패킷의 TCP·UDP와 응용 계층은 그대로 옮긴다 (T0.20)
+        ...(originalFrame === undefined ? {} : transportLayersOf(originalFrame.snapshot)),
       }),
       onSend: (context, frame, cause) => {
         const linkId = portLink(this.#getDocument(), { deviceId: device.id, port })?.linkId;
@@ -264,17 +277,23 @@ export class RouterModel implements DeviceModel {
   }
 
   #error(ctx: SimContext, original: Frame, type: IcmpErrorType, parentSeq: number): void {
-    const { ipv4, icmp, ethernet } = original.snapshot;
+    const { ipv4, icmp, tcp, udp, ethernet } = original.snapshot;
+    // TCP·UDP 패킷에도 답한다 (T0.20). 오류에 프로토콜과 목적지 포트를 담아 보낸 쪽이 어느 요청인지 안다
+    const transport = tcp ?? udp;
     // ICMP 오류에 다시 오류를 만들지 않는다. 브로드캐스트·잘못된 주소에도 응답하지 않는다.
-    if (ipv4 === undefined || icmp === undefined || isIcmpError(icmp) || ethernet.destinationMac === BROADCAST_MAC ||
-      !this.#unicast(ipv4.sourceIp) || !this.#unicast(ipv4.destinationIp)) return;
+    if (ipv4 === undefined || (icmp === undefined && transport === undefined) || isIcmpError(icmp) ||
+      ethernet.destinationMac === BROADCAST_MAC || !this.#unicast(ipv4.sourceIp) || !this.#unicast(ipv4.destinationIp)) return;
+    const sequence = icmp?.sequence ?? 0;
     const device = this.#device();
     const localInterface = Object.entries(routerInterfaces(device.config)).find(([name, iface]) =>
       (!isTunnelName(name) || greEnabled(device.config)) && iface.adminUp && iface.ip === ipv4.sourceIp)?.[0];
     const localPort = localInterface === undefined ? undefined : isTunnelName(localInterface)
       ? device.config.tunnels?.[localInterface]?.source : localInterface;
-    const message: IcmpMessage = { type, sequence: icmp.sequence, original: {
-      sourceIp: ipv4.sourceIp, destinationIp: ipv4.destinationIp, sequence: icmp.sequence,
+    const message: IcmpMessage = { type, sequence, original: {
+      sourceIp: ipv4.sourceIp, destinationIp: ipv4.destinationIp, sequence,
+      ...(icmp !== undefined || transport === undefined ? {} : {
+        protocol: tcp === undefined ? "udp" as const : "tcp" as const, destinationPort: transport.destinationPort,
+      }),
     } };
     if (localPort !== undefined) {
       // 원래 출발지가 자신이면 ICMP 오류를 로컬 전달한다. 자기 주소를 ARP로 조회하거나 링크로 내보내지 않는다.

@@ -25,6 +25,7 @@ import type { DeviceModel } from "./devices/model";
 import { RouterModel } from "./devices/router/router-model";
 import { SwitchModel } from "./devices/switch/switch-model";
 import { createKernel } from "./kernel";
+import type { ExchangeResult, ServiceExchange } from "./protocols/transport";
 import { deviceRef, findDevice } from "./topology";
 
 /** ping 한 회차의 결과. 결과 줄은 OS별 출력(cli/pc/ping-output)이 만든다 */
@@ -53,6 +54,25 @@ export interface PingRequest {
   readonly stopOnUnsent: boolean;
 }
 
+/** 서비스 요청 하나 (T0.20). PC가 보낸다 */
+export interface ServiceRequest extends ServiceExchange {
+  readonly deviceId: string;
+}
+
+/** 서비스 요청의 결과. 결과 줄은 콘솔 명령(cli/pc/service-commands)이 만든다 */
+export type ServiceOutcome =
+  | ExchangeResult
+  /** 출발 PC의 ARP 요청에 응답이 없음 */
+  | { readonly kind: "unreachable" }
+  /** 보냈는데 응답이 오지 않음 (가는 길이나 오는 길에서 버려짐) */
+  | { readonly kind: "timeout" }
+  /** 출발 PC가 보내지 못함 (IP 없음, 게이트웨이 없음, 포트 꺼짐) */
+  | { readonly kind: "unsent" };
+
+export type ServiceRun =
+  | { readonly ok: true; readonly traceId: number; readonly outcome: ServiceOutcome }
+  | { readonly ok: false; readonly error: ErrorInfo };
+
 export interface TracerouteRequest {
   readonly deviceId: string;
   readonly targetIp: string;
@@ -72,6 +92,8 @@ export interface Runtime {
    * 응답, 경로 없음(`destination-unreachable`), 출발 장비의 실패(`unreachable`, `unsent`)에서 멈춘다
    */
   traceroute(request: TracerouteRequest, docVersion: number): PingRun;
+  /** 서비스 요청 하나 (T0.20). kernel 실행 1회, Trace 하나를 보관한다. 요청을 보내는 장비는 PC다 */
+  exchange(request: ServiceRequest, docVersion: number): ServiceRun;
   arpTable(deviceId: string): readonly ArpEntryView[];
   /** `arp -d`. IP를 주면 그 항목만. 지운 것이 있으면 true */
   clearArp(deviceId: string, ip?: string): boolean;
@@ -305,6 +327,39 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
         stop: (round) => round.kind !== "timeout" &&
           !(round.kind === "icmp-error" && round.error === "time-exceeded"),
       });
+    },
+
+    exchange(request, docVersion) {
+      const source = findDevice(getDocument(), request.deviceId);
+      const model = pcModel(request.deviceId);
+      if (source === undefined || model === undefined) {
+        return { ok: false, error: errorInfo("DEVICE_NOT_FOUND", { deviceId: request.deviceId }) };
+      }
+      const models = runModels();
+      const trace = kernel.run(deviceRun({
+        docVersion,
+        models,
+        start: (ctx) => {
+          startModels();
+          model.transport.request(ctx, request);
+        },
+        // 응답을 받았으면 성공이다. 404나 NXDOMAIN도 서버가 답한 것이다
+        outcome: () => (model.transport.result()?.kind === "response" ? "success" : "failed"),
+      }));
+      store({
+        trace,
+        summary: {
+          id: trace.id, docVersion, kind: "ping", status: trace.result.status, eventCount: trace.events.length,
+          source: deviceRef(source), targetIp: request.targetIp, service: request.service,
+        },
+      });
+      const result = model.transport.result();
+      if (result !== undefined) return { ok: true, traceId: trace.id, outcome: result };
+      // 응답이 없으면 출발 PC의 폐기에서 이유를 읽는다 (ping의 회차 판정과 같은 규칙)
+      const drops = trace.events.filter((event) => event.deviceId === request.deviceId && event.action === "drop");
+      const has = (...codes: string[]) => drops.some((event) => codes.includes(event.reason.code));
+      const kind = has("NO_IP", "NO_GATEWAY", "IF_DOWN") ? "unsent" : has("ARP_TIMEOUT") ? "unreachable" : "timeout";
+      return { ok: true, traceId: trace.id, outcome: { kind } };
     },
 
     arpTable(deviceId) {

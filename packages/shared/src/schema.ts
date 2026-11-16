@@ -7,11 +7,11 @@ import { z } from "zod";
 import { DROP_REASONS, REASON_CODES } from "./codes";
 import type { TopologyDocument } from "./document";
 import {
-  FIREWALL_ICMP_TYPES, FIREWALL_POLICIES, FIREWALL_PROTOCOLS, FIREWALL_TARGETS, OS_KINDS, SWITCHPORT_MODES, VPN_MODES,
+  FIREWALL_ICMP_TYPES, FIREWALL_POLICIES, FIREWALL_PROTOCOLS, FIREWALL_TARGETS, PC_OS_CHOICES, SERVICE_KINDS, SWITCHPORT_MODES, VPN_MODES,
 } from "./document";
 import { LIMITS } from "./limits";
 import type { Trace } from "./trace";
-import { TRACE_ACTIONS, TRACE_LAYERS, TRACE_STATUSES } from "./trace";
+import { MAX_APPLICATION_DATA, TCP_FLAGS, TRACE_ACTIONS, TRACE_LAYERS, TRACE_STATUSES } from "./trace";
 
 /** 문서 안의 모든 문자열의 최대 길이 (SEC-7). ID, 이름, 주소, 포트 이름이 모두 이 안에 든다 */
 const MAX_STRING_LENGTH = 64;
@@ -28,8 +28,10 @@ const pcConfigSchema = z.object({
   ip: shortString.optional(),
   mask: shortString.optional(),
   gateway: shortString.optional(),
-  os: z.enum(OS_KINDS).optional(),
+  os: z.enum(PC_OS_CHOICES).optional(),
   adminUp: z.boolean().optional(),
+  services: z.array(z.enum(SERVICE_KINDS)).optional(),
+  dnsRecords: z.array(z.object({ name: shortString, address: shortString })).optional(),
 });
 
 const vlanSchema = z.object({ id: integer, name: shortString });
@@ -140,7 +142,8 @@ const ipv4Schema = z.object({ sourceIp: shortString, destinationIp: shortString,
 const icmpSchema = z.discriminatedUnion("type", [
     z.object({ type: z.enum(["echo-request", "echo-reply"]), sequence: integer }),
     z.object({ type: z.enum(["destination-unreachable", "time-exceeded"]), sequence: integer,
-      original: z.object({ sourceIp: shortString, destinationIp: shortString, sequence: integer }) }),
+      original: z.object({ sourceIp: shortString, destinationIp: shortString, sequence: integer,
+        protocol: z.enum(["tcp", "udp"]).optional(), destinationPort: integer.optional() }) }),
   ]);
 
 const frameSnapshotSchema = z.object({
@@ -168,6 +171,10 @@ const frameSnapshotSchema = z.object({
   }).optional(),
   icmp: icmpSchema.optional(),
   udp: z.object({ sourcePort: integer, destinationPort: integer }).optional(),
+  tcp: z.object({ sourcePort: integer, destinationPort: integer, flags: z.enum(TCP_FLAGS) }).optional(),
+  application: z.object({
+    service: z.enum(SERVICE_KINDS), message: shortString, data: z.string().max(MAX_APPLICATION_DATA).optional(),
+  }).optional(),
   rip: z.object({
     command: z.enum(["request", "response"]),
     entries: z.array(z.object({ network: shortString, mask: shortString, metric: integer })).max(25),

@@ -1,7 +1,7 @@
 // 가운데 캔버스. 드래그 중 위치만 임시로 그리고, 놓을 때 원본 변경 명령을 보낸다.
 // 노드는 장비 아이콘과 이름이다 (T0.6). 흰 카드는 보이지 않고 클릭 영역으로만 남는다. 캔버스는 자체 상태로 장비 목록을 들고 있지 않다 (AD-4).
 
-import { osOf, shortPortName } from "@ping9/shared";
+import { osChoiceOf, shortPortName } from "@ping9/shared";
 import type { Device, DeviceKind, PortRef, Position, TopologyDocument } from "@ping9/shared";
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
@@ -651,7 +651,7 @@ export function Canvas({
               tabIndex={0}
               role="button"
               aria-label={`${device.name}, ${KIND_NAME[device.kind]}, ${
-                device.kind === "pc" ? `${OS_NAMES[osOf(device.config)]}, ` : ""
+                device.kind === "pc" ? `${OS_NAMES[osChoiceOf(device.config)]}, ` : ""
               }콘솔 열기`}
               aria-pressed={device.id === selectedDeviceId}
               onPointerDown={event => startMove(event, device)}
@@ -686,7 +686,7 @@ export function Canvas({
               <circle className="focus-ring" cx="40" cy="33" r="31" />
               <DeviceIcon
                 kind={device.kind}
-                {...(device.kind === "pc" ? { os: osOf(device.config) } : {})}
+                {...(device.kind === "pc" ? { os: osChoiceOf(device.config) } : {})}
                 // 56에서 50으로 줄였다. 바닥선(그림의 25.8/32 높이)은 제자리라 이름과의 간격이 그대로다
                 x={15}
                 y={3}

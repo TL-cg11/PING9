@@ -1,7 +1,7 @@
 // 오른쪽 속성 패널. 시안의 selectDevice가 만드는 마크업과 클래스를 따른다.
 // 구성 값은 스냅샷의 Document에서, 포트 상태와 테이블은 스냅샷의 views에서 읽는다 (AD-7).
 
-import { LIMITS, shortPortName } from "@ping9/shared";
+import { LIMITS, isServer, shortPortName } from "@ping9/shared";
 import type { Command, DeviceKind, DispatchResult, PortView, RouteChangeView, Snapshot, TopologyDocument } from "@ping9/shared";
 import type { ReactNode } from "react";
 
@@ -10,6 +10,7 @@ import { DeviceName } from "./device-name";
 import { FirewallRules } from "./firewall-inspector";
 import { PcSettings } from "./pc-settings";
 import { ripSummaryFor, RouteExchange, RouterRoutingTable } from "./router-inspector";
+import { ServerServices } from "./server-services";
 import { SwitchMacTable, SwitchVlanList } from "./switch-inspector";
 import { SwitchPortTag, trunkAllowedText } from "./switch-port-tag";
 import { VpnSettings } from "./vpn-settings";
@@ -90,6 +91,8 @@ export function Inspector({
       </div>
 
       {device.kind === "pc" && <PcSettings key={device.id} device={device} onDispatch={onDispatch} />}
+      {device.kind === "pc" && isServer(device.config) &&
+        <ServerServices key={`services ${device.id}`} device={device} onDispatch={onDispatch} />}
       {device.kind === "switch" && <SwitchVlanList config={device.config} />}
       {device.kind === "router" && <VpnSettings key={device.id} device={device} onDispatch={onDispatch} />}
 

@@ -7,6 +7,12 @@ import type { DropParamsByReason, DropReason, Reason, ReasonCode, ReasonParamsBy
 import { withSubject, withTopic } from "./particles";
 
 const p = shortPortName;
+/** TCP 세그먼트의 종류를 풀어 쓴 말 (T0.20) */
+const TCP_FLAG_LABEL = {
+  SYN: "연결 요청(SYN)", "SYN-ACK": "연결 수락(SYN-ACK)", ACK: "확인(ACK)", "PSH-ACK": "자료(PSH-ACK)", RST: "연결 거절(RST)",
+} as const;
+const serviceName = (service: string) => service.toUpperCase();
+
 const ICMP_ERROR_LABEL = { "destination-unreachable": "닿을 수 없음", "time-exceeded": "TTL 만료" } as const;
 
 /** 목록 한 줄의 설명. 장비 이름은 줄의 장비 칸에 따로 나온다 */
@@ -36,6 +42,12 @@ export const EVENT_TEXT: { readonly [C in ReasonCode]: (params: ReasonParamsByCo
   FRAME_FORWARDED: ({ port }) => `MAC 표를 보고 ${p(port)}로만 보냄`,
   FRAME_FLOODED: ({ port, vlan, broadcast }) =>
     `${broadcast ? "브로드캐스트라" : "목적지를 몰라"} ${p(port)}로 내보냄 (VLAN ${vlan})`,
+  TCP_SEGMENT_SENT: ({ targetIp, port, flags }) => `TCP ${TCP_FLAG_LABEL[flags]}을 ${targetIp}로 보냄 (포트 ${port})`,
+  TCP_SEGMENT_RECEIVED: ({ sourceIp, port, flags }) => `${sourceIp}의 TCP ${TCP_FLAG_LABEL[flags]}을 받음 (포트 ${port})`,
+  SERVICE_REQUEST_SENT: ({ service, targetIp, message }) => `${serviceName(service)} 요청을 ${targetIp}로 보냄: ${message}`,
+  SERVICE_REQUEST_RECEIVED: ({ service, sourceIp, message }) => `${sourceIp}의 ${serviceName(service)} 요청을 받음: ${message}`,
+  SERVICE_RESPONSE_SENT: ({ service, targetIp, message }) => `${serviceName(service)} 응답을 ${targetIp}로 보냄: ${message}`,
+  SERVICE_RESPONSE_RECEIVED: ({ service, sourceIp, message }) => `${sourceIp}의 ${serviceName(service)} 응답을 받음: ${message}`,
   RIP_REQUEST_SENT: ({ port }) => `${p(port)}로 RIP 요청을 보냄`,
   RIP_REQUEST_RECEIVED: ({ sourceIp }) => `${sourceIp}의 RIP 요청을 받음`,
   RIP_RESPONSE_SENT: ({ port, routes }) => `${p(port)}로 경로 ${routes}개를 보냄`,
@@ -56,6 +68,7 @@ export const EVENT_TEXT: { readonly [C in ReasonCode]: (params: ReasonParamsByCo
   RIP_SOURCE_NOT_ON_LINK: ({ sourceIp }) => `${sourceIp}의 RIP가 다른 네트워크에서 와서 버림`,
   FIREWALL_BLOCKED: ({ chain, target, rule }) =>
     rule === undefined ? `${chain} 체인의 기본 정책(${target})이 막아 버림` : `${chain} 체인의 ${rule}번 규칙(${target})이 막아 버림`,
+  PORT_CLOSED: ({ protocol, port }) => `${protocol.toUpperCase()} ${port}번 포트에서 듣는 서비스가 없어 거절`,
   NOT_FOR_ME: () => "나에게 온 것이 아니라 버림 (정상)",
   LOOP_GUARD: () => "이벤트가 너무 많아 계산을 멈춤",
 };
@@ -93,6 +106,10 @@ export const CAUSE_TEXT: { readonly [R in DropReason]: (params: DropParamsByReas
       : `${dev(q)}의 ${q.chain} 체인 ${q.rule}번 규칙(${q.target})이 이 패킷을 막았어요`,
     fix: `${dev(q)}에서 규칙을 확인하세요:`,
     command: `iptables -L ${q.chain} -n --line-numbers`,
+  }),
+  PORT_CLOSED: (q) => ({
+    text: `${dev(q)}의 ${q.protocol.toUpperCase()} ${q.port}번 포트에서 듣는 서비스가 없어요`,
+    fix: "서비스는 OS가 Server인 PC가 돌려요. 주소가 그 PC의 것인지, 그 서비스가 켜져 있는지 확인하세요",
   }),
   NOT_FOR_ME: (q) => ({ text: `${dev(q)}에게 온 프레임이 아니에요`, fix: "목적지 주소를 확인하세요" }),
   LOOP_GUARD: () => ({ text: "프레임이 끝없이 돌아 계산을 멈췄어요. 케이블이 고리를 이루고 있어요", fix: "고리를 이루는 케이블 하나를 지우세요" }),

@@ -56,6 +56,31 @@ export type OsKind = (typeof OS_KINDS)[number];
 export const DEFAULT_OS: OsKind = "windows";
 
 /**
+ * 속성 패널에서 고르는 PC의 종류 (T0.20). `server`는 서비스를 돌리는 Linux다.
+ * 콘솔과 네트워크 동작을 가르는 값은 `OsKind`(`osOf`)이고, 서버는 거기서 Linux다
+ */
+export const PC_OS_CHOICES = ["windows", "linux", "server"] as const;
+export type PcOsChoice = (typeof PC_OS_CHOICES)[number];
+
+/** 서버가 돌리는 서비스 (T0.20) */
+export const SERVICE_KINDS = ["http", "dns", "ntp", "ftp"] as const;
+export type ServiceKind = (typeof SERVICE_KINDS)[number];
+
+/** 서비스가 듣는 프로토콜과 포트. FTP는 제어 연결(21)만 쓴다 */
+export const SERVICE_PORTS = {
+  http: { protocol: "tcp", port: 80 },
+  dns: { protocol: "udp", port: 53 },
+  ntp: { protocol: "udp", port: 123 },
+  ftp: { protocol: "tcp", port: 21 },
+} as const satisfies Record<ServiceKind, { readonly protocol: "tcp" | "udp"; readonly port: number }>;
+
+/** DNS 서비스가 답하는 이름 하나 (A 레코드) */
+export interface DnsRecord {
+  readonly name: string;
+  readonly address: string;
+}
+
+/**
  * PC 구성. IP가 없으면 세 값 모두 없다. `mask`는 `ip`와 함께만, `gateway`는 `ip`가 있을 때만 있다.
  * `os`는 IP와 상관없이 따로 있고, 없으면 `DEFAULT_OS`다
  */
@@ -63,14 +88,18 @@ export interface PcConfig {
   readonly ip?: string;
   readonly mask?: string;
   readonly gateway?: string;
-  readonly os?: OsKind;
+  readonly os?: PcOsChoice;
   /** 포트 켜짐 (T0.14). 칸이 없으면 켜짐. 옛 문서는 그대로 읽힌다 */
   readonly adminUp?: boolean;
+  /** 켜 둔 서비스 (T0.20). `os`가 `server`일 때만 쓴다. 칸이 없으면 넷 다 켜짐. `SERVICE_KINDS`의 순서 */
+  readonly services?: readonly ServiceKind[];
+  /** DNS 서비스가 답하는 이름 (T0.20). 칸이 없으면 없음 */
+  readonly dnsRecords?: readonly DnsRecord[];
 }
 
-/** PC의 OS. 칸이 없으면 `DEFAULT_OS` */
+/** PC의 OS. 칸이 없으면 `DEFAULT_OS`. 서버는 Linux다 (T0.20) */
 export function osOf(config: PcConfig): OsKind {
-  return config.os ?? DEFAULT_OS;
+  return config.os === "server" ? "linux" : (config.os ?? DEFAULT_OS);
 }
 
 export interface Vlan {

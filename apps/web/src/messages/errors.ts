@@ -13,6 +13,7 @@ const LIMIT_MESSAGES: Readonly<Record<LimitName, (max: number) => string>> = {
   links: (max) => `링크는 토폴로지 하나에 ${max}개까지 만들 수 있어요`,
   staticRoutes: (max) => `Static route는 장비 하나에 ${max}개까지 넣을 수 있어요`,
   ripNetworks: (max) => `RIP network는 Router 하나에 ${max}개까지 넣을 수 있어요`,
+  dnsRecords: (max) => `DNS 이름은 서버 하나에 ${max}개까지 넣을 수 있어요`,
   firewallRules: (max) => `필터 규칙은 체인 하나에 ${max}개까지 넣을 수 있어요`,
   vlans: (max) => `VLAN은 Switch 하나에 ${max}개까지 만들 수 있어요`,
   allowedVlanRanges: (max) => `trunk 허용 목록의 범위는 포트 하나에 ${max}개까지 쓸 수 있어요`,
@@ -100,6 +101,11 @@ export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsBy
     `${KIND_NAMES[kind]}(${deviceName})를 지나는 ping은 아직 지원하지 않아요`,
 
   // traceroute (T11.4.1)
+  // 서버로 쓰는 PC (T0.20)
+  PC_NOT_SERVER: () => "이 PC는 서버가 아니에요. 상세 정보의 OS에서 Server를 골라 주세요",
+  DNS_NAME_INVALID: ({ value }) => `DNS 이름은 영문 소문자, 숫자, -를 .으로 이어 45자까지 쓸 수 있어요: ${value}`,
+  DNS_RECORD_NOT_FOUND: ({ name }) => `이 서버에는 ${name} 이름이 없어요`,
+  SERVICE_URL_INVALID: ({ value }) => `주소를 읽을 수 없어요: ${value}. http://10.0.2.10/ 처럼 IP 주소로 적어 주세요 (이름은 nslookup으로 찾아요)`,
   // Firewall (T14.2.1)
   FIREWALL_RULE_NOT_FOUND: ({ chain, index }) => `${chain} 체인에 ${index}번 규칙이 없어요. iptables -L ${chain} --line-numbers로 번호를 볼 수 있어요`,
   FIREWALL_RULE_INVALID: ({ reason }) => FIREWALL_RULE_REASONS[reason],

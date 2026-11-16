@@ -11,6 +11,7 @@ export * from "./limits";
 export * from "./ping";
 export * from "./port-name";
 export * from "./router-config";
+export * from "./server-config";
 export * from "./tunnel-config";
 export * from "./ipsec-config";
 export * from "./vpn-mode";
