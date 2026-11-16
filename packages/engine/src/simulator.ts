@@ -80,6 +80,7 @@ export function createSimulator(): Simulator {
     const result = reduce(document, command);
     if (!result.ok) return result;
 
+    if (command.type === "router/set-cli-style") sessions.delete(command.deviceId);
     const previous = document;
     document = deepFreeze(result.document);
     docVersion += 1;
@@ -112,6 +113,7 @@ export function createSimulator(): Simulator {
     arpTable: (deviceId) => runtime.arpTable(deviceId),
     macTable: (deviceId) => runtime.macTable(deviceId),
     routingTable: (deviceId) => runtime.routingTable(deviceId),
+    ipsecSa: (deviceId) => runtime.ipsecSa(deviceId),
     exchangeRoutes() {
       const trace = runtime.exchangeRoutes(docVersion);
       if (trace !== null) runtimeChanged();

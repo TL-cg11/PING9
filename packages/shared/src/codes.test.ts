@@ -28,6 +28,8 @@ describe("코드 목록", () => {
   test("폐기 사유는 02 문서 FR-47의 표에 VLAN_INACTIVE, RIP_SOURCE_NOT_ON_LINK(T11.2.2), FIREWALL_BLOCKED(T14.2.1)를 더한 것이다", () => {
     expect([...DROP_REASONS].sort()).toEqual(
       [
+        "GRE_REJECTED",
+        "IPSEC_REJECTED",
         "ARP_TIMEOUT",
         "FIREWALL_BLOCKED",
         "IF_DOWN",
@@ -51,11 +53,15 @@ describe("코드 목록", () => {
     expect(new Set(REASON_CODES).size).toBe(REASON_CODES.length);
   });
 
-  test("Command는 03 문서 3.4절의 MVP 목록 19개, 2차의 RIP 구성 5개(T11.2.1), Firewall 필터 4개(T14.2.1)다", () => {
+  test("Command는 03 문서 3.4절의 MVP 목록 19개, RIP 구성 5개(T11.2.1), Firewall 필터 4개(T14.2.1), "
+    + "GRE 구성 2개와 IPsec 구성 2개, Router 선택·commit 3개다 (T15.2.1)", () => {
     const rip = ["rip/enable", "rip/disable", "rip/add-network", "rip/remove-network", "rip/set-passive"];
     const firewall = ["firewall/add-rule", "firewall/remove-rule", "firewall/flush-rules", "firewall/set-policy"];
-    expect(COMMAND_TYPES.filter((type) => !rip.includes(type) && !firewall.includes(type))).toHaveLength(19);
+    const vpn = (type: string) => type.startsWith("tunnel/") || type.startsWith("ipsec/") || type.startsWith("router/");
+    expect(COMMAND_TYPES.filter((type) => !rip.includes(type) && !firewall.includes(type) && !vpn(type))).toHaveLength(19);
     expect(COMMAND_TYPES).toEqual(expect.arrayContaining([...rip, ...firewall]));
+    expect(COMMAND_TYPES.filter(type => type.startsWith("tunnel/"))).toEqual(["tunnel/set", "tunnel/remove"]);
+    expect(COMMAND_TYPES.filter(type => type.startsWith("router/")).sort()).toEqual(["router/commit-vyos", "router/set-cli-style", "router/set-vpn-mode"]);
     expect(COMMAND_TYPES).toContain("pc/set-ip");
     expect(COMMAND_TYPES).toContain("link/add");
   });

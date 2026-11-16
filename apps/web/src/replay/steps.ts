@@ -6,7 +6,7 @@ import type { Trace, TraceEvent } from "@ping9/shared";
 
 // T11.5.1: ICMP 오류(time-exceeded, destination-unreachable)와 RIP 요청·응답을 따로 그린다
 export type FrameKind =
-  | "arp-request" | "arp-reply" | "icmp-request" | "icmp-reply" | "icmp-error" | "rip-request" | "rip-response";
+  | "arp-request" | "arp-reply" | "icmp-request" | "icmp-reply" | "icmp-error" | "rip-request" | "rip-response" | "gre-request" | "gre-reply" | "esp";
 
 /** 케이블 위를 지나가는 프레임 하나 */
 export interface Hop {
@@ -40,7 +40,9 @@ export interface Step {
 }
 
 export function frameKind(event: TraceEvent): FrameKind {
-  const { arp, icmp, rip } = event.frame;
+  const { arp, icmp, rip, gre, esp } = event.frame;
+  if (esp !== undefined) return "esp";
+  if (gre !== undefined) return gre.payload.icmp.type === "echo-reply" ? "gre-reply" : "gre-request";
   if (arp !== undefined) return arp.operation === "request" ? "arp-request" : "arp-reply";
   if (rip !== undefined) return rip.command === "request" ? "rip-request" : "rip-response";
   if (isIcmpError(icmp)) return "icmp-error";

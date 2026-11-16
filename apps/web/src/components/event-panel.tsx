@@ -33,7 +33,7 @@ export function SideTabs({ tab, onTab, unread, count }: {
   );
 }
 
-const LAYER_CLASS: Readonly<Record<TraceEvent["layer"], string>> = { L2: "L2", ARP: "ARP", L3: "L3", ICMP: "ICMP", RIP: "RIP" };
+const LAYER_CLASS: Readonly<Record<TraceEvent["layer"], string>> = { L2: "L2", ARP: "ARP", L3: "L3", ICMP: "ICMP", RIP: "RIP", GRE: "L3", IPSEC: "L3" };
 
 function traceLabel(summary: TraceSummary): string {
   if (summary.kind === "rip") return `RIP 경로 교환 #${summary.id}`;
@@ -66,7 +66,7 @@ export function highlightOf(trace: Trace, seq: number): EventHighlight | undefin
 }
 
 function Details({ event }: { readonly event: TraceEvent }) {
-  const { ethernet, arp, ipv4 } = event.frame;
+  const { ethernet, arp, ipv4, gre, esp } = event.frame;
   const rows: [string, ReactNode][] = [];
   if (event.inPort !== undefined) rows.push(["받은 포트", shortPortName(event.inPort)]);
   if (event.outPort !== undefined) rows.push(["보낸 포트", shortPortName(event.outPort)]);
@@ -74,6 +74,11 @@ function Details({ event }: { readonly event: TraceEvent }) {
   if (ethernet.vlanTag !== undefined) rows.push(["VLAN 태그", ethernet.vlanTag]);
   if (arp !== undefined) rows.push(["ARP", `${arp.senderIp} → ${arp.targetIp}`]);
   if (ipv4 !== undefined) rows.push(["IP", `${ipv4.sourceIp} → ${ipv4.destinationIp} · TTL ${ipv4.ttl}`]);
+  if (gre !== undefined) rows.push(["GRE 안쪽 IP", `${gre.payload.ipv4.sourceIp} → ${gre.payload.ipv4.destinationIp}`]);
+  if (esp !== undefined) {
+    rows.push(["교육용 ESP", `SPI ${esp.spi} · 순서 ${esp.sequence} · 실제 암호화 없음`]);
+    rows.push(["ESP 안쪽 IP", `${esp.payload.ipv4.sourceIp} → ${esp.payload.ipv4.destinationIp}`]);
+  }
   return (
     <dl className="ev-more">
       {rows.map(([name, value]) => <div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}

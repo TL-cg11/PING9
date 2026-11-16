@@ -2,7 +2,7 @@ import { maskToPrefixLength, parseIpv4, PORT_NAMES } from "@ping9/shared";
 import type { RouteEntryView } from "@ping9/shared";
 
 import { computeViews } from "../../views";
-import { lookupRoute } from "../../devices/router/routing";
+import { lookupRoute, tunnelStates } from "../../devices/router/routing";
 import type { RoutingEntry } from "../../devices/router/routing";
 import { defineCommand, param } from "../ios";
 import type { CommandContext, CommandDefinition } from "../ios";
@@ -91,6 +91,7 @@ export const ROUTER_SHOW_COMMANDS: readonly CommandDefinition[] = [
         port, device.config.interfaces[port]?.ip ?? "unassigned",
         ports.find(view => view.name === port)?.status ?? "admin-down",
       ]);
+      rows.push(...tunnelStates(device.config, ports).map(state => [state.name, device.config.tunnels![state.name]!.ip ?? "unassigned", state.status]));
       return { lines: tableLines(["Interface", "IP address", "Status"], rows).map(text => ({ kind: "text", text })) };
     },
   }),

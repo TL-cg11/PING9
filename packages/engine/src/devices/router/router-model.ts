@@ -1,16 +1,17 @@
-import { BROADCAST_MAC, PORT_NAMES, RIP_MULTICAST_MAC, UNKNOWN_MAC, checkHostIpv4, checkInterfaceAddress, isIcmpError, isSameNetwork } from "@ping9/shared";
-import type { DeviceView, FrameSnapshot, IcmpErrorType, IcmpMessage, Ipv4Header, Reason, RouterDevice, TopologyDocument } from "@ping9/shared";
+import { BROADCAST_MAC, PORT_NAMES, RIP_MULTICAST_MAC, UNKNOWN_MAC, checkHostIpv4, checkInterfaceAddress, isIcmpError, isSameNetwork, isTunnelName, routerInterfaces, greEnabled } from "@ping9/shared";
+import type { FrameSnapshot, IcmpErrorType, IcmpMessage, Ipv4Header, Reason, RouterDevice, RouterView, TopologyDocument } from "@ping9/shared";
 
 import type { Frame, SimContext, TimerRef } from "../../kernel";
 import { ArpModule } from "../../protocols/arp";
 import type { PendingSend } from "../../protocols/arp";
 import { deviceRef, findDevice, isAdminUp, portLink, portMac } from "../../topology";
-import { computeViews } from "../../views";
+import { portViewsOf } from "../../views";
 import { transmit } from "../link";
 import type { ConfigChange, DeviceModel } from "../model";
 import { RipModule } from "./rip";
-import { lookupRoute, routingTable } from "./routing";
+import { lookupRoute, routingTable, tunnelStates } from "./routing";
 import type { RouteDecision, RoutingEntry } from "./routing";
+import { IpsecModule } from "./ipsec";
 
 export const ROUTER_TTL = 64;
 
@@ -25,15 +26,19 @@ export class RouterModel implements DeviceModel {
   readonly #arps = new Map<string, ArpModule>();
   readonly #replies = new Set<number>();
   readonly #rip: RipModule;
+  readonly #ipsec: IpsecModule;
+  readonly #now: () => number;
 
-  constructor(deviceId: string, getDocument: () => TopologyDocument) {
+  constructor(deviceId: string, getDocument: () => TopologyDocument, now: () => number = () => 0) {
     this.deviceId = deviceId;
     this.#getDocument = getDocument;
     const current = () => this.#device();
+    this.#now = now;
+    this.#ipsec = new IpsecModule(current);
     this.#rip = new RipModule({
       device: current,
       document: getDocument,
-      ports: () => computeViews(getDocument())[deviceId]!.ports,
+      ports: () => portViewsOf(getDocument(), current()),
     });
     for (const port of PORT_NAMES.router) {
       this.#arps.set(port, new ArpModule({
@@ -54,13 +59,13 @@ export class RouterModel implements DeviceModel {
 
   #decision(destination: string): RouteDecision | null {
     const device = this.#device();
-    const ports = computeViews(this.#getDocument())[this.deviceId]!.ports;
+    const ports = portViewsOf(this.#getDocument(), device);
     return lookupRoute(routingTable(device.config, ports, this.#rip.routes()), destination);
   }
 
   /** 지금 쓰는 라우팅 테이블. 배운 RIP 경로를 포함한다 (T11.2.2) */
   routingTable(): readonly RoutingEntry[] {
-    return routingTable(this.#device().config, computeViews(this.#getDocument())[this.deviceId]!.ports, this.#rip.routes());
+    return routingTable(this.#device().config, portViewsOf(this.#getDocument(), this.#device()), this.#rip.routes());
   }
 
   /** 경로 교환 1회의 시작 (T11.2.2). RIP를 켠 Router만 보낸다 */
@@ -85,13 +90,27 @@ export class RouterModel implements DeviceModel {
     if (mac !== portMac(device, port) && mac !== BROADCAST_MAC) { drop({ code: "NOT_FOR_ME", params: { device: ref } }); return; }
     const arp = this.#arps.get(port);
     if (frame.snapshot.arp !== undefined) { arp?.onArp(ctx, port, frame); return; }
+    this.#receiveIp(ctx, port, frame);
+  }
+
+  #receiveIp(ctx: SimContext, port: string, frame: Frame, parentSeq?: number, protectedBy?: string): void {
+    const device = this.#device(); const ref = deviceRef(device);
     const { ipv4, icmp } = frame.snapshot;
     if (ipv4 === undefined) return;
-    if (!this.#unicast(ipv4.destinationIp)) { drop({ code: "NOT_FOR_ME", params: { device: ref } }); return; }
-    const received = ctx.record({ frame, deviceId: device.id, inPort: port, layer: "L3", action: "receive",
+    if (ipv4.protocol === undefined && protectedBy === undefined) {
+      const required = this.#ipsec.requiredInbound(ipv4);
+      if (required !== undefined) { this.#rejectIpsec(ctx, frame, required, "보호 필수 트래픽이 평문으로 도착했습니다", parentSeq); return; }
+    }
+    if (!this.#unicast(ipv4.destinationIp)) {
+      ctx.record({ frame, deviceId: device.id, inPort: port, layer: "L3", action: "drop", reason: { code: "NOT_FOR_ME", params: { device: ref } } }); return;
+    }
+    const received = ctx.record({ frame, deviceId: device.id, inPort: port, layer: "L3", action: "receive", ...(parentSeq === undefined ? {} : { parentSeq }),
       reason: { code: "IPV4_RECEIVED", params: { device: ref, sourceIp: ipv4.sourceIp, targetIp: ipv4.destinationIp } } });
-    const local = PORT_NAMES.router.some(name => isAdminUp(device, name) && device.config.interfaces[name]?.ip === ipv4.destinationIp);
+    const local = Object.entries(routerInterfaces(device.config)).some(([name, iface]) =>
+      (!isTunnelName(name) || greEnabled(device.config)) && iface.adminUp && iface.ip === ipv4.destinationIp);
     if (local) {
+      if (frame.snapshot.esp !== undefined || ipv4.protocol === 50) { this.#unprotect(ctx, port, frame, received); return; }
+      if (frame.snapshot.gre !== undefined || ipv4.protocol === 47) { this.#decapsulate(ctx, port, frame, received); return; }
       if (icmp?.type === "echo-request") {
         const request = ctx.record({ frame, deviceId: device.id, inPort: port, layer: "ICMP", action: "receive", parentSeq: received,
           reason: { code: "ICMP_ECHO_REQUEST_RECEIVED", params: { device: ref, sourceIp: ipv4.sourceIp, targetIp: ipv4.destinationIp } } });
@@ -126,11 +145,18 @@ export class RouterModel implements DeviceModel {
     action: "forward" | "reply" | "create", parentSeq?: number, originalFrame?: Frame, inPort?: string): void {
     const device = this.#device();
     const { port, nextHop } = decision;
+    if (ipv4.protocol !== 50) {
+      const profile = this.#ipsec.outbound(ipv4);
+      if (profile !== undefined) { this.#protect(ctx, profile, decision, ipv4, icmp, parentSeq, originalFrame); return; }
+    }
+    if (isTunnelName(port)) { this.#encapsulate(ctx, port, ipv4, icmp, parentSeq, originalFrame); return; }
+    const gre = ipv4.protocol === 47 ? originalFrame?.snapshot.gre : undefined;
+    const esp = ipv4.protocol === 50 ? originalFrame?.snapshot.esp : undefined;
     const pending: PendingSend = {
       ...(originalFrame === undefined ? {} : { originalFrame }),
       build: (destinationMac): FrameSnapshot => ({
         ethernet: { sourceMac: portMac(device, port), destinationMac }, ipv4,
-        ...(icmp === undefined ? {} : { icmp }),
+        ...(icmp === undefined ? {} : { icmp }), ...(gre === undefined ? {} : { gre }), ...(esp === undefined ? {} : { esp }),
       }),
       onSend: (context, frame, cause) => {
         const linkId = portLink(this.#getDocument(), { deviceId: device.id, port })?.linkId;
@@ -147,9 +173,93 @@ export class RouterModel implements DeviceModel {
     this.#arps.get(port)!.send(ctx, port, nextHop, pending, parentSeq);
   }
 
+  #rejectIpsec(ctx: SimContext, frame: Frame, profile: string, detail: string, parentSeq?: number): void {
+    this.#ipsec.reject(profile, ctx.now());
+    ctx.record({ frame, deviceId: this.deviceId, layer: "IPSEC", action: "drop", reason: {
+      code: "IPSEC_REJECTED", params: { device: deviceRef(this.#device()), profile, detail },
+    }, ...(parentSeq === undefined ? {} : { parentSeq }) });
+  }
+
+  #protect(ctx: SimContext, name: string, decision: RouteDecision, ipv4: Ipv4Header, icmp: IcmpMessage | undefined,
+    parentSeq?: number, original?: Frame): void {
+    const device = this.#device(); const profile = device.config.ipsec![name]!;
+    const inner = original ?? ctx.createFrame({ ethernet: { sourceMac: UNKNOWN_MAC, destinationMac: UNKNOWN_MAC }, ipv4,
+      ...(icmp === undefined ? {} : { icmp }) });
+    const outerRoute = profile.peer === undefined ? null : this.#decision(profile.peer);
+    const source = profile.interface === undefined ? undefined : device.config.interfaces[profile.interface];
+    if (outerRoute === null || source?.ip === undefined || !source.adminUp || decision.port !== profile.interface ||
+      outerRoute.port !== profile.interface || isTunnelName(outerRoute.port)) {
+      this.#rejectIpsec(ctx, inner, name, "출구/peer 물리 경로가 없거나 정책 인터페이스와 다릅니다", parentSeq); return;
+    }
+    const result = this.#ipsec.protect(name, ipv4, icmp, ctx.now());
+    if (!result.ok) { this.#rejectIpsec(ctx, inner, name, result.detail, parentSeq); return; }
+    const outer = ctx.updateFrame(inner, { ethernet: inner.snapshot.ethernet,
+      ipv4: { sourceIp: source.ip, destinationIp: profile.peer!, ttl: ROUTER_TTL, protocol: 50 }, esp: result.value });
+    const protectedSeq = ctx.record({ frame: outer, deviceId: device.id, layer: "IPSEC", action: "create", reason: {
+      code: "IPSEC_PROTECTED", params: { device: deviceRef(device), profile: name, peer: profile.peer!, spi: result.value.spi, sequence: result.value.sequence },
+    }, ...(parentSeq === undefined ? {} : { parentSeq }) });
+    this.#send(ctx, outerRoute, outer.snapshot.ipv4!, undefined, "forward", protectedSeq, outer);
+  }
+
+  #unprotect(ctx: SimContext, port: string, frame: Frame, parentSeq: number): void {
+    const { esp, ipv4 } = frame.snapshot;
+    const name = esp === undefined || ipv4 === undefined ? undefined : this.#ipsec.inbound(ipv4, esp, port);
+    if (esp === undefined || ipv4 === undefined || name === undefined) {
+      this.#rejectIpsec(ctx, frame, "", "수신 SA가 없습니다 (peer/바깥 IP/port/SPI 불일치)", parentSeq); return;
+    }
+    const result = this.#ipsec.unprotect(name, ipv4, esp, port, ctx.now());
+    if (!result.ok) { this.#rejectIpsec(ctx, frame, name, result.detail, parentSeq); return; }
+    const restored = ctx.updateFrame(frame, { ethernet: frame.snapshot.ethernet, ipv4: result.value.ipv4, icmp: result.value.icmp });
+    const received = ctx.record({ frame: restored, deviceId: this.deviceId, inPort: port, layer: "IPSEC", action: "receive", parentSeq,
+      reason: { code: "IPSEC_UNPROTECTED", params: { device: deviceRef(this.#device()), profile: name, peer: ipv4.sourceIp, spi: esp.spi, sequence: esp.sequence } } });
+    this.#receiveIp(ctx, port, restored, received, name);
+  }
+
+  #rejectGre(ctx: SimContext, frame: Frame, detail: string, parentSeq?: number): void {
+    ctx.record({ frame, deviceId: this.deviceId, layer: "GRE", action: "drop", reason: {
+      code: "GRE_REJECTED", params: { device: deviceRef(this.#device()), detail },
+    }, ...(parentSeq === undefined ? {} : { parentSeq }) });
+  }
+
+  #encapsulate(ctx: SimContext, name: string, ipv4: Ipv4Header, icmp: IcmpMessage | undefined, parentSeq?: number, original?: Frame): void {
+    const device = this.#device(); const tunnel = device.config.tunnels?.[name];
+    const source = tunnel?.source === undefined ? undefined : device.config.interfaces[tunnel.source];
+    const inner = original === undefined ? ctx.createFrame({ ethernet: { sourceMac: UNKNOWN_MAC, destinationMac: UNKNOWN_MAC }, ipv4,
+      ...(icmp === undefined ? {} : { icmp }) }) : original;
+    const outerRoute = tunnel?.destination === undefined ? null : this.#decision(tunnel.destination);
+    if (tunnel === undefined || !tunnel.adminUp || source?.ip === undefined || outerRoute === null ||
+      isTunnelName(outerRoute.port) || ipv4.protocol === 47 || icmp === undefined) {
+      this.#rejectGre(ctx, inner, "터널 미설정, underlay 재귀 경로 또는 중첩/미지원 payload", parentSeq); return;
+    }
+    const outer = ctx.updateFrame(inner, { ethernet: inner.snapshot.ethernet,
+      ipv4: { sourceIp: source.ip, destinationIp: tunnel.destination!, ttl: ROUTER_TTL, protocol: 47 },
+      gre: { version: 0, protocolType: 2048, payload: { ipv4, icmp } },
+    });
+    const wrapped = ctx.record({ frame: outer, deviceId: device.id, layer: "GRE", action: "create", reason: {
+      code: "GRE_ENCAPSULATED", params: { device: deviceRef(device), tunnel: name, peer: tunnel.destination! },
+    }, ...(parentSeq === undefined ? {} : { parentSeq }) });
+    this.#send(ctx, outerRoute, outer.snapshot.ipv4!, undefined, "forward", wrapped, outer);
+  }
+
+  #decapsulate(ctx: SimContext, port: string, frame: Frame, parentSeq: number): void {
+    const { gre, ipv4 } = frame.snapshot; const device = this.#device();
+    const ports = portViewsOf(this.#getDocument(), device);
+    const state = tunnelStates(device.config, ports, this.#rip.routes()).find(state => state.status === "up" &&
+      state.sourceIp === ipv4?.destinationIp && state.destination === ipv4?.sourceIp);
+    if (gre === undefined || ipv4?.protocol !== 47 || gre.version !== 0 || gre.protocolType !== 2048 || state === undefined ||
+      gre.payload.ipv4.protocol !== undefined || gre.payload.ipv4.destinationIp === ipv4.sourceIp) {
+      this.#rejectGre(ctx, frame, "수신 GRE 형식/상대/터널 상태가 일치하지 않습니다", parentSeq); return;
+    }
+    const restored = ctx.updateFrame(frame, { ethernet: frame.snapshot.ethernet, ipv4: gre.payload.ipv4, icmp: gre.payload.icmp });
+    const received = ctx.record({ frame: restored, deviceId: device.id, inPort: port, layer: "GRE", action: "receive", parentSeq,
+      reason: { code: "GRE_DECAPSULATED", params: { device: deviceRef(device), tunnel: state.name, peer: ipv4.sourceIp } } });
+    // 논리 인터페이스 수신부터 기존 로컬 응답/경로 조회/TTL/오류 처리를 재사용한다.
+    this.#receiveIp(ctx, state.name, restored, received);
+  }
+
   #unicast(ip: string): boolean {
     if (checkHostIpv4(ip) !== null) return false;
-    return !Object.values(this.#device().config.interfaces).some(iface => iface.ip !== undefined && iface.mask !== undefined &&
+    return !Object.values(routerInterfaces(this.#device().config)).some(iface => iface.ip !== undefined && iface.mask !== undefined &&
       isSameNetwork(ip, iface.ip, iface.mask) && checkInterfaceAddress(ip, iface.mask) !== null);
   }
 
@@ -159,8 +269,10 @@ export class RouterModel implements DeviceModel {
     if (ipv4 === undefined || icmp === undefined || isIcmpError(icmp) || ethernet.destinationMac === BROADCAST_MAC ||
       !this.#unicast(ipv4.sourceIp) || !this.#unicast(ipv4.destinationIp)) return;
     const device = this.#device();
-    const localPort = PORT_NAMES.router.find(port =>
-      isAdminUp(device, port) && device.config.interfaces[port]?.ip === ipv4.sourceIp);
+    const localInterface = Object.entries(routerInterfaces(device.config)).find(([name, iface]) =>
+      (!isTunnelName(name) || greEnabled(device.config)) && iface.adminUp && iface.ip === ipv4.sourceIp)?.[0];
+    const localPort = localInterface === undefined ? undefined : isTunnelName(localInterface)
+      ? device.config.tunnels?.[localInterface]?.source : localInterface;
     const message: IcmpMessage = { type, sequence: icmp.sequence, original: {
       sourceIp: ipv4.sourceIp, destinationIp: ipv4.destinationIp, sequence: icmp.sequence,
     } };
@@ -180,7 +292,7 @@ export class RouterModel implements DeviceModel {
     const decision = this.#decision(ipv4.sourceIp);
     if (decision === null) return;
     this.#send(ctx, decision, {
-      sourceIp: this.#device().config.interfaces[decision.port]!.ip!, destinationIp: ipv4.sourceIp, ttl: ROUTER_TTL,
+      sourceIp: this.#ipsec.sourceFor(ipv4.sourceIp) ?? routerInterfaces(this.#device().config)[decision.port]!.ip!, destinationIp: ipv4.sourceIp, ttl: ROUTER_TTL,
     }, message, "reply", parentSeq);
   }
 
@@ -208,7 +320,7 @@ export class RouterModel implements DeviceModel {
         reason: { code: "NO_ROUTE", params: { device: deviceRef(device), targetIp } } });
       return;
     }
-    this.#send(ctx, decision, { sourceIp: device.config.interfaces[decision.port]!.ip!, destinationIp: targetIp, ttl },
+    this.#send(ctx, decision, { sourceIp: this.#ipsec.sourceFor(targetIp) ?? routerInterfaces(device.config)[decision.port]!.ip!, destinationIp: targetIp, ttl },
       { type: "echo-request", sequence }, "create");
   }
 
@@ -220,6 +332,7 @@ export class RouterModel implements DeviceModel {
     const before = routerIn(change.previous, this.deviceId);
     const after = routerIn(change.document, this.deviceId);
     if (before === undefined || after === undefined) return;
+    this.#ipsec.configChanged(before.config);
     // RIP 구성이 바뀌면 다음 경로 교환까지 배운 경로를 쓰지 않는다 (T11.2.2 결정 7)
     if (JSON.stringify(before.config.rip) !== JSON.stringify(after.config.rip)) this.#rip.clear();
     for (const port of PORT_NAMES.router) {
@@ -237,9 +350,12 @@ export class RouterModel implements DeviceModel {
     this.startRun();
   }
 
-  view(): DeviceView {
-    const base = computeViews(this.#getDocument())[this.deviceId];
-    if (base?.kind !== "router") throw new Error("Router view is missing");
-    return { ...base, arpTable: this.arpTable(), routingTable: this.routingTable() };
+  ipsecSa() { return this.#ipsec.view(portViewsOf(this.#getDocument(), this.#device()), this.#now()); }
+
+  view(): RouterView {
+    const device = this.#device(); const ports = portViewsOf(this.#getDocument(), device);
+    return { kind: "router", ports, arpTable: this.arpTable(), routingTable: routingTable(device.config, ports, this.#rip.routes()),
+      ...(device.config.ipsec === undefined ? {} : { ipsec: this.#ipsec.view(ports, this.#now()) }),
+      ...(device.config.tunnels === undefined ? {} : { tunnels: tunnelStates(device.config, ports, this.#rip.routes()) }) };
   }
 }
