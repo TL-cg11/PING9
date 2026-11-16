@@ -39,6 +39,9 @@ export function normalizeStaticRoute(route: StaticRoute): StaticRoute {
 /** 생략된 포트도 기본 꺼짐으로 채우고 전체 포트 순서대로 정규화한다. */
 export function normalizeRouterConfig(config: RouterConfig): RouterConfig {
   return {
+    ...(config.cliStyle === undefined ? {} : { cliStyle: config.cliStyle }),
+    ...(config.vyos === undefined ? {} : { vyos: config.vyos }),
+    ...(config.vpnMode === undefined ? {} : { vpnMode: config.vpnMode }),
     interfaces: Object.fromEntries(PORT_NAMES.router.map(port => {
       const iface = config.interfaces[port];
       return [port, {
@@ -48,6 +51,8 @@ export function normalizeRouterConfig(config: RouterConfig): RouterConfig {
     })),
     staticRoutes: config.staticRoutes.map(normalizeStaticRoute),
     ...(config.rip === undefined ? {} : { rip: normalizeRipConfig(config.rip) }),
+    ...(config.tunnels === undefined || Object.keys(config.tunnels).length === 0 ? {} : { tunnels: config.tunnels }),
+    ...(config.ipsec === undefined || Object.keys(config.ipsec).length === 0 ? {} : { ipsec: config.ipsec }),
   };
 }
 
@@ -95,7 +100,7 @@ export function checkRouterInterfaceOverlap(
   mask: string,
   interfaces: Readonly<Record<string, RouterInterfaceConfig>>,
 ): ErrorInfo<"INTERFACE_NETWORK_OVERLAP"> | null {
-  for (const otherPort of PORT_NAMES.router) {
+  for (const otherPort of Object.keys(interfaces)) {
     const other = interfaces[otherPort];
     if (otherPort === port || other?.ip === undefined || other.mask === undefined) continue;
     if (networksOverlap(ip, mask, other.ip, other.mask)) {

@@ -4,10 +4,18 @@
 
 import type { ErrorInfo, Notice } from "./codes";
 import type {
-  DeviceKind, FirewallChain, FirewallPolicy, FirewallRule, PcOsChoice, PortRef, Position, ServiceKind, SwitchportMode, VlanRange,
+  DeviceKind, FirewallChain, FirewallPolicy, FirewallRule, GreTunnelConfig, IpsecProfileConfig, PcOsChoice, PortRef, Position,
+  RouterConfig, ServiceKind, SwitchportMode, VlanRange, VpnMode,
 } from "./document";
 
 export type Command =
+  | { readonly type: "router/set-cli-style"; readonly deviceId: string; readonly style: "ios" | "vyos" }
+  | { readonly type: "router/commit-vyos"; readonly deviceId: string; readonly config: RouterConfig }
+  | { readonly type: "router/set-vpn-mode"; readonly deviceId: string; readonly mode: VpnMode | null }
+  | { readonly type: "ipsec/set"; readonly deviceId: string; readonly name: string; readonly config: IpsecProfileConfig }
+  | { readonly type: "ipsec/remove"; readonly deviceId: string; readonly name: string }
+  | { readonly type: "tunnel/set"; readonly deviceId: string; readonly name: string; readonly config: GreTunnelConfig }
+  | { readonly type: "tunnel/remove"; readonly deviceId: string; readonly name: string }
   // 장비 (FR-9 ~ FR-11). 기본 이름(PC1, SW1, R1)과 기본 구성은 reducer가 붙인다.
   // `os`는 PC에만 쓴다 (T0.7). 없으면 DEFAULT_OS
   | { readonly type: "device/add"; readonly id: string; readonly kind: DeviceKind; readonly position: Position; readonly os?: PcOsChoice }
@@ -64,6 +72,13 @@ export type CommandOf<T extends CommandType> = Extract<Command, { readonly type:
 
 // Command를 추가하고 여기에 빠뜨리면 타입 오류가 난다
 const COMMAND_TYPE_SET = {
+  "router/set-cli-style": true,
+  "router/commit-vyos": true,
+  "router/set-vpn-mode": true,
+  "ipsec/set": true,
+  "ipsec/remove": true,
+  "tunnel/set": true,
+  "tunnel/remove": true,
   "device/add": true,
   "device/move": true,
   "device/rename": true,

@@ -423,3 +423,23 @@ describe("검토에서 나온 것", () => {
     expect(texts(await pc("curl http://10.0.2.10:21/"))).toEqual(["550 File not found"]);
   });
 });
+
+describe("Router와 서비스 요청", () => {
+  test("Router 자신의 주소로 보낸 요청은 닫힌 포트로 거절된다", async () => {
+    const { pc, primaryDrop } = await lab("router");
+    expect(texts(await pc("curl http://10.0.1.1/"))).toEqual(["curl: (7) Failed to connect to 10.0.1.1 port 80: Connection refused"]);
+    expect(primaryDrop().reason).toMatchObject({ code: "PORT_CLOSED", params: { protocol: "tcp", port: 80 } });
+    expect(texts(await pc("ntpdate -q 10.0.1.1"))).toEqual(["ntpdate: no server suitable for synchronization found"]);
+    expect(primaryDrop().reason).toMatchObject({ code: "PORT_CLOSED", params: { protocol: "udp", port: 123 } });
+  });
+
+  test("Router에 경로가 없으면 ICMP 도달 불가가 돌아와 바로 실패한다", async () => {
+    const { pc, lastTrace } = await lab("router");
+    expect(texts(await pc("curl http://172.16.0.1/"))).toEqual(["curl: (7) Failed to connect to 172.16.0.1 port 80: Connection refused"]);
+    const trace = lastTrace();
+    expect(validateTrace(trace)).toMatchObject({ ok: true });
+    expect(trace.events.map((event) => event.reason.code)).toEqual(expect.arrayContaining(["NO_ROUTE", "ICMP_ERROR_SENT", "ICMP_ERROR_RECEIVED"]));
+    // ping의 오류는 예전 그대로다
+    expect(texts(await pc("ping -c 1 172.16.0.1")).join("\n")).toContain("Destination Net Unreachable");
+  });
+});

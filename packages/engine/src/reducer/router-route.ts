@@ -1,4 +1,4 @@
-import { checkStaticRoute, DEFAULT_DISTANCE, errorInfo, LIMITS } from "@ping9/shared";
+import { checkStaticRoute, DEFAULT_DISTANCE, errorInfo, LIMITS, routerInterfaces } from "@ping9/shared";
 import type { CommandOf, ErrorInfo, StaticRoute } from "@ping9/shared";
 
 import { describeValue } from "../describe";
@@ -21,7 +21,7 @@ export const addRoute: CommandHandler<"route/add"> = (document, command) => {
   const found = findRouter(document, command.deviceId);
   if (!found.ok) return found;
   const { device } = found;
-  const error = shapeError(command) ?? checkStaticRoute(device.id, command, device.config.interfaces);
+  const error = shapeError(command) ?? checkStaticRoute(device.id, command, routerInterfaces(device.config));
   if (error !== null) return { ok: false, error };
   const distance = command.distance ?? DEFAULT_DISTANCE.static;
   const route = { network: command.network, mask: command.mask, nextHop: command.nextHop, distance };
@@ -44,7 +44,7 @@ export const removeRoute: CommandHandler<"route/remove"> = (document, command) =
   const found = findRouter(document, command.deviceId);
   if (!found.ok) return found;
   const { device } = found;
-  const error = shapeError(command) ?? checkStaticRoute(device.id, command, device.config.interfaces);
+  const error = shapeError(command) ?? checkStaticRoute(device.id, command, routerInterfaces(device.config));
   if (error !== null) return { ok: false, error };
   // AD를 주면 그 AD일 때만 지운다. 안 주면 AD와 상관없이 지운다 (T11.1.1 결정 4)
   const target = device.config.staticRoutes.find(route => sameRoute(route, command) &&

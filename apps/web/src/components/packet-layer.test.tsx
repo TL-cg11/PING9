@@ -21,7 +21,7 @@ test("재생이 없으면 펭귄 층을 그리지 않는다", () => {
   expect(html).not.toContain("packet-layer");
 });
 
-test("ARP 요청 펭귄: 초록 물고기와 머리 위 ?, 케이블 위의 점에 선다. 장비보다 먼저(아래에) 그린다", async () => {
+test("ARP 요청 펭귄: 초록 물고기와 머리 위 ?, 케이블 위의 점에 선다. 장비 아이콘 위, 장비 이름 아래에 그린다", async () => {
   const timeline = await firstTimeline();
   // 시작 시각이 지금보다 WALK_MS/2 전이면 첫 링크의 가운데쯤
   const startedAt = performance.now() - WALK_MS / 2;
@@ -33,8 +33,10 @@ test("ARP 요청 펭귄: 초록 물고기와 머리 위 ?, 케이블 위의 점�
   expect(html).toMatch(/walk-[ab]-green[^"]*\.png/);
   expect(html).toContain(">?</text>");
   expect(html).toContain('aria-label="ARP 요청"');
-  expect(html.indexOf("packet-layer")).toBeLessThan(html.indexOf('class="node'));
+  expect(html).toContain('class="penguin-mark big"');
+  expect(html.indexOf("packet-layer")).toBeGreaterThan(html.lastIndexOf('class="node'));
   expect(html.indexOf("packet-layer")).toBeGreaterThan(html.indexOf('class="cable"'));
+  expect(html.indexOf("packet-layer")).toBeLessThan(html.indexOf('class="device-label"'));
 });
 
 // T11.5.1: RIP는 보라 물고기에 R?·R!, ICMP 오류는 빨간 물고기 (글자 없음)

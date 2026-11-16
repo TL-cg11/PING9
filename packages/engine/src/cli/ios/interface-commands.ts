@@ -1,7 +1,7 @@
 // `interface <이름>`: 인터페이스 설정 모드로 들어간다 (T3.3.1). `shutdown`: 포트를 끈다 (T3.3.2).
 // 장비 종류를 가리지 않는다. 포트 이름은 그 장비 종류의 것으로 읽는다.
 
-import { errorInfo } from "@ping9/shared";
+import { errorInfo, isTunnelName } from "@ping9/shared";
 
 import { customParam, defineCommand } from "./define";
 import type { CommandContext, CommandDefinition, CommandOutcome, ParamValue } from "./define";
@@ -40,12 +40,20 @@ function setAdmin(context: CommandContext, adminUp: boolean): CommandOutcome {
   };
 }
 
+function enterInterface(context: CommandContext, port: string): CommandOutcome {
+  if (context.device.kind === "router" && isTunnelName(port) && context.device.config.tunnels?.[port] === undefined) {
+    const result = context.dispatch({ type: "tunnel/set", deviceId: context.device.id, name: port, config: { mode: "gre", adminUp: false } });
+    if (!result.ok) return { lines: linesFromDispatch(result) };
+  }
+  return { session: { mode: "config-if", targetPort: port } };
+}
+
 export const INTERFACE_COMMANDS: readonly CommandDefinition[] = [
   defineCommand({
     modes: ["config"],
     tokens: ["interface", PORT],
     help: "Enter interface configuration mode",
-    run: (args) => ({ session: { mode: "config-if", targetPort: String(args.port) } }),
+    run: (args, context) => enterInterface(context, String(args.port)),
   }),
   defineCommand({
     modes: ["config"],
@@ -56,7 +64,7 @@ export const INTERFACE_COMMANDS: readonly CommandDefinition[] = [
       const port = resolvePortName(context.device.kind, typed);
       // 두 단어를 합쳐야 포트가 정해지므로 없는 포트는 여기서 알린다 (틀린 위치는 없다)
       if (port === undefined) return { lines: [{ kind: "error", ...errorInfo("CLI_INVALID_VALUE", { token: clip(typed) }) }] };
-      return { session: { mode: "config-if", targetPort: port } };
+      return enterInterface(context, port);
     },
   }),
   // 포트를 끄고 켠다 (T3.3.2). Document는 interface/set-admin으로만 바꾼다 (AD-3)

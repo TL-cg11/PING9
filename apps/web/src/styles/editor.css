@@ -163,6 +163,11 @@ button { font: inherit; cursor: pointer; }
 }
 @media (prefers-reduced-motion: reduce) { .link.selected .cable-halo { animation: none; } }
 .wire-port { font-size: 9px; fill: var(--navy-60); stroke: #fff; stroke-width: 3px; paint-order: stroke; pointer-events: none; }
+/* 포트 위의 주소 끝자리와 케이블 가운데의 대역 (T6.4.1) */
+.wire-ip { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 10px; font-weight: 700; fill: var(--sky-700); stroke: #fff; stroke-width: 3px; paint-order: stroke; pointer-events: none; }
+.wire-band { pointer-events: none; }
+.wire-band rect { fill: #fff; stroke: var(--sky-700); stroke-width: 1; }
+.wire-band text { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 9px; font-weight: 700; fill: var(--sky-700); stroke: none; }
 .link.selected .wire, .link:focus-visible .wire { stroke: var(--sky-700); stroke-width: 4; }
 /* 브라우저 기본 포커스 테두리를 끈다. Chrome은 클릭에도 SVG 묶음 둘레에 굵은 네모를 그린다. 키보드 포커스는 위의 굵은 선으로 보인다 */
 .link:focus, .link:focus-visible { outline: none; }
@@ -329,6 +334,15 @@ button { font: inherit; cursor: pointer; }
 .dns-remove { border: none; background: none; padding: 0 2px; font-size: 16px; line-height: 1; color: var(--navy-60); cursor: pointer; }
 .dns-remove:hover, .dns-remove:focus-visible { color: var(--danger); }
 .dns-form { margin-top: 10px; }
+.vpn-settings { margin-top: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--ice-100); }
+.vpn-choice { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
+.vpn-choice legend { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.vpn-choice label { display: flex; gap: 8px; align-items: center; padding: 8px; border: 1px solid transparent; border-radius: 8px; font-size: 12px; cursor: pointer; }
+.vpn-choice label.selected { background: #fff; border-color: var(--sky-500); }
+.vpn-choice input { margin: 0; accent-color: var(--sky-700); }
+.vpn-help { font-size: 12px; line-height: 1.6; margin-top: 10px; }
+.vpn-note { font-size: 11px; line-height: 1.6; color: var(--navy-60); margin-top: 6px; }
+.vpn-error { font-size: 12px; color: var(--danger); margin-top: 8px; }
 .pc-form label { display: block; font-size: 12px; color: var(--navy-60); margin-bottom: 4px; }
 .pc-form input { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--navy); background: #fff; }
 .pc-form input:focus { outline: none; border-color: var(--sky-500); box-shadow: 0 0 0 3px var(--ice-100); }
@@ -371,6 +385,11 @@ button { font: inherit; cursor: pointer; }
   stroke: #fff;
   stroke-width: 3px;
   paint-order: stroke;
+}
+/* ARP의 `?`·`!`는 크게 (T6.4.1과 함께) */
+.penguin-mark.big {
+  font-size: 22px;
+  stroke-width: 4px;
 }
 
 .replay-hint { position: absolute; right: 16px; top: 16px; z-index: 5; max-width: calc(100% - 32px);
