@@ -113,4 +113,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T15.2.2 최신 main과 VyOS VPN 통합 | [T15.2.2-vyos-main-integration.md](T15.2.2-vyos-main-integration.md) | 통합·엔진·화면·문서 | ssunyoung2 | 로컬 통합·검증 완료, 리뷰 전 |
 | T15.2.3 VPN 명령어 작성법과 예시 | [T15.2.3-vpn-command-syntax.md](T15.2.3-vpn-command-syntax.md) | 문서 | ssunyoung2 | 문서 수정·검증 완료, 리뷰 전 |
 | T15.2.4 VPN·VyOS 최종 검사와 PR | [T15.2.4-vpn-vyos-pr.md](T15.2.4-vpn-vyos-pr.md) | 검증·Git·문서 | ssunyoung2 | [PR #63](https://github.com/TL-cg11/PING9/pull/63) 리뷰 대기 |
-| T0.20 서버로 쓰는 PC와 HTTP·DNS·NTP·FTP 서비스 (계획에 없는 새 ID. OS 고르기에 Server, TCP·UDP 패킷, `curl`·`nslookup`) | [T0.20-server-services.md](T0.20-server-services.md) | 공통, 엔진, 화면 | SDY | PR 전 (로컬 브랜치). PC·Router 담당의 파일과 `shared`를 고쳐 팀 확인 필요 |
+| T0.20 서버로 쓰는 PC와 HTTP·DNS·NTP·FTP 서비스 (계획에 없는 새 ID. OS 고르기에 Server, TCP·UDP 패킷, `curl`·`nslookup`) | [T0.20-server-services.md](T0.20-server-services.md) | 공통, 엔진, 화면 | SDY | 병합됨 ([PR #66](https://github.com/TL-cg11/PING9/pull/66), 팀원 검토 없이). PC·Router 담당의 파일과 `shared`를 고쳐 팀 확인 필요 |
