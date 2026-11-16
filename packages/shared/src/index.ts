@@ -11,6 +11,7 @@ export * from "./limits";
 export * from "./ping";
 export * from "./port-name";
 export * from "./router-config";
+export * from "./server-config";
 export * from "./switch-config";
 export * from "./trace";
 export * from "./values";

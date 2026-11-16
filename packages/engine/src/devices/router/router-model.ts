@@ -4,6 +4,7 @@ import type { DeviceView, FrameSnapshot, IcmpErrorType, IcmpMessage, Ipv4Header,
 import type { Frame, SimContext, TimerRef } from "../../kernel";
 import { ArpModule } from "../../protocols/arp";
 import type { PendingSend } from "../../protocols/arp";
+import { transportLayersOf } from "../../protocols/transport";
 import { deviceRef, findDevice, isAdminUp, portLink, portMac } from "../../topology";
 import { computeViews } from "../../views";
 import { transmit } from "../link";
@@ -131,6 +132,8 @@ export class RouterModel implements DeviceModel {
       build: (destinationMac): FrameSnapshot => ({
         ethernet: { sourceMac: portMac(device, port), destinationMac }, ipv4,
         ...(icmp === undefined ? {} : { icmp }),
+        // 전달하는 패킷의 TCP·UDP와 응용 계층은 그대로 옮긴다 (T0.20)
+        ...(originalFrame === undefined ? {} : transportLayersOf(originalFrame.snapshot)),
       }),
       onSend: (context, frame, cause) => {
         const linkId = portLink(this.#getDocument(), { deviceId: device.id, port })?.linkId;

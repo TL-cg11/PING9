@@ -5,8 +5,11 @@ import { isIcmpError } from "@ping9/shared";
 import type { Trace, TraceEvent } from "@ping9/shared";
 
 // T11.5.1: ICMP 오류(time-exceeded, destination-unreachable)와 RIP 요청·응답을 따로 그린다
+// T0.20: TCP와 UDP 서비스. 클라이언트 포트(큰 수)에서 서버 포트로 가는 것이 요청, 돌아오는 것이 응답이다
 export type FrameKind =
-  | "arp-request" | "arp-reply" | "icmp-request" | "icmp-reply" | "icmp-error" | "rip-request" | "rip-response";
+  | "arp-request" | "arp-reply" | "icmp-request" | "icmp-reply" | "icmp-error" | "rip-request" | "rip-response"
+  | "tcp-request" | "tcp-response" | "udp-request" | "udp-response";
+
 
 /** 케이블 위를 지나가는 프레임 하나 */
 export interface Hop {
@@ -40,9 +43,12 @@ export interface Step {
 }
 
 export function frameKind(event: TraceEvent): FrameKind {
-  const { arp, icmp, rip } = event.frame;
+  const { arp, icmp, rip, tcp, udp } = event.frame;
   if (arp !== undefined) return arp.operation === "request" ? "arp-request" : "arp-reply";
   if (rip !== undefined) return rip.command === "request" ? "rip-request" : "rip-response";
+  // 서버 포트가 1024 이상이어도(`curl 10.0.2.10:8080`) 클라이언트 포트보다는 작다
+  if (tcp !== undefined) return tcp.destinationPort < tcp.sourcePort ? "tcp-request" : "tcp-response";
+  if (udp !== undefined) return udp.destinationPort < udp.sourcePort ? "udp-request" : "udp-response";
   if (isIcmpError(icmp)) return "icmp-error";
   return icmp?.type === "echo-reply" ? "icmp-reply" : "icmp-request";
 }

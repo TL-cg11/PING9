@@ -33,11 +33,15 @@ export function SideTabs({ tab, onTab, unread, count }: {
   );
 }
 
-const LAYER_CLASS: Readonly<Record<TraceEvent["layer"], string>> = { L2: "L2", ARP: "ARP", L3: "L3", ICMP: "ICMP", RIP: "RIP" };
+const LAYER_CLASS: Readonly<Record<TraceEvent["layer"], string>> = {
+  L2: "L2", ARP: "ARP", L3: "L3", ICMP: "ICMP", RIP: "RIP", TCP: "TCP", UDP: "UDP", APP: "APP",
+};
 
 function traceLabel(summary: TraceSummary): string {
   if (summary.kind === "rip") return `RIP 경로 교환 #${summary.id}`;
-  return `${summary.source.deviceName} → ${summary.targetIp}${summary.hop === undefined ? "" : ` (TTL ${summary.hop})`}`;
+  // 서비스 요청이면 무슨 서비스인지 붙인다 (T0.20)
+  const tag = summary.hop !== undefined ? ` (TTL ${summary.hop})` : summary.service !== undefined ? ` (${summary.service.toUpperCase()})` : "";
+  return `${summary.source.deviceName} → ${summary.targetIp}${tag}`;
 }
 
 /** 줄을 눌렀을 때 캔버스에서 강조할 장비와 케이블 */

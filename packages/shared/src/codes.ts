@@ -3,7 +3,7 @@
 // 코드를 추가할 때는 아래 인터페이스에 한 줄, 같은 파일의 목록 객체에 한 줄을 넣는다.
 // 목록 객체에서 빠뜨리면 타입 오류가 난다.
 
-import type { DeviceKind, FirewallChain, FirewallTarget } from "./document";
+import type { DeviceKind, FirewallChain, FirewallTarget, ServiceKind } from "./document";
 import type { LimitName } from "./limits";
 
 /** 장비를 가리키는 params. ID와 그 시점의 이름을 함께 담는다 (AD-14) */
@@ -116,6 +116,16 @@ export interface ErrorParamsByCode {
   /** VLAN 1은 지우거나 이름을 바꿀 수 없음 (FR-31) */
   DEFAULT_VLAN_READONLY: { readonly deviceId: string };
 
+  // 서버로 쓰는 PC (T0.20)
+  /** 서버가 아닌 PC의 서비스를 바꾸려 함. 속성 패널에서 종류를 Server로 고른 PC만 서비스를 돌린다 */
+  PC_NOT_SERVER: { readonly deviceId: string };
+  /** DNS 이름으로 쓸 수 없는 글 */
+  DNS_NAME_INVALID: { readonly value: string };
+  /** 그 서버에 없는 DNS 이름을 지우려 함 */
+  DNS_RECORD_NOT_FOUND: { readonly deviceId: string; readonly name: string };
+  /** 서비스 요청의 주소(`curl`의 URL)를 읽을 수 없음 */
+  SERVICE_URL_INVALID: { readonly value: string };
+
   // Firewall (T14.2.1)
   /** 그 체인에 없는 규칙 번호를 지우거나, 끼울 수 없는 자리에 끼우려 함 */
   FIREWALL_RULE_NOT_FOUND: { readonly deviceId: string; readonly chain: FirewallChain; readonly index: number };
@@ -216,6 +226,10 @@ const ERROR_CODE_SET = {
   RIP_AUTO_SUMMARY_UNSUPPORTED: true,
   VLAN_NOT_FOUND: true,
   DEFAULT_VLAN_READONLY: true,
+  PC_NOT_SERVER: true,
+  DNS_NAME_INVALID: true,
+  DNS_RECORD_NOT_FOUND: true,
+  SERVICE_URL_INVALID: true,
   FIREWALL_RULE_NOT_FOUND: true,
   FIREWALL_RULE_INVALID: true,
   FIREWALL_PORT_INVALID: true,
@@ -309,6 +323,8 @@ export interface DropParamsByReason {
     readonly target: Exclude<FirewallTarget, "ACCEPT">;
     readonly rule?: number;
   };
+  /** 그 포트에서 듣는 서비스가 없음 (T0.20). TCP면 RST를, UDP면 ICMP 도달 불가를 돌려준다 */
+  PORT_CLOSED: { readonly device: DeviceRef; readonly protocol: "tcp" | "udp"; readonly port: number };
   /** 받은 장비가 목적지가 아님. 정상 동작이며 실패의 원인이 아니다 */
   NOT_FOR_ME: { readonly device: DeviceRef };
   /** 이벤트 수 한도 초과 (FR-30) */
@@ -330,6 +346,7 @@ const DROP_REASON_SET = {
   TTL_EXPIRED: true,
   RIP_SOURCE_NOT_ON_LINK: true,
   FIREWALL_BLOCKED: true,
+  PORT_CLOSED: true,
   NOT_FOR_ME: true,
   LOOP_GUARD: true,
 } satisfies Record<DropReason, true>;
@@ -422,6 +439,15 @@ export interface EventParamsByCode {
     readonly vlan: number;
     readonly broadcast: boolean;
   };
+  // TCP와 서비스 (T0.20). `port`는 서버 쪽 포트다
+  TCP_SEGMENT_SENT: TcpSegmentParams;
+  TCP_SEGMENT_RECEIVED: TcpSegmentParams;
+  /** 서비스 요청을 보냄 (`GET /`, `A www.ping9.test`) */
+  SERVICE_REQUEST_SENT: ServiceMessageParams;
+  SERVICE_REQUEST_RECEIVED: ServiceMessageParams;
+  /** 서비스 응답을 보냄 (`200 OK`) */
+  SERVICE_RESPONSE_SENT: ServiceMessageParams;
+  SERVICE_RESPONSE_RECEIVED: ServiceMessageParams;
   // RIP (T11.2.2). `routes`는 패킷에 담긴 경로 수
   RIP_REQUEST_SENT: { readonly device: DeviceRef; readonly port: string };
   RIP_REQUEST_RECEIVED: { readonly device: DeviceRef; readonly port: string; readonly sourceIp: string };
@@ -431,6 +457,23 @@ export interface EventParamsByCode {
   RIP_ROUTE_LEARNED: RipRouteParams;
   /** 아는 목적지를 더 좋은 경로로, 또는 같은 다음 홉의 새 metric으로 바꿈 */
   RIP_ROUTE_CHANGED: RipRouteParams;
+}
+
+interface TcpSegmentParams {
+  readonly device: DeviceRef;
+  readonly sourceIp: string;
+  readonly targetIp: string;
+  readonly port: number;
+  readonly flags: "SYN" | "SYN-ACK" | "ACK" | "PSH-ACK" | "RST";
+}
+
+interface ServiceMessageParams {
+  readonly device: DeviceRef;
+  readonly service: ServiceKind;
+  readonly sourceIp: string;
+  readonly targetIp: string;
+  readonly port: number;
+  readonly message: string;
 }
 
 interface RipRouteParams {
@@ -470,6 +513,12 @@ const EVENT_CODE_SET = {
   MAC_LEARNED: true,
   FRAME_FORWARDED: true,
   FRAME_FLOODED: true,
+  TCP_SEGMENT_SENT: true,
+  TCP_SEGMENT_RECEIVED: true,
+  SERVICE_REQUEST_SENT: true,
+  SERVICE_REQUEST_RECEIVED: true,
+  SERVICE_RESPONSE_SENT: true,
+  SERVICE_RESPONSE_RECEIVED: true,
   RIP_REQUEST_SENT: true,
   RIP_REQUEST_RECEIVED: true,
   RIP_RESPONSE_SENT: true,

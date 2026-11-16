@@ -132,10 +132,12 @@ describe("PcSettingsView", () => {
 });
 
 describe("OsChoice (T0.7)", () => {
-  test("Windows와 Linux 라디오 버튼 둘이 같은 묶음이고 고른 것만 checked", () => {
+  test("Windows, Linux, Server(T0.20) 라디오 버튼 셋이 같은 묶음이고 고른 것만 checked", () => {
     const html = text(<OsChoice os="linux" onChange={() => {}} />);
 
-    expect(html.match(/type="radio"/g)).toHaveLength(2);
+    expect(html.match(/type="radio"/g)).toHaveLength(3);
+    expect(html).toContain("Server");
+    expect(html).not.toMatch(/checked="" value="server"/);
     const names = [...html.matchAll(/name="([^"]+)"/g)].map((match) => match[1]);
     expect(new Set(names).size).toBe(1);
     expect(html).toMatch(/checked="" value="linux"/);
