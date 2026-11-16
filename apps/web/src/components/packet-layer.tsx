@@ -203,7 +203,10 @@ export function PacketLayer({
         <g key={item.key} className="penguin" opacity={item.opacity} role="img" aria-label={item.label}>
           <image href={item.href} x={item.at.x - SIZE / 2} y={item.at.y - SIZE + FOOT} width={item.width} height={SIZE} />
           {item.mark !== undefined && (
-            <text className="penguin-mark" x={item.at.x + 9 - (item.mark.length - 1) * 6} y={item.at.y - SIZE + FOOT + 2}>{item.mark}</text>
+            // ARP의 `?`·`!`는 한 글자라 크게 (22px), RIP의 `R?`·`R!`는 그대로 15px
+            item.mark.length === 1
+              ? <text className="penguin-mark big" x={item.at.x + 8} y={item.at.y - SIZE + FOOT + 1}>{item.mark}</text>
+              : <text className="penguin-mark" x={item.at.x + 9 - (item.mark.length - 1) * 6} y={item.at.y - SIZE + FOOT + 2}>{item.mark}</text>
           )}
         </g>
       ))}

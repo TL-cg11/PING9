@@ -163,6 +163,11 @@ button { font: inherit; cursor: pointer; }
 }
 @media (prefers-reduced-motion: reduce) { .link.selected .cable-halo { animation: none; } }
 .wire-port { font-size: 9px; fill: var(--navy-60); stroke: #fff; stroke-width: 3px; paint-order: stroke; pointer-events: none; }
+/* 포트 위의 주소 끝자리와 케이블 가운데의 대역 (T6.4.1) */
+.wire-ip { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 10px; font-weight: 700; fill: var(--sky-700); stroke: #fff; stroke-width: 3px; paint-order: stroke; pointer-events: none; }
+.wire-band { pointer-events: none; }
+.wire-band rect { fill: #fff; stroke: var(--sky-700); stroke-width: 1; }
+.wire-band text { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 9px; font-weight: 700; fill: var(--sky-700); stroke: none; }
 .link.selected .wire, .link:focus-visible .wire { stroke: var(--sky-700); stroke-width: 4; }
 /* 브라우저 기본 포커스 테두리를 끈다. Chrome은 클릭에도 SVG 묶음 둘레에 굵은 네모를 그린다. 키보드 포커스는 위의 굵은 선으로 보인다 */
 .link:focus, .link:focus-visible { outline: none; }
@@ -364,6 +369,11 @@ button { font: inherit; cursor: pointer; }
   stroke: #fff;
   stroke-width: 3px;
   paint-order: stroke;
+}
+/* ARP의 `?`·`!`는 크게 (T6.4.1과 함께) */
+.penguin-mark.big {
+  font-size: 22px;
+  stroke-width: 4px;
 }
 
 .replay-hint { position: absolute; right: 16px; top: 16px; z-index: 5; max-width: calc(100% - 32px);
