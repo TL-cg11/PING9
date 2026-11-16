@@ -33,7 +33,7 @@ export function Palette({ deviceCount, linkCount = 0, onConnect, cableActive = f
   return (
     <aside ref={zoneRef} className={dragCancel === "idle" ? "palette" : `palette cancel-${dragCancel}`}>
       <h4>장비</h4>
-      {([ ["pc", "PC"], ["switch", "Switch"], ["router", "Router"] ] as const).map(([kind, label]) => (
+      {([ ["pc", "PC"], ["switch", "Switch"], ["router", "Router"], ["firewall", "Firewall"] ] as const).map(([kind, label]) => (
         <button key={kind} type="button" className="tool device-tool" aria-label={`${label} 추가`}
           title={`${label}를 캔버스로 끌어서 놓으세요`} disabled={full} draggable={false}
           onPointerDown={event => {

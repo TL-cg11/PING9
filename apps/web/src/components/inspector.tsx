@@ -7,12 +7,13 @@ import type { ReactNode } from "react";
 
 import panelPenguin from "../assets/panel-penguin.png";
 import { DeviceName } from "./device-name";
+import { FirewallRules } from "./firewall-inspector";
 import { PcSettings } from "./pc-settings";
 import { ripSummaryFor, RouteExchange, RouterRoutingTable } from "./router-inspector";
 import { SwitchMacTable, SwitchVlanList } from "./switch-inspector";
 import { SwitchPortTag, trunkAllowedText } from "./switch-port-tag";
 
-const KIND_LABEL: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router" };
+const KIND_LABEL: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router", firewall: "Firewall" };
 
 /** 링크 반대쪽 장비의 이름. 링크가 없으면 undefined */
 function peerName(document: TopologyDocument, deviceId: string, port: PortView): string | undefined {
@@ -95,7 +96,7 @@ export function Inspector({
         <div key={port.name} className="if-row">
           <span className={port.status === "up" ? "dot" : "dot off"} />
           {shortPortName(port.name)}
-          {device.kind === "router" && <span className="port-state">{port.status}</span>}
+          {(device.kind === "router" || device.kind === "firewall") && <span className="port-state">{port.status}</span>}
           {device.kind === "switch" && <SwitchPortTag config={device.config} port={port.name} />}
           <span className="ip">
             {(device.kind === "switch" ? trunkAllowedText(device.config, port.name) : undefined) ??
@@ -107,6 +108,8 @@ export function Inspector({
 
       {view.kind === "switch" && <SwitchMacTable view={view} />}
       {view.kind === "router" && <RouterRoutingTable view={view} changes={changes} />}
+      {view.kind === "firewall" && <RouterRoutingTable view={view} changes={[]} />}
+      {device.kind === "firewall" && <FirewallRules config={device.config} />}
       {rip !== undefined && <RouteExchange document={document} summary={rip} changes={changes} onPlay={onPlayExchange} />}
 
       <button className="open-term" onClick={() => onOpenTerminal(device.id)}>

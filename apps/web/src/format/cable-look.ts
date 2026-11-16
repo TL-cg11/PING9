@@ -58,7 +58,7 @@ function lanesOf(trunks: readonly { readonly end: 0 | 1; readonly allowed: reado
 function portDown(device: Device | undefined, port: string): boolean {
   if (device?.kind === "switch") return !switchPort(device.config, port).adminUp;
   // 설정한 적이 없는 Router 인터페이스는 켜진 것으로 그린다 (설계안 정할 것 3)
-  if (device?.kind === "router") return device.config.interfaces[port]?.adminUp === false;
+  if (device?.kind === "router" || device?.kind === "firewall") return device.config.interfaces[port]?.adminUp === false;
   return false;
 }
 

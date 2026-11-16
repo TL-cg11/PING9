@@ -285,6 +285,8 @@ button { font: inherit; cursor: pointer; }
 .route-main { display: flex; gap: 6px; align-items: baseline; white-space: nowrap; }
 .route-main .code { width: 12px; flex: none; color: var(--sky-700); font-weight: 700; }
 .route-main .hop { margin-left: auto; color: var(--navy-60); }
+/* Firewall의 필터 규칙 (T14.2.1). 긴 규칙은 패널 안에서 줄을 바꾼다 */
+.route-main.fw-rule { white-space: normal; overflow-wrap: anywhere; }
 .route-meta { display: flex; gap: 8px; align-items: center; padding-left: 18px; }
 .route-meta .metric { color: var(--navy-60); font-size: 11px; }
 .route-tag { font-family: Pretendard, sans-serif; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; }

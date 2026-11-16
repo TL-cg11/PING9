@@ -1,4 +1,5 @@
 // 장비 아이콘 (T0.6). PC는 이글루, Switch는 갈림길 표지판, Router는 열린 관문이다.
+// Firewall은 불꽃이 올라온 벽돌 벽이다 (T14.2.1). 임시 그림이고 팀에서 바꿀 예정이다.
 // 시안의 펭귄·물고기 은유를 따른다: 펭귄이 사는 집, 길을 알려 주는 표지판, 다른 동네로 가는 문.
 // 캔버스와 왼쪽 장비 목록이 같은 그림을 쓴다. 모두 32×32 기준이다.
 
@@ -112,6 +113,31 @@ export function GateClosedIcon(box: Box) {
   );
 }
 
+/** 임시 Firewall 그림 (T14.2.1): 벽돌 벽과 그 위의 불꽃. 다른 장비와 겹치지 않게 주황색을 쓴다 */
+function FireWall() {
+  const edge = "#B4472B";
+  return (
+    <>
+      <rect x="4" y="11.5" width="24" height="14.3" rx="1.2" fill="#FBE3D6" stroke={edge} strokeWidth="1.1" {...LINE} />
+      <path
+        d="M4 16.3h24M4 21h24M12 11.5v4.8M20 11.5v4.8M8 16.3V21M16 16.3V21M24 16.3V21M12 21v4.8M20 21v4.8"
+        fill="none"
+        stroke="#D9623B"
+        strokeWidth="0.9"
+        {...LINE}
+      />
+      <path
+        d="M16 3c2.7 2.3 3.7 4 3.7 5.8a3.7 3.7 0 0 1-7.4 0c0-1 .5-2 1.3-2.8.2 1 .7 1.6 1.4 1.7-.3-1.7 0-3.2 1-4.7Z"
+        fill="#F28C38"
+        stroke={edge}
+        strokeWidth="0.9"
+        {...LINE}
+      />
+      <path d="M3 25.8h26" fill="none" stroke={edge} strokeWidth="1.1" {...LINE} />
+    </>
+  );
+}
+
 /**
  * `os`는 PC에만 쓴다 (T0.7). 캔버스는 `osOf`로 늘 넘긴다.
  * 넘기지 않으면 OS가 없는 원래 이글루다 (장비 목록)
@@ -120,7 +146,7 @@ export function DeviceIcon({ kind, os, ...box }: { readonly kind: DeviceKind; re
   const osClass = kind === "pc" && os !== undefined ? ` icon-os-${os}` : "";
   return (
     <svg className={`icon icon-${kind}${osClass}`} viewBox="0 0 32 32" aria-hidden="true" {...box}>
-      {kind === "pc" ? <Igloo os={os} /> : kind === "switch" ? <Signpost /> : <GateOpen />}
+      {kind === "pc" ? <Igloo os={os} /> : kind === "switch" ? <Signpost /> : kind === "router" ? <GateOpen /> : <FireWall />}
     </svg>
   );
 }

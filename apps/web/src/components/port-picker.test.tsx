@@ -88,7 +88,7 @@ describe("케이블 도구와 선택", () => {
   });
   test("장비 한도에서는 드래그를 비활성화한다", () => {
     const html = renderToString(<Palette deviceCount={LIMITS.maxDevices} onConnect={noop} />);
-    expect(html.match(/draggable="false"/g)).toHaveLength(3);
+    expect(html.match(/draggable="false"/g)).toHaveLength(4);
   });
   test.each([[1, 0], [2, LIMITS.maxLinks]])("장비 %i대/링크 %i개에서는 케이블 도구를 새로 고를 수 없다", (deviceCount, linkCount) => {
     const html = renderToString(<Palette deviceCount={deviceCount} linkCount={linkCount} onConnect={noop} />);

@@ -4,6 +4,7 @@
 import { PORT_NAMES } from "@ping9/shared";
 import type { Device, DeviceView, PortStatus, PortView, TopologyDocument } from "@ping9/shared";
 
+import { firewallRoutingTable } from "./devices/firewall/routes";
 import { routingTable } from "./devices/router/routing";
 import { findDevice, isAdminUp, portLink } from "./topology";
 import type { PortLink } from "./topology";
@@ -42,6 +43,9 @@ export function computeViews(document: TopologyDocument): Record<string, DeviceV
         break;
       case "router":
         views[device.id] = { kind: "router", ports, arpTable: [], routingTable: routingTable(device.config, ports) };
+        break;
+      case "firewall":
+        views[device.id] = { kind: "firewall", ports, arpTable: [], routingTable: firewallRoutingTable(device.config, ports) };
         break;
     }
   }
