@@ -1,6 +1,6 @@
 // T1.8.3: Runtime. kernel 하나와 장비별 모델, 보관 중인 추적을 들고 있다 (03 문서 3.4절).
 // Document는 Simulator가 들고 있고, Runtime은 매번 getDocument()로 읽는다.
-// PC·Switch·Router 모델을 함께 보관한다.
+// PC·Switch·Router·Firewall 모델을 함께 보관한다.
 
 import { isIcmpError, LIMITS, parseIpv4, pingRoundKind } from "@ping9/shared";
 import type {
@@ -18,6 +18,7 @@ import type {
 } from "@ping9/shared";
 import { errorInfo } from "@ping9/shared";
 
+import { FirewallModel } from "./devices/firewall/firewall-model";
 import { PC_PORT, PcModel } from "./devices/pc/pc-model";
 import { deviceRun } from "./devices/link";
 import type { DeviceModel } from "./devices/model";
@@ -107,6 +108,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
   const pcs = new Map<string, PcModel>();
   const routers = new Map<string, RouterModel>();
   const switches = new Map<string, SwitchModel>();
+  const firewalls = new Map<string, FirewallModel>();
   // 가장 최근 것이 앞. 최대 LIMITS.maxTraces개
   let traces: readonly StoredTrace[] = [];
   // 마지막 경로 교환 뒤의 RIP 경로. 다음 교환과 비교한다 (T11.3.1)
@@ -140,12 +142,29 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     return model;
   };
 
-  /** 이번 실행에 쓸 PC·Switch·Router 모델 */
+  const firewallModel = (deviceId: string): FirewallModel | undefined => {
+    let model = firewalls.get(deviceId);
+    if (model === undefined && findDevice(getDocument(), deviceId)?.kind === "firewall") {
+      model = new FirewallModel(deviceId, getDocument);
+      firewalls.set(deviceId, model);
+    }
+    return model;
+  };
+
+  /** 실행을 시작할 때 앞 실행에서 남은 대기열과 응답 기록을 비운다 */
+  const startModels = (): void => {
+    for (const pc of pcs.values()) pc.startRun();
+    for (const router of routers.values()) router.startRun();
+    for (const firewall of firewalls.values()) firewall.startRun();
+  };
+
+  /** 이번 실행에 쓸 PC·Switch·Router·Firewall 모델 */
   const runModels = (): Map<string, DeviceModel> => {
     const models = new Map<string, DeviceModel>();
     for (const device of getDocument().devices) {
       if (device.kind === "pc") models.set(device.id, pcModel(device.id)!);
       else if (device.kind === "router") models.set(device.id, routerModel(device.id)!);
+      else if (device.kind === "firewall") models.set(device.id, firewallModel(device.id)!);
       else models.set(device.id, switchModel(device.id)!);
     }
     return models;
@@ -180,7 +199,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     readonly stop: (round: PingRound) => boolean;
   }): PingRun => {
     const source = findDevice(getDocument(), deviceId);
-    const model = pcModel(deviceId) ?? routerModel(deviceId);
+    const model = pcModel(deviceId) ?? routerModel(deviceId) ?? firewallModel(deviceId);
     if (source === undefined || model === undefined) {
       return { ok: false, error: errorInfo("DEVICE_NOT_FOUND", { deviceId }) };
     }
@@ -194,8 +213,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
           docVersion,
           models,
           start: (ctx) => {
-            for (const pc of pcs.values()) pc.startRun();
-            for (const router of routers.values()) router.startRun();
+            startModels();
             if (model instanceof PcModel) model.ipv4.sendEcho(ctx, PC_PORT, targetIp, sequence, ttl);
             else model.sendEcho(ctx, targetIp, sequence, ttl);
           },
@@ -230,6 +248,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
       pcs.clear();
       routers.clear();
       switches.clear();
+      firewalls.clear();
       traces = [];
       lastRipRoutes = new Map();
     },
@@ -252,6 +271,12 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
         const before = model.arp.view();
         model.onConfigChanged({ previous, document });
         changed ||= model.arp.view().length !== before.length;
+      }
+      for (const [deviceId, model] of firewalls) {
+        const before = model.arpTable();
+        if (findDevice(document, deviceId)?.kind !== "firewall") { firewalls.delete(deviceId); changed ||= before.length > 0; continue; }
+        model.onConfigChanged({ previous, document });
+        changed ||= model.arpTable().length !== before.length;
       }
       for (const [deviceId, model] of switches) {
         if (findDevice(document, deviceId)?.kind !== "switch") {
@@ -283,11 +308,11 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     },
 
     arpTable(deviceId) {
-      return pcs.get(deviceId)?.arp.view() ?? routers.get(deviceId)?.arpTable() ?? [];
+      return pcs.get(deviceId)?.arp.view() ?? routers.get(deviceId)?.arpTable() ?? firewalls.get(deviceId)?.arpTable() ?? [];
     },
 
     clearArp(deviceId, ip) {
-      const router = routers.get(deviceId);
+      const router = routers.get(deviceId) ?? firewalls.get(deviceId);
       if (router !== undefined) {
         const before = router.arpTable(); router.clearArp(ip);
         return router.arpTable().length !== before.length;
@@ -306,7 +331,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
 
     ipsecSa(deviceId) { return routerModel(deviceId)?.ipsecSa() ?? []; },
     routingTable(deviceId) {
-      return routerModel(deviceId)?.routingTable() ?? [];
+      return routerModel(deviceId)?.routingTable() ?? firewallModel(deviceId)?.routingTable() ?? [];
     },
 
     exchangeRoutes(docVersion) {
@@ -317,8 +342,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
         docVersion,
         models,
         start: (ctx) => {
-          for (const pc of pcs.values()) pc.startRun();
-          for (const router of routers.values()) router.startRun();
+          startModels();
           for (const device of ripRouters) routerModel(device.id)!.startRipExchange(ctx);
         },
         outcome: () => "success",
@@ -348,6 +372,10 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
       for (const [deviceId, model] of routers) {
         const view = views[deviceId];
         if (view?.kind === "router") views[deviceId] = model.view();
+      }
+      for (const [deviceId, model] of firewalls) {
+        const view = views[deviceId];
+        if (view?.kind === "firewall") views[deviceId] = { ...view, arpTable: model.arpTable(), routingTable: model.routingTable() };
       }
       for (const [deviceId, model] of pcs) {
         const view = views[deviceId];

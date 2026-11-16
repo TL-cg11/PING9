@@ -12,6 +12,8 @@ import { cableLook } from "../format/cable-look";
 import { RING_DY, RING_RX, RING_RY, linkEnds, ringCenter } from "../format/link-ends";
 import { linkVlan } from "../format/link-vlan";
 import { cidrOf, OS_NAMES } from "../format/pc-address";
+import { addressBelow, bandChipWidth, labelSide, lastOctet, linkBand, portAddress, segmentBands, textBox } from "../format/port-address";
+import type { Box } from "../format/port-address";
 import { nodeKeyAction } from "./canvas-keys";
 import { Cable, CableJointMask, CableLabels, cableGeometry } from "./cable";
 import type { CableGeometry, RingCenters } from "./cable";
@@ -40,7 +42,7 @@ interface NodeDrag {
   moved: boolean;
 }
 /** 화면 낭독기가 읽는 장비 종류 */
-const KIND_NAME: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router" };
+const KIND_NAME: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router", firewall: "Firewall" };
 
 /**
  * 타원 받침. 안(fill)과 테두리(edge)를 따로 그린다. 테두리는 길이 들어오는 자리를 mask로 지운다 (시안 C).
@@ -67,22 +69,24 @@ const PORT_LABEL_ALONG = 20;
 const ROAD_PORT_LIFT = 13;
 const TRUNK_PORT_LIFT = 20;
 
+/** 포트 이름이 놓이는 케이블 위의 비율. 짧은 케이블은 길이의 1/4까지만 */
+function portLabelT(geometry: CableGeometry): number {
+  return Math.min(PORT_LABEL_ALONG / Math.max(geometry.length, 1), 0.25);
+}
+
 /**
- * 포트 이름의 자리. `end` 0은 케이블의 시작, 1은 끝이다. 길에 수직으로 띄우되 위쪽(가로에 가까우면 위, 세로에 가까우면 오른쪽)으로.
- * 글자의 세로 가운데가 그 점에 오도록 아래로 3만큼 내린다 (글자 크기 9)
+ * 포트 이름의 자리. `end` 0은 케이블의 시작, 1은 끝이다. `side` 쪽(labelSide, 단위 벡터)으로 길에서 띄운다.
+ * 옆으로 띄우면 글자를 케이블 쪽 끝에 맞춘다. 글자의 세로 가운데가 그 점에 오도록 아래로 3만큼 내린다 (글자 크기 9)
  */
-function portLabelAt(geometry: CableGeometry, end: 0 | 1, lift: number): Position {
-  const t = Math.min(PORT_LABEL_ALONG / Math.max(geometry.length, 1), 0.25);
-  const at = geometry.at(end === 0 ? t : 1 - t);
-  const { x: dx, y: dy } = geometry.direction(end === 0 ? t : 1 - t);
-  // 두 수직 방향 중 위쪽(y가 작은 쪽). 똑바로 세로면 오른쪽
-  let nx = dy;
-  let ny = -dx;
-  if (ny > 0 || (ny === 0 && nx < 0)) {
-    nx = -nx;
-    ny = -ny;
-  }
-  return { x: at.x + nx * lift, y: at.y + ny * lift + 3 };
+function portLabelAt(
+  geometry: CableGeometry,
+  end: 0 | 1,
+  lift: number,
+  side: { readonly x: number; readonly y: number },
+): Position & { readonly anchor: "start" | "middle" | "end" } {
+  const at = geometry.at(end === 0 ? portLabelT(geometry) : 1 - portLabelT(geometry));
+  const anchor = Math.abs(side.x) > 0.6 ? (side.x < 0 ? "end" : "start") : "middle";
+  return { x: at.x + side.x * lift, y: at.y + side.y * lift + 3, anchor };
 }
 
 function linkShape(document: TopologyDocument, link: TopologyDocument["links"][number], from: Position, to: Position) {
@@ -526,7 +530,14 @@ export function Canvas({
                   }
                 }}>
                 {/* 선은 아이콘과 이름 위를 지나지 않게 장비 둘레에서 끊는다 (T0.6). 누르는 영역도 같은 선이다 */}
-                {onSelectLink !== undefined && <path className="wire-hit" d={geometry.d} />}
+                {onSelectLink !== undefined && <path className="wire-hit" d={geometry.d}>
+                  {/* 마우스를 올리면 대역과 양 끝의 전체 주소 (T6.4.1) */}
+                  <title>{[linkBand(document, link), ...link.ends.map(end => {
+                    const address = portAddress(document, end);
+                    const name = document.devices.find(device => device.id === end.deviceId)?.name ?? "";
+                    return `${name} ${shortPortName(end.port)}${address === null ? "" : ` ${cidrOf(address.ip, address.mask)}`}`;
+                  })].filter(line => line !== null).join("\n")}</title>
+                </path>}
                 <Cable id={link.id} ends={ends} look={look} geometry={geometry} centers={centers} />
 
               </g>
@@ -550,9 +561,83 @@ export function Canvas({
           <line className="wire pending" x1={positions.get(firstPort.deviceId)!.x} y1={positions.get(firstPort.deviceId)!.y}
             x2={cursor.x} y2={cursor.y} />
         )}
-        {/* 펭귄 층: 케이블 위, 장비 아래. 펭귄이 장비 아이콘 밑에서 나와 밑으로 들어간다 (T6.1.2) */}
-        <PacketLayer replays={replays} pathOf={pathOf} positionOf={deviceId => positions.get(deviceId)}
-          {...(replayTime !== undefined ? { time: replayTime } : {})} paused={replayPaused} />
+        {/* 케이블 글자 층: 포트 이름·주소·대역·trunk. 케이블 바로 위, 펭귄과 장비 아래.
+            펭귄이 글자를 밟고 지나간다 (T6.4.1) */}
+        <g className="canvas-labels cable-labels" aria-hidden="true">
+          {(() => {
+            // 케이블마다 모양을 먼저 구하고, 장비마다 케이블이 뻗는 방향을 모은다 (포트 이름을 바깥에 놓기 위해)
+            const shapes = document.links.flatMap(link => {
+              const from = positions.get(link.ends[0].deviceId);
+              const to = positions.get(link.ends[1].deviceId);
+              if (!from || !to) return [];
+              return [{ link, from, to, ...linkShape(document, link, from, to) }];
+            });
+            const outward = new Map<string, { linkId: string; dir: { x: number; y: number } }[]>();
+            for (const { link, geometry } of shapes) {
+              ([0, 1] as const).forEach(index => {
+                const t = portLabelT(geometry);
+                const raw = geometry.direction(index === 0 ? t : 1 - t);
+                const dir = index === 0 ? raw : { x: -raw.x, y: -raw.y };
+                const list = outward.get(link.ends[index].deviceId) ?? [];
+                list.push({ linkId: link.id, dir });
+                outward.set(link.ends[index].deviceId, list);
+              });
+            }
+            const bands = segmentBands(document);
+            // 포트 이름의 자리를 모두 먼저 정한다. 주소가 장비나 다른 포트 이름과 겹치면 포트 이름 밑으로 내린다
+            const labels = new Map(shapes.map(({ link, look, geometry }) => {
+              const lift = look.shape === "trunk" ? TRUNK_PORT_LIFT : ROAD_PORT_LIFT;
+              return [link.id, ([0, 1] as const).map(index => {
+                const end = link.ends[index];
+                const mine = outward.get(end.deviceId)?.find(entry => entry.linkId === link.id)?.dir ?? { x: 1, y: 0 };
+                const others = (outward.get(end.deviceId) ?? []).filter(entry => entry.linkId !== link.id).map(entry => entry.dir);
+                const at = portLabelAt(geometry, index, lift, labelSide(mine, others));
+                const name = shortPortName(end.port);
+                return { at, name, box: textBox(at.x, at.y, name, 5.2, 9, at.anchor), address: portAddress(document, end) };
+              })] as const;
+            }));
+            const deviceBoxes = orderedDevices.flatMap(device => {
+              const p = positions.get(device.id)!;
+              const boxes: Box[] = [
+                { left: p.x - 30, top: p.y - 30, right: p.x + 30, bottom: p.y + 16 },
+                textBox(p.x, p.y + 32, device.name, 9, 14, "middle"),
+              ];
+              if (device.kind === "pc" && device.config.ip !== undefined) {
+                boxes.push(textBox(p.x, p.y + 50, cidrOf(device.config.ip, device.config.mask), 7, 12, "middle"));
+              }
+              return boxes;
+            });
+            const portBoxes = [...labels.values()].flatMap(pair => pair.map(label => label.box));
+            return shapes.map(({ link, from, to, look, ends, geometry }) => {
+              const mark = linkVlan(document, link);
+              const band = bands.get(link.id);
+              const showBand = band !== undefined && geometry.length >= bandChipWidth(band) + 40;
+              const middle = geometry.at(0.5);
+              return <g key={link.id}>
+                <CableLabels ends={ends} look={look} geometry={geometry} />
+                {labels.get(link.id)!.map(({ at, name, box, address }, index) => {
+                  const text = address === null ? null : lastOctet(address.ip);
+                  const obstacles = [...deviceBoxes, ...portBoxes.filter(other => other !== box)];
+                  const below = text !== null && addressBelow(
+                    textBox(at.x, at.y - 11, text, 6.2, 10, at.anchor), textBox(at.x, at.y + 11, text, 6.2, 10, at.anchor), obstacles);
+                  return <g key={index}>
+                    <text className="wire-port" x={at.x} y={at.y} textAnchor={at.anchor}>{name}</text>
+                    {text !== null &&
+                      <text className="wire-ip" x={at.x} y={below ? at.y + 11 : at.y - 11} textAnchor={at.anchor}>{text}</text>}
+                  </g>;
+                })}
+                {showBand && <g className="wire-band">
+                  <rect x={middle.x - bandChipWidth(band) / 2} y={middle.y - 8} width={bandChipWidth(band)} height={16} rx={8} />
+                  <text x={middle.x} y={middle.y + 3} textAnchor="middle">{band}</text>
+                </g>}
+                {mark?.kind === "trunk" && <>
+                  <TrunkEndText at={from} other={to} text={mark.ends[0]} />
+                  <TrunkEndText at={to} other={from} text={mark.ends[1]} />
+                </>}
+              </g>;
+            });
+          })()}
+        </g>
         <g>
           {orderedDevices.map((device) => (
             <g
@@ -612,32 +697,17 @@ export function Canvas({
             </g>
           ))}
         </g>
+        {/* 펭귄 층: 케이블 글자와 장비 아이콘 위, 장비 이름 아래. 펭귄이 아이콘 뒤에 가려지지 않고,
+            장비 이름은 늘 읽힌다 (T6.4.1. T6.1.2에서는 장비 아래였다) */}
+        <PacketLayer replays={replays} pathOf={pathOf} positionOf={deviceId => positions.get(deviceId)}
+          {...(replayTime !== undefined ? { time: replayTime } : {})} paused={replayPaused} />
         {paletteDragKind !== null && cursor !== null && (
           <g className="placement-preview" transform={`translate(${cursor.x - 28},${cursor.y - 28})`}>
             <DeviceIcon kind={paletteDragKind} width={56} height={56} />
           </g>
         )}
+        {/* 장비 이름·PC IP는 맨 위 */}
         <g className="canvas-labels" aria-hidden="true">
-          {document.links.map(link => {
-            const from = positions.get(link.ends[0].deviceId);
-            const to = positions.get(link.ends[1].deviceId);
-            if (!from || !to) return null;
-            const { look, ends, geometry } = linkShape(document, link, from, to);
-            const mark = linkVlan(document, link);
-            const lift = look.shape === "trunk" ? TRUNK_PORT_LIFT : ROAD_PORT_LIFT;
-            return <g key={link.id}>
-              <CableLabels ends={ends} look={look} geometry={geometry} />
-              {([0, 1] as const).map(index => {
-                const at = portLabelAt(geometry, index, lift);
-                return <text key={index} className="wire-port" x={at.x} y={at.y}
-                  textAnchor="middle">{shortPortName(link.ends[index].port)}</text>;
-              })}
-              {mark?.kind === "trunk" && <>
-                <TrunkEndText at={from} other={to} text={mark.ends[0]} />
-                <TrunkEndText at={to} other={from} text={mark.ends[1]} />
-              </>}
-            </g>;
-          })}
           {orderedDevices.map(device => <g key={device.id} className="device-label"
             transform={`translate(${positions.get(device.id)!.x - HALF_WIDTH},${positions.get(device.id)!.y - ABOVE})`}>
             <text className="lbl" x="40" y="68" textAnchor="middle">{device.name}</text>

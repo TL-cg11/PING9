@@ -3,7 +3,7 @@
 // 코드를 추가할 때는 아래 인터페이스에 한 줄, 같은 파일의 목록 객체에 한 줄을 넣는다.
 // 목록 객체에서 빠뜨리면 타입 오류가 난다.
 
-import type { DeviceKind } from "./document";
+import type { DeviceKind, FirewallChain, FirewallTarget } from "./document";
 import type { LimitName } from "./limits";
 
 /** 장비를 가리키는 params. ID와 그 시점의 이름을 함께 담는다 (AD-14) */
@@ -118,6 +118,24 @@ export interface ErrorParamsByCode {
   /** VLAN 1은 지우거나 이름을 바꿀 수 없음 (FR-31) */
   DEFAULT_VLAN_READONLY: { readonly deviceId: string };
 
+  // Firewall (T14.2.1)
+  /** 그 체인에 없는 규칙 번호를 지우거나, 끼울 수 없는 자리에 끼우려 함 */
+  FIREWALL_RULE_NOT_FOUND: { readonly deviceId: string; readonly chain: FirewallChain; readonly index: number };
+  /**
+   * 함께 쓸 수 없는 조건.
+   * - `in-interface`: OUTPUT 체인에 `-i`
+   * - `out-interface`: INPUT 체인에 `-o`
+   * - `icmp-type`: `-p icmp` 없이 `--icmp-type`
+   * - `port`: `-p tcp`·`-p udp` 없이 `--sport`·`--dport`
+   */
+  FIREWALL_RULE_INVALID: { readonly reason: "in-interface" | "out-interface" | "icmp-type" | "port" };
+  /** 포트 번호가 0~65535가 아니거나 범위의 앞이 뒤보다 큼 */
+  FIREWALL_PORT_INVALID: { readonly value: string };
+  /** PING9의 iptables가 다루지 않는 것 (다른 테이블, `-m state`, 사용자 체인 등). `token`은 입력한 글 */
+  IPTABLES_UNSUPPORTED: { readonly token: string };
+  /** iptables에 명령(`-A`, `-L` 등)이 없거나 둘 이상임 */
+  IPTABLES_NO_COMMAND: Record<string, never>;
+
   // CLI 해석 (FR-46). `position`은 ConsoleLine에 따로 담는다
   CLI_UNKNOWN_COMMAND: { readonly token: string };
   CLI_INCOMPLETE_COMMAND: Record<string, never>;
@@ -202,6 +220,11 @@ const ERROR_CODE_SET = {
   RIP_AUTO_SUMMARY_UNSUPPORTED: true,
   VLAN_NOT_FOUND: true,
   DEFAULT_VLAN_READONLY: true,
+  FIREWALL_RULE_NOT_FOUND: true,
+  FIREWALL_RULE_INVALID: true,
+  FIREWALL_PORT_INVALID: true,
+  IPTABLES_UNSUPPORTED: true,
+  IPTABLES_NO_COMMAND: true,
   CLI_UNKNOWN_COMMAND: true,
   CLI_INCOMPLETE_COMMAND: true,
   CLI_AMBIGUOUS_COMMAND: true,
@@ -282,6 +305,16 @@ export interface DropParamsByReason {
   TTL_EXPIRED: { readonly device: DeviceRef };
   /** RIP를 보낸 IP가 받은 인터페이스의 네트워크가 아님 (T11.2.2) */
   RIP_SOURCE_NOT_ON_LINK: { readonly device: DeviceRef; readonly port: string; readonly sourceIp: string };
+  /**
+   * Firewall의 필터 규칙이나 체인의 기본 정책이 막음 (T14.2.1, Story 14.3).
+   * `rule`은 막은 규칙의 번호(1부터). 없으면 기본 정책이 막은 것이다
+   */
+  FIREWALL_BLOCKED: {
+    readonly device: DeviceRef;
+    readonly chain: FirewallChain;
+    readonly target: Exclude<FirewallTarget, "ACCEPT">;
+    readonly rule?: number;
+  };
   /** 받은 장비가 목적지가 아님. 정상 동작이며 실패의 원인이 아니다 */
   NOT_FOR_ME: { readonly device: DeviceRef };
   /** 이벤트 수 한도 초과 (FR-30) */
@@ -304,6 +337,7 @@ const DROP_REASON_SET = {
   NO_ROUTE: true,
   TTL_EXPIRED: true,
   RIP_SOURCE_NOT_ON_LINK: true,
+  FIREWALL_BLOCKED: true,
   NOT_FOR_ME: true,
   LOOP_GUARD: true,
 } satisfies Record<DropReason, true>;

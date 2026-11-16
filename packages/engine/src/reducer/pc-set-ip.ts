@@ -33,12 +33,13 @@ function readField(value: unknown): string | null | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-/** 이 장비가 `ip`를 쓰는가. PC는 자기 주소, Router는 모든 인터페이스의 주소를 본다 */
+/** 이 장비가 `ip`를 쓰는가. PC는 자기 주소, Router와 Firewall은 모든 인터페이스의 주소를 본다 */
 function usesIp(device: Device, ip: string): boolean {
   switch (device.kind) {
     case "pc":
       return device.config.ip === ip;
     case "router":
+    case "firewall":
       return Object.values(device.config.interfaces).some((iface) => iface.ip === ip);
     case "switch":
       return false;

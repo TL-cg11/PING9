@@ -5,10 +5,11 @@
 // `complete`와 `help`는 E3(T3.2.x)에서 같은 명령 정의로 계산한다.
 
 import { LIMITS, errorInfo, osOf } from "@ping9/shared";
-import type { ConsoleLine, ConsoleResult, Device, DeviceKind, HelpEntry, PcDevice } from "@ping9/shared";
+import type { ConsoleLine, ConsoleResult, Device, DeviceKind, HelpEntry, OsKind, PcDevice } from "@ping9/shared";
 
 import { iosCandidates, iosComplete, iosExec, iosHelp, iosPrompt } from "./cli/ios";
 import type { PathCompleter } from "./cli/ios";
+import { FIREWALL_COMMANDS, firewallPrompt, runIptables } from "./cli/firewall";
 import { pathCompletions } from "./cli/pc/file-tree";
 import type { CommandDefinition, IosConsoleEnv } from "./cli/ios";
 import { initialFiles, parseEcho, pcCommandsFor, pcPrompt, runEcho, unknownCommandText, unsupportedSyntaxAt } from "./cli/pc";
@@ -35,19 +36,20 @@ export interface ConsolePort {
 const DEFINITIONS_BY_KIND: Partial<Record<Exclude<DeviceKind, "pc">, readonly CommandDefinition[]>> = {
   router: ROUTER_COMMANDS,
   switch: SWITCH_COMMANDS,
+  firewall: FIREWALL_COMMANDS,
 };
 
 /**
  * PC에서 첫 단어가 없는 명령어면 OS 형식의 줄(`ls: command not found`)과 한국어 안내로 바꾼다 (T0.9).
- * 첫 단어는 맞고 뒤가 틀린 줄은 `^` 표시가 있는 오류 그대로 둔다
+ * 첫 단어는 맞고 뒤가 틀린 줄은 `^` 표시가 있는 오류 그대로 둔다. Firewall도 Linux의 줄을 쓴다 (T14.2.1)
  */
-function pcUnknownCommand(lines: readonly ConsoleLine[], text: string, pc: PcDevice): readonly ConsoleLine[] {
+function pcUnknownCommand(lines: readonly ConsoleLine[], text: string, os: OsKind): readonly ConsoleLine[] {
   const [only] = lines;
   const first = splitWords(text)[0];
   if (lines.length !== 1 || only?.kind !== "error" || only.code !== "CLI_UNKNOWN_COMMAND") return lines;
   if (first === undefined || only.position !== first.position) return lines;
   return [
-    ...unknownCommandText(osOf(pc.config), only.params.token).map((line): ConsoleLine => ({ kind: "text", text: line })),
+    ...unknownCommandText(os, only.params.token).map((line): ConsoleLine => ({ kind: "text", text: line })),
     { kind: "notice", code: "PC_UNKNOWN_COMMAND", params: { token: only.params.token } },
   ];
 }
@@ -70,6 +72,8 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
     if (device.kind === "router" && device.config.cliStyle === "vyos") return vyosPrompt(device, env);
     // PC에는 모드가 없고 OS마다 프롬프트가 다르다 (Windows `PC1 User>`, Linux `user@PC2 ~ $`, T0.19)
     if (device.kind === "pc") return pcPrompt(device, filesOf(device));
+    // Firewall은 Linux 장비라 모드가 없다 (T14.2.1)
+    if (device.kind === "firewall") return firewallPrompt(device);
     return definitionsFor(device) === undefined ? `${device.name}>` : iosPrompt(device, env);
   };
 
@@ -95,7 +99,9 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
         return result({ kind: "error", code: "DEVICE_NOT_FOUND", params: { deviceId } });
       }
 
-      const text = typeof line === "string" ? line : "";
+      // Firewall에서는 앞의 `sudo`를 같은 길이의 빈칸으로 바꿔 읽는다. 오류의 `^` 위치가 그대로다 (T14.2.1)
+      const typed = typeof line === "string" ? line : "";
+      const text = device.kind === "firewall" ? typed.replace(/^(\s*)sudo(?=\s)/, "$1    ") : typed;
       if (text.length > LIMITS.maxConsoleLineLength) {
         return result({
           kind: "error",
@@ -115,8 +121,8 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
         }
       }
 
-      // PC 콘솔은 한 줄에 명령 하나다. 파이프, 리다이렉트, 명령 연결은 실행하지 않는다 (T0.9)
-      if (device.kind === "pc") {
+      // PC와 Firewall 콘솔은 한 줄에 명령 하나다. 파이프, 리다이렉트, 명령 연결은 실행하지 않는다 (T0.9)
+      if (device.kind === "pc" || device.kind === "firewall") {
         const blocked = unsupportedSyntaxAt(text);
         if (blocked !== undefined) {
           return result({
@@ -127,13 +133,19 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
         }
       }
 
+      // `iptables`는 옵션 순서가 자유로워 명령 정의로 읽지 않고 따로 읽는다 (T14.2.1)
+      if (device.kind === "firewall") {
+        const [first, ...rest] = splitWords(text);
+        if (first?.text === "iptables") return result(...runIptables(rest, device, env.dispatch));
+      }
+
       const definitions = definitionsFor(device);
       if (definitions !== undefined) {
         const executed = iosExec(text, device, definitions, env);
         // iosExec의 프롬프트는 IOS 모드의 것이다. PC는 실행 뒤의 문서로 OS별 프롬프트를 다시 만든다
-        return device.kind === "pc"
-          ? { lines: pcUnknownCommand(executed.lines, text, device), prompt: prompt() }
-          : executed;
+        if (device.kind === "pc") return { lines: pcUnknownCommand(executed.lines, text, osOf(device.config)), prompt: prompt() };
+        if (device.kind === "firewall") return { lines: pcUnknownCommand(executed.lines, text, "linux"), prompt: prompt() };
+        return executed;
       }
 
       const token = text.trim().split(/\s+/)[0] ?? "";

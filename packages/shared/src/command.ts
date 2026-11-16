@@ -3,7 +3,10 @@
 // 장비와 링크의 ID는 web이 crypto.randomUUID()로 만들어 Command에 담는다 (AD-5).
 
 import type { ErrorInfo, Notice } from "./codes";
-import type { DeviceKind, GreTunnelConfig, IpsecProfileConfig, OsKind, PortRef, Position, SwitchportMode, VlanRange, VpnMode, RouterConfig } from "./document";
+import type {
+  DeviceKind, FirewallChain, FirewallPolicy, FirewallRule, GreTunnelConfig, IpsecProfileConfig, OsKind, PortRef, Position,
+  RouterConfig, SwitchportMode, VlanRange, VpnMode,
+} from "./document";
 
 export type Command =
   | { readonly type: "router/set-cli-style"; readonly deviceId: string; readonly style: "ios" | "vyos" }
@@ -24,14 +27,14 @@ export type Command =
   | { readonly type: "link/remove"; readonly linkId: string }
   // 포트 켜고 끄기 (FR-18)
   | { readonly type: "interface/set-admin"; readonly deviceId: string; readonly port: string; readonly adminUp: boolean }
-  // Router 인터페이스의 IP (FR-26)
+  // Router 인터페이스의 IP (FR-26). Firewall 인터페이스에도 쓴다 (T14.2.1)
   | { readonly type: "interface/set-ip"; readonly deviceId: string; readonly port: string; readonly ip: string; readonly mask: string }
   | { readonly type: "interface/clear-ip"; readonly deviceId: string; readonly port: string }
   // PC의 IP (FR-25). `ip`가 null이면 IP를 지운다. 이때 `mask`와 `gateway`도 null이어야 한다
   | { readonly type: "pc/set-ip"; readonly deviceId: string; readonly ip: string | null; readonly mask: string | null; readonly gateway: string | null }
   // PC의 OS (T0.7). IP 구성은 그대로 둔다
   | { readonly type: "pc/set-os"; readonly deviceId: string; readonly os: OsKind }
-  // Static route (FR-35)
+  // Static route (FR-35). Firewall에도 쓴다. Firewall은 distance를 받지 않는다 (T14.2.1)
   // distance (T11.1.1): add는 없으면 1. remove는 없으면 AD와 상관없이, 있으면 같은 AD일 때만 지운다
   | { readonly type: "route/add"; readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string; readonly distance?: number }
   | { readonly type: "route/remove"; readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string; readonly distance?: number }
@@ -41,6 +44,13 @@ export type Command =
   | { readonly type: "rip/add-network"; readonly deviceId: string; readonly network: string }
   | { readonly type: "rip/remove-network"; readonly deviceId: string; readonly network: string }
   | { readonly type: "rip/set-passive"; readonly deviceId: string; readonly port: string; readonly passive: boolean }
+  // Firewall의 필터 규칙 (T14.2.1). `index`는 1부터 세는 규칙 번호다 (`iptables --line-numbers`)
+  // add-rule: index가 없으면 끝에 붙이고(`-A`), 있으면 그 자리에 끼운다(`-I`)
+  | { readonly type: "firewall/add-rule"; readonly deviceId: string; readonly chain: FirewallChain; readonly rule: FirewallRule; readonly index?: number }
+  | { readonly type: "firewall/remove-rule"; readonly deviceId: string; readonly chain: FirewallChain; readonly index: number }
+  // flush-rules: chain이 없으면 세 체인 모두. 정책은 그대로 둔다 (`-F`)
+  | { readonly type: "firewall/flush-rules"; readonly deviceId: string; readonly chain?: FirewallChain }
+  | { readonly type: "firewall/set-policy"; readonly deviceId: string; readonly chain: FirewallChain; readonly policy: FirewallPolicy }
   // VLAN (FR-31)
   | { readonly type: "vlan/create"; readonly deviceId: string; readonly vlanId: number; readonly name?: string }
   | { readonly type: "vlan/rename"; readonly deviceId: string; readonly vlanId: number; readonly name: string }
@@ -82,6 +92,10 @@ const COMMAND_TYPE_SET = {
   "rip/add-network": true,
   "rip/remove-network": true,
   "rip/set-passive": true,
+  "firewall/add-rule": true,
+  "firewall/remove-rule": true,
+  "firewall/flush-rules": true,
+  "firewall/set-policy": true,
   "vlan/create": true,
   "vlan/rename": true,
   "vlan/remove": true,
