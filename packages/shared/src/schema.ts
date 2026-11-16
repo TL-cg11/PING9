@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { DROP_REASONS, REASON_CODES } from "./codes";
 import type { TopologyDocument } from "./document";
-import { OS_KINDS, SWITCHPORT_MODES } from "./document";
+import { FIREWALL_ICMP_TYPES, FIREWALL_POLICIES, FIREWALL_PROTOCOLS, FIREWALL_TARGETS, OS_KINDS, SWITCHPORT_MODES } from "./document";
 import { LIMITS } from "./limits";
 import type { Trace } from "./trace";
 import { TRACE_ACTIONS, TRACE_LAYERS, TRACE_STATUSES } from "./trace";
@@ -68,12 +68,36 @@ const routerConfigSchema = z.object({
   rip: ripConfigSchema.optional(),
 });
 
+const firewallRuleSchema = z.object({
+  protocol: z.enum(FIREWALL_PROTOCOLS).optional(),
+  source: shortString.optional(),
+  destination: shortString.optional(),
+  inInterface: shortString.optional(),
+  outInterface: shortString.optional(),
+  icmpType: z.enum(FIREWALL_ICMP_TYPES).optional(),
+  sourcePort: shortString.optional(),
+  destinationPort: shortString.optional(),
+  target: z.enum(FIREWALL_TARGETS),
+});
+
+const firewallChainSchema = z.object({
+  policy: z.enum(FIREWALL_POLICIES),
+  rules: z.array(firewallRuleSchema),
+});
+
+const firewallConfigSchema = z.object({
+  interfaces: z.record(shortString, routerInterfaceConfigSchema),
+  staticRoutes: z.array(staticRouteSchema),
+  filter: z.object({ INPUT: firewallChainSchema, FORWARD: firewallChainSchema, OUTPUT: firewallChainSchema }),
+});
+
 const deviceBase = { id: shortString, name: shortString, position: positionSchema };
 
 const deviceSchema = z.discriminatedUnion("kind", [
   z.object({ ...deviceBase, kind: z.literal("pc"), config: pcConfigSchema }),
   z.object({ ...deviceBase, kind: z.literal("switch"), config: switchConfigSchema }),
   z.object({ ...deviceBase, kind: z.literal("router"), config: routerConfigSchema }),
+  z.object({ ...deviceBase, kind: z.literal("firewall"), config: firewallConfigSchema }),
 ]);
 
 const linkSchema = z.object({

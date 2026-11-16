@@ -6,15 +6,23 @@ import type { DeviceKind, ErrorCode, ErrorInfo, ErrorParamsByCode, LimitName } f
 
 import { withSubject, withTopic } from "./particles";
 
-const KIND_NAMES: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router" };
+const KIND_NAMES: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router", firewall: "Firewall" };
 
 const LIMIT_MESSAGES: Readonly<Record<LimitName, (max: number) => string>> = {
   devices: (max) => `장비는 토폴로지 하나에 ${max}대까지 놓을 수 있어요`,
   links: (max) => `링크는 토폴로지 하나에 ${max}개까지 만들 수 있어요`,
-  staticRoutes: (max) => `Static route는 Router 하나에 ${max}개까지 넣을 수 있어요`,
+  staticRoutes: (max) => `Static route는 장비 하나에 ${max}개까지 넣을 수 있어요`,
   ripNetworks: (max) => `RIP network는 Router 하나에 ${max}개까지 넣을 수 있어요`,
+  firewallRules: (max) => `필터 규칙은 체인 하나에 ${max}개까지 넣을 수 있어요`,
   vlans: (max) => `VLAN은 Switch 하나에 ${max}개까지 만들 수 있어요`,
   allowedVlanRanges: (max) => `trunk 허용 목록의 범위는 포트 하나에 ${max}개까지 쓸 수 있어요`,
+};
+
+const FIREWALL_RULE_REASONS: Readonly<Record<ErrorParamsByCode["FIREWALL_RULE_INVALID"]["reason"], string>> = {
+  "in-interface": "OUTPUT 체인에는 들어오는 인터페이스(-i)를 쓸 수 없어요",
+  "out-interface": "INPUT 체인에는 나가는 인터페이스(-o)를 쓸 수 없어요",
+  "icmp-type": "--icmp-type은 -p icmp와 함께 써야 해요",
+  port: "--sport와 --dport는 -p tcp나 -p udp와 함께 써야 해요",
 };
 
 export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsByCode[C]) => string } = {
@@ -62,7 +70,7 @@ export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsBy
   INTERFACE_NETWORK_OVERLAP: ({ port, otherPort, ip, mask }) =>
     `${port}의 IP ${ip} (${mask})가 ${otherPort} 네트워크와 겹쳐요. 다른 네트워크를 입력해 주세요`,
   ROUTE_NETWORK_NOT_ALIGNED: ({ network, mask }) => `${network}는 ${mask}에 맞는 네트워크 주소가 아니에요`,
-  ROUTE_NEXT_HOP_IS_SELF: ({ nextHop }) => `다음 홉 ${nextHop}은 이 라우터 자신의 IP 주소예요`,
+  ROUTE_NEXT_HOP_IS_SELF: ({ nextHop }) => `다음 홉 ${nextHop}은 이 장비 자신의 IP 주소예요`,
   ROUTE_DISTANCE_INVALID: ({ value }) => `경로의 거리(AD) 값은 1부터 255까지예요: ${value}`,
   ROUTE_NOT_FOUND: ({ network, mask, nextHop }) => `설정된 정적 경로가 없어요: ${network} ${mask} → ${nextHop}`,
   RIP_NOT_ENABLED: () => "RIP가 켜져 있지 않아요. 먼저 router rip를 입력해 주세요",
@@ -90,6 +98,12 @@ export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsBy
     `${KIND_NAMES[kind]}(${deviceName})를 지나는 ping은 아직 지원하지 않아요`,
 
   // traceroute (T11.4.1)
+  // Firewall (T14.2.1)
+  FIREWALL_RULE_NOT_FOUND: ({ chain, index }) => `${chain} 체인에 ${index}번 규칙이 없어요. iptables -L ${chain} --line-numbers로 번호를 볼 수 있어요`,
+  FIREWALL_RULE_INVALID: ({ reason }) => FIREWALL_RULE_REASONS[reason],
+  FIREWALL_PORT_INVALID: ({ value }) => `포트 번호는 0~65535이고, 범위는 작은 수부터 써야 해요: ${value}`,
+  IPTABLES_UNSUPPORTED: ({ token }) => `PING9의 iptables에는 없는 기능이에요: ${token}. 쓸 수 있는 것은 iptables -h로 볼 수 있어요`,
+  IPTABLES_NO_COMMAND: () => "iptables에 할 일을 하나만 적어 주세요 (-A, -I, -D, -L, -S, -F, -P). 쓰는 법은 iptables -h로 볼 수 있어요",
   TRACEROUTE_HOPS_OUT_OF_RANGE: ({ value, min, max }) => `최대 hop 수는 ${min}~${max}여야 해요: ${value}`,
 };
 

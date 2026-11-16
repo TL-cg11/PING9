@@ -7,6 +7,7 @@ import type { ErrorInfo } from "./codes";
 import { isPortName } from "./document";
 import type { DeviceKind, TopologyDocument } from "./document";
 import { TOPOLOGY_EXPORT_KIND } from "./export-file";
+import { checkFirewallConfig } from "./firewall-config";
 import { CURRENT_SCHEMA_VERSION, LIMITS } from "./limits";
 import { checkRipConfig, checkRouterInterfaceOverlap, checkStaticRoute } from "./router-config";
 import { topologyDocumentSchema, traceSchema } from "./schema";
@@ -199,6 +200,8 @@ function checkDeviceConfig(device: ParsedDevice, path: string): ErrorInfo | null
       return checkSwitchConfig(device.id, device.config, path);
     case "router":
       return checkRouterConfig(device.id, device.config, path);
+    case "firewall":
+      return checkFirewallConfig(device.id, device.config, path);
   }
 }
 

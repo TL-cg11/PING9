@@ -205,7 +205,7 @@ describe("validateDocument: 깨진 문서는 구별되는 코드로 거부한다
     // 형태
     ["devices가 배열이 아님", (d) => void ((d as Record<string, unknown>).devices = {}), "DOCUMENT_INVALID_SHAPE"],
     ["links가 없음", (d) => void delete (d as Partial<Doc>).links, "DOCUMENT_INVALID_SHAPE"],
-    ["모르는 장비 종류", (d) => void ((d.devices[0] as Record<string, unknown>).kind = "firewall"), "DOCUMENT_INVALID_SHAPE"],
+    ["모르는 장비 종류", (d) => void ((d.devices[0] as Record<string, unknown>).kind = "hub"), "DOCUMENT_INVALID_SHAPE"],
     ["좌표가 수가 아님", (d) => void ((d.devices[0]!.position as Record<string, unknown>).x = "320"), "DOCUMENT_INVALID_SHAPE"],
     ["좌표가 범위 밖", (d) => void (d.devices[0]!.position.x = LIMITS.maxPosition + 1), "DOCUMENT_INVALID_SHAPE"],
     ["좌표가 무한대", (d) => void (d.devices[0]!.position.y = Number.POSITIVE_INFINITY), "DOCUMENT_INVALID_SHAPE"],
