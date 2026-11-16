@@ -40,7 +40,7 @@ interface NodeDrag {
   moved: boolean;
 }
 /** 화면 낭독기가 읽는 장비 종류 */
-const KIND_NAME: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router" };
+const KIND_NAME: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router", firewall: "Firewall" };
 
 /**
  * 타원 받침. 안(fill)과 테두리(edge)를 따로 그린다. 테두리는 길이 들어오는 자리를 mask로 지운다 (시안 C).

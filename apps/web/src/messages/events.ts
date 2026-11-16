@@ -48,6 +48,8 @@ export const EVENT_TEXT: { readonly [C in ReasonCode]: (params: ReasonParamsByCo
   NO_ROUTE: ({ targetIp }) => `${targetIp}로 가는 경로가 없어 버림`,
   TTL_EXPIRED: () => "TTL이 0이 되어 버림",
   RIP_SOURCE_NOT_ON_LINK: ({ sourceIp }) => `${sourceIp}의 RIP가 다른 네트워크에서 와서 버림`,
+  FIREWALL_BLOCKED: ({ chain, target, rule }) =>
+    rule === undefined ? `${chain} 체인의 기본 정책(${target})이 막아 버림` : `${chain} 체인의 ${rule}번 규칙(${target})이 막아 버림`,
   NOT_FOR_ME: () => "나에게 온 것이 아니라 버림 (정상)",
   LOOP_GUARD: () => "이벤트가 너무 많아 계산을 멈춤",
 };
@@ -77,6 +79,13 @@ export const CAUSE_TEXT: { readonly [R in DropReason]: (params: DropParamsByReas
   NO_ROUTE: (q) => ({ text: `${dev(q)}에 ${q.targetIp}로 가는 경로가 없어요`, fix: `${dev(q)}에서 경로를 더하세요:`, command: "ip route <네트워크> <마스크> <다음 주소>" }),
   TTL_EXPIRED: (q) => ({ text: `${dev(q)}에서 TTL이 0이 됐어요. 경로가 고리처럼 돌고 있어요`, fix: "Router들의 라우팅 표를 확인하세요" }),
   RIP_SOURCE_NOT_ON_LINK: (q) => ({ text: `${dev(q)}가 다른 네트워크에서 온 RIP(${q.sourceIp})를 버렸어요`, fix: "양쪽 인터페이스의 IP가 같은 네트워크인지 확인하세요" }),
+  FIREWALL_BLOCKED: (q) => ({
+    text: q.rule === undefined
+      ? `${dev(q)}의 ${q.chain} 체인에 맞는 규칙이 없어 기본 정책 ${q.target}이 막았어요`
+      : `${dev(q)}의 ${q.chain} 체인 ${q.rule}번 규칙(${q.target})이 이 패킷을 막았어요`,
+    fix: `${dev(q)}에서 규칙을 확인하세요:`,
+    command: `iptables -L ${q.chain} -n --line-numbers`,
+  }),
   NOT_FOR_ME: (q) => ({ text: `${dev(q)}에게 온 프레임이 아니에요`, fix: "목적지 주소를 확인하세요" }),
   LOOP_GUARD: () => ({ text: "프레임이 끝없이 돌아 계산을 멈췄어요. 케이블이 고리를 이루고 있어요", fix: "고리를 이루는 케이블 하나를 지우세요" }),
 };

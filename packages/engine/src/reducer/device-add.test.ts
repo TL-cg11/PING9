@@ -32,7 +32,7 @@ describe("device/add", () => {
     const simulator = createSimulator();
     expect(simulator.dispatch(command({ kind })).ok).toBe(true);
     const device = simulator.getSnapshot().document.devices[0]!;
-    const names = { pc: "PC1", switch: "SW1", router: "R1" };
+    const names = { pc: "PC1", switch: "SW1", router: "R1", firewall: "FW1" };
     expect(device.name).toBe(names[kind]);
     expect(validateDocument(simulator.getSnapshot().document).ok).toBe(true);
   });
@@ -84,7 +84,7 @@ describe("device/add", () => {
   });
 
   test.each([
-    ["지원하지 않는 종류", { kind: "firewall" }, "DOCUMENT_INVALID_SHAPE"],
+    ["지원하지 않는 종류", { kind: "hub" }, "DOCUMENT_INVALID_SHAPE"],
     ["종류 누락", { kind: undefined }, "DOCUMENT_INVALID_SHAPE"],
     ["잘못된 UUID", { id: "R1" }, "INVALID_ID"],
     ["문자열이 아닌 UUID", { id: { toString: 1 } }, "INVALID_ID"],
