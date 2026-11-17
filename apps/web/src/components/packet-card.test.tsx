@@ -1,8 +1,8 @@
 // T6.3.1: 펭귄을 누르면 뜨는 패킷 카드. 엔진이 만든 실제 추적의 이벤트로 그린다
 import { createSimulator } from "@ping9/engine";
-import type { TopologyDocument, Trace, TraceEvent } from "@ping9/shared";
+import type { Command, TopologyDocument, Trace, TraceEvent } from "@ping9/shared";
 import {
-  ROUTER_LAB, TWO_PC_SWITCH, TWO_SWITCH_VLAN, fourRouterRipDocument, oneRouterLabDocument, switchedStaticRoutingLabDocument,
+  ROUTER_LAB, TWO_PC_SWITCH, TWO_SWITCH_VLAN, VPN_LAB, fourRouterRipDocument, greLabDocument, ipsecLabDocument, oneRouterLabDocument, switchedStaticRoutingLabDocument,
   twoPcSwitchDocument, twoSwitchVlanDocument,
 } from "@ping9/shared/examples";
 import { renderToString } from "react-dom/server";
@@ -117,4 +117,50 @@ test("펭귄은 onPick이 있을 때만 누를 수 있다", async () => {
 
   expect(draw(true)).toMatch(/<g class="penguin pickable"[^>]*role="button"/);
   expect(draw(false)).toMatch(/<g class="penguin"[^>]*role="img"/);
+});
+
+test.each([
+  { name: "GRE", document: greLabDocument, tag: "GRE", title: "GRE로 감싼 ping 요청" },
+  { name: "ESP", document: ipsecLabDocument, tag: "ESP", title: "IPsec ESP" },
+])("$name: 바깥 IPv4 안에 터널 상자, 그 안에 안쪽 IPv4와 ICMP", async ({ document, tag, title }) => {
+  const trace = await traceOf(document, VPN_LAB.pcA, "ping -n 1 192.168.2.10");
+  const html = card(document, sent(trace, (event) => (event.frame.gre ?? event.frame.esp) !== undefined));
+
+  expect(html).toContain(title);
+  expect(html).toContain(`<span class="pkt-tag">${tag}</span>`);
+  expect(html).toContain("안쪽 IPv4");
+  expect(html).toMatch(/192\.168\.2\.10/);
+  // L2 > 바깥 L3 > 터널 > 안쪽 L3 > ICMP
+  const order = ["pkt-l2", "pkt-l3", "pkt-tunnel", "안쪽 IPv4", "pkt-icmp"].map((part) => html.indexOf(part));
+  expect(order).toEqual([...order].sort((a, b) => a - b));
+  expect(html.match(/pkt-box pkt-icmp/g)).toHaveLength(1);
+});
+
+test("TCP 서비스: IPv4 안에 TCP(포트·플래그), 응답에는 그 안에 L7 서비스 내용", async () => {
+  const simulator = createSimulator();
+  const ids = ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222", "44444444-4444-4444-8444-444444444444"] as const;
+  const [pc, server, sw] = ids;
+  const commands: unknown[] = [
+    { type: "device/add", id: pc, kind: "pc", position: { x: 0, y: 0 }, os: "linux" },
+    { type: "device/add", id: server, kind: "pc", position: { x: 400, y: 0 }, os: "server" },
+    { type: "device/add", id: sw, kind: "switch", position: { x: 200, y: 0 } },
+    { type: "link/add", id: "55555555-5555-4555-8555-555555555555", ends: [{ deviceId: pc, port: "Ethernet0" }, { deviceId: sw, port: "FastEthernet0/1" }] },
+    { type: "link/add", id: "66666666-6666-4666-8666-666666666666", ends: [{ deviceId: server, port: "Ethernet0" }, { deviceId: sw, port: "FastEthernet0/2" }] },
+    { type: "pc/set-ip", deviceId: pc, ip: "10.0.1.10", mask: "255.255.255.0", gateway: null },
+    { type: "pc/set-ip", deviceId: server, ip: "10.0.1.20", mask: "255.255.255.0", gateway: null },
+  ];
+  for (const command of commands) expect(simulator.dispatch(command as Command)).toMatchObject({ ok: true });
+  await simulator.console(pc).exec("curl http://10.0.1.20/");
+  const trace = simulator.getTrace(simulator.getSnapshot().traces[0]!.id)!;
+  const document = simulator.getSnapshot().document;
+
+  const syn = card(document, sent(trace, (event) => event.frame.tcp?.flags === "SYN"));
+  expect(syn).toContain("<dt>도착 포트</dt><dd>80</dd>");
+  expect(syn).toContain("<dt>플래그</dt><dd>SYN</dd>");
+  expect(syn).not.toContain("pkt-app");
+
+  const answer = card(document, sent(trace, (event) => event.frame.application !== undefined && event.deviceId === server));
+  expect(answer).toContain("TCP 응답");
+  expect(answer).toContain('<span class="pkt-tag">L7</span>HTTP');
+  expect(answer.indexOf("pkt-l4")).toBeLessThan(answer.indexOf("pkt-app"));
 });

@@ -21,6 +21,12 @@ export type PingRoundKind = "reply" | "unreachable" | "timeout" | "unsent" | "ic
  */
 export function pingRoundKind(trace: Trace, sourceId: string, sequence: number): PingRoundKind {
   const atSource = trace.events.filter((event) => event.deviceId === sourceId);
+  // 서비스 요청의 추적 (T0.20): 응답을 받았으면 성공, 연결을 거절당했거나(RST) ICMP 오류를 받았으면 오류
+  if (atSource.some((event) => event.reason.code === "SERVICE_RESPONSE_RECEIVED")) return "reply";
+  if (atSource.some((event) => (event.reason.code === "TCP_SEGMENT_RECEIVED" && event.frame.tcp?.flags === "RST") ||
+    (event.reason.code === "ICMP_ERROR_RECEIVED" && isIcmpError(event.frame.icmp) && event.frame.icmp.original.protocol !== undefined))) {
+    return "icmp-error";
+  }
   if (
     atSource.some(
       (event) => event.reason.code === "ICMP_ECHO_REPLY_RECEIVED" && event.frame.icmp?.sequence === sequence,

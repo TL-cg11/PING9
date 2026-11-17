@@ -4,11 +4,13 @@
 import type { TopologyDocument } from "../document";
 import { fourRouterRipDocument, threeRouterRipDocument } from "./rip-lab";
 import { thirtyDeviceDocument } from "./thirty-devices";
+import { greLabDocument, ipsecLabDocument, vpnUnderlayDocument } from "./vpn-lab";
 import { twoPcDocument } from "./two-pc";
 import { twoPcSwitchDocument } from "./two-pc-switch";
 import { twoSwitchVlanDocument } from "./two-switch-vlan";
 
 export * from "./rip-lab";
+export * from "./vpn-lab";
 export * from "./thirty-devices";
 export * from "./router-lab";
 export * from "./two-pc";
@@ -26,6 +28,9 @@ export const EXAMPLE_DOCUMENTS: readonly {
   { name: "Switch 2대와 VLAN 2개", document: twoSwitchVlanDocument },
   { name: "Router 3대 RIP", document: threeRouterRipDocument },
   { name: "Router 4대 RIP 사각형", document: fourRouterRipDocument },
+  { name: "GRE 설정 전 underlay", document: vpnUnderlayDocument },
+  { name: "중간 Router를 통과하는 GRE", document: greLabDocument },
+  { name: "GRE 없는 IPsec 교육 실습", document: ipsecLabDocument },
 ];
 
 export { withRouterLabSwitches, switchedStaticRoutingLabDocument } from "./router-lab";

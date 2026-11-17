@@ -12,12 +12,12 @@ import type {
   OsKind,
   TopologyDocument,
 } from "@ping9/shared";
-import type { ArpEntryView, MacTableEntryView, RouteEntryView } from "@ping9/shared";
+import type { ArpEntryView, IpsecSaView, MacTableEntryView, RouteEntryView } from "@ping9/shared";
 
-import type { PingRequest, PingRun, TracerouteRequest } from "../../runtime";
+import type { PingRequest, PingRun, ServiceRequest, ServiceRun, TracerouteRequest } from "../../runtime";
 import type { PcFiles } from "../pc/file-tree";
 
-export type CliMode = "user" | "privileged" | "config" | "config-if" | "config-vlan" | "config-router";
+export type CliMode = "user" | "privileged" | "config" | "config-if" | "config-vlan" | "config-router" | "config-ipsec" | "vyos-config";
 
 /**
  * 매개변수의 종류. `word`는 빈칸 없는 글, `vlan-id`는 1~4094의 수,
@@ -65,6 +65,9 @@ export interface CliSession {
   readonly targetVlan?: number;
   /** `config-if`일 때 설정 중인 포트의 전체 이름 */
   readonly targetPort?: string;
+  readonly targetIpsec?: string;
+  readonly vyosCandidate?: Readonly<Record<string, string>>;
+  readonly vyosBase?: string;
 }
 
 export type CommandArgs = Readonly<Record<string, string | number>>;
@@ -96,6 +99,8 @@ export interface RuntimeAccess {
   ping(request: PingRequest): PingRun;
   /** traceroute (T11.4.1). hop마다 추적 하나 */
   traceroute(request: TracerouteRequest): PingRun;
+  /** 서비스 요청 하나 (`curl`, `nslookup` 등, T0.20). 추적 하나를 보관한다 */
+  exchange(request: ServiceRequest): ServiceRun;
   arpTable(deviceId: string): readonly ArpEntryView[];
   /** IP를 주면 그 항목만. 지운 것이 있으면 true */
   clearArp(deviceId: string, ip?: string): boolean;
@@ -105,6 +110,7 @@ export interface RuntimeAccess {
   routingTable(deviceId: string): readonly RouteEntryView[];
   /** 경로 교환 1회 (`clear ip route *`, T11.2.3). RIP Router가 없어 돌지 않았으면 false */
   exchangeRoutes(): boolean;
+  ipsecSa?(deviceId: string): readonly IpsecSaView[];
 }
 
 export interface CommandOutcome {

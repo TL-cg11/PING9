@@ -3,8 +3,8 @@
 // OS는 고르는 즉시 pc/set-os를, 포트 토글은 누르는 즉시 interface/set-admin을 dispatch한다. IP의 "적용"과 따로다.
 // 문구는 카탈로그에서 만들어 글자 그대로 넣는다 (AD-14, SEC-11).
 
-import { OS_KINDS, PORT_NAMES, osOf } from "@ping9/shared";
-import type { Command, DispatchResult, ErrorInfo, Notice, OsKind, PcDevice } from "@ping9/shared";
+import { PC_OS_CHOICES, PORT_NAMES, osChoiceOf, osOf } from "@ping9/shared";
+import type { Command, DispatchResult, ErrorInfo, Notice, OsKind, PcDevice, PcOsChoice } from "@ping9/shared";
 import { useId, useState } from "react";
 
 import { applyDraft, draftOf, OS_NAMES, PC_FIELDS, prefixLabel } from "../format/pc-address";
@@ -18,13 +18,13 @@ const LABELS: Readonly<Record<PcField, string>> = {
   gateway: "기본 게이트웨이",
 };
 
-/** OS 고르기. 라디오 버튼이라 화살표 키로 바꿀 수 있다 (NFR-12) */
-export function OsChoice({ os, onChange }: { readonly os: OsKind; readonly onChange: (os: OsKind) => void }) {
+/** OS 고르기. 라디오 버튼이라 화살표 키로 바꿀 수 있다 (NFR-12). Server를 고르면 서비스를 돌린다 (T0.20) */
+export function OsChoice({ os, onChange }: { readonly os: PcOsChoice; readonly onChange: (os: PcOsChoice) => void }) {
   const name = useId();
   return (
     <fieldset className="os-choice">
       <legend>OS</legend>
-      {OS_KINDS.map((kind) => (
+      {PC_OS_CHOICES.map((kind) => (
         <label key={kind}>
           <input
             type="radio"
@@ -234,15 +234,17 @@ export function PcSettings({
     }
   };
 
+  // 포트 이름은 콘솔의 OS를 따른다 (Server는 Linux). 고르기에는 고른 종류를 그대로 보인다 (T0.20)
   const os = osOf(device.config);
+  const choice = osChoiceOf(device.config);
   const adminUp = device.config.adminUp ?? true;
 
   return (
     <>
       <OsChoice
-        os={os}
+        os={choice}
         onChange={(next) => {
-          if (next !== os) onDispatch({ type: "pc/set-os", deviceId: device.id, os: next });
+          if (next !== choice) onDispatch({ type: "pc/set-os", deviceId: device.id, os: next });
         }}
       />
       <PortSwitch os={os} adminUp={adminUp} onChange={(next) => onDispatch(portAdminCommand(device.id, next))} />

@@ -125,6 +125,8 @@ describe("help", () => {
       "cd\\",
       "cls",
       "copy <source> <target>",
+      // 서비스를 쓰는 명령어 (T0.20)
+      "curl <url>",
       "del <path>",
       "dir",
       "dir <path>",
@@ -138,6 +140,7 @@ describe("help", () => {
       "md <path>",
       "mkdir <path>",
       "move <source> <target>",
+      "nslookup <name> <server>",
       "ping -n <count> <ip>",
       "ping <ip>",
       "ping <ip> -n <count>",
@@ -157,6 +160,7 @@ describe("help", () => {
       "tracert -h <hops> <ip>",
       "tracert <ip>",
       "type <path>",
+      "w32tm /stripchart <computer>",
     ]);
   });
 

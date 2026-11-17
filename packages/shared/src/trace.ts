@@ -1,8 +1,9 @@
 // 통신 1회의 완성된 기록 (AD-6). 출처: 03 문서 3.4절 "Trace와 이벤트", 02 문서 FR-38, FR-42.
 
 import type { DeviceRef, DropReason, Reason } from "./codes";
+import type { ServiceKind } from "./document";
 
-export const TRACE_LAYERS = ["L2", "ARP", "L3", "ICMP", "RIP"] as const;
+export const TRACE_LAYERS = ["L2", "ARP", "L3", "ICMP", "RIP", "GRE", "IPSEC", "TCP", "UDP", "APP"] as const;
 export type TraceLayer = (typeof TRACE_LAYERS)[number];
 
 export const TRACE_ACTIONS = ["create", "receive", "learn", "forward", "reply", "drop"] as const;
@@ -37,6 +38,8 @@ export interface Ipv4Header {
   readonly sourceIp: string;
   readonly destinationIp: string;
   readonly ttl: number;
+  /** GRE/ESP 전달 IPv4 헤더에는 각각 프로토콜 47/50을 명시한다. 옛 ICMP/RIP 자료는 생략 가능 */
+  readonly protocol?: 47 | 50;
 }
 
 /** UDP 헤더. 지금은 RIP(520)만 쓴다 (T11.2.2, E11 결정 2). 포트별 처리는 E8.1이 넓힌다 */
@@ -44,6 +47,29 @@ export interface UdpHeader {
   readonly sourcePort: number;
   readonly destinationPort: number;
 }
+
+/** TCP 세그먼트의 종류 (T0.20). 연결을 맺고(SYN, SYN-ACK, ACK) 자료를 주고받는(PSH-ACK) 것까지. 끊기는 그리지 않는다 */
+export const TCP_FLAGS = ["SYN", "SYN-ACK", "ACK", "PSH-ACK", "RST"] as const;
+export type TcpFlags = (typeof TCP_FLAGS)[number];
+
+export interface TcpHeader {
+  readonly sourcePort: number;
+  readonly destinationPort: number;
+  readonly flags: TcpFlags;
+}
+
+/**
+ * 응용 계층의 내용 (T0.20). `message`는 요청이나 응답의 첫 줄(`GET /`, `200 OK`),
+ * `data`는 응답의 본문이다 (웹 문서, 파일 목록)
+ */
+export interface ApplicationData {
+  readonly service: ServiceKind;
+  readonly message: string;
+  readonly data?: string;
+}
+
+/** 본문의 최대 길이. Trace가 커지지 않게 한다 */
+export const MAX_APPLICATION_DATA = 512;
 
 /** RIP v2 경로 항목. metric은 1~16 (16은 닿지 않음) */
 export interface RipEntry {
@@ -74,6 +100,9 @@ export type IcmpErrorType = "destination-unreachable" | "time-exceeded";
 export type IcmpMessage = { readonly type: "echo-request" | "echo-reply"; readonly sequence: number }
   | { readonly type: IcmpErrorType; readonly sequence: number; readonly original: {
     readonly sourceIp: string; readonly destinationIp: string; readonly sequence: number;
+    /** 막힌 패킷이 TCP·UDP였을 때 (T0.20). 이때 sequence는 0이다. ping의 오류에는 없다 */
+    readonly protocol?: "tcp" | "udp";
+    readonly destinationPort?: number;
   } };
 
 export function isIcmpError(icmp: IcmpMessage | undefined): icmp is Extract<IcmpMessage, { type: IcmpErrorType }> {
@@ -84,14 +113,35 @@ export function isIcmpError(icmp: IcmpMessage | undefined): icmp is Extract<Icmp
  * 한 시점의 프레임 내용. 계층별로 나뉜다 (FR-42).
  * ARP 프레임이면 `arp`만, ICMP 프레임이면 `ipv4`와 `icmp`가 있다.
  */
+/** 첫 GRE 범위는 IPv4 ICMP, 1단 캡슐화다. 내부에 Ethernet/ARP는 넣지 않는다. */
+export interface GrePacket {
+  readonly version: 0;
+  readonly protocolType: 2048;
+  readonly payload: { readonly ipv4: Ipv4Header; readonly icmp: IcmpMessage };
+}
+
+/** 교육용 ESP tunnel 모델. payload/keyId는 추적을 위한 평문 자료이며 실제 ESP wire format/암호문이 아니다. */
+export interface EspPacket {
+  readonly spi: number;
+  readonly sequence: number;
+  readonly simulation: { readonly kind: "educational-no-encryption"; readonly keyId: string; readonly policy?: string; readonly senderId?: string; readonly receiverId?: string };
+  readonly payload: { readonly ipv4: Ipv4Header; readonly icmp: IcmpMessage };
+}
+
 export interface FrameSnapshot {
   readonly ethernet: EthernetHeader;
+  readonly gre?: GrePacket;
+  readonly esp?: EspPacket;
   readonly arp?: ArpPacket;
   readonly ipv4?: Ipv4Header;
   readonly icmp?: IcmpMessage;
-  /** RIP 프레임일 때 (T11.2.2) */
+  /** RIP 프레임일 때 (T11.2.2), UDP 서비스(DNS, NTP)일 때 (T0.20) */
   readonly udp?: UdpHeader;
   readonly rip?: RipPacket;
+  /** TCP 서비스(HTTP, FTP)일 때 (T0.20) */
+  readonly tcp?: TcpHeader;
+  /** 서비스의 요청이나 응답 (T0.20) */
+  readonly application?: ApplicationData;
 }
 
 /** 이벤트 하나는 프레임 하나가 한 곳에 있는 순간이다. flooding으로 N개 포트에 나가면 이벤트도 N개다 */
@@ -151,6 +201,8 @@ export type TraceSummary =
       readonly targetIp: string;
       /** traceroute의 탐색이면 그 hop 번호 (= 보낸 TTL). ping이면 없다 (T11.4.1) */
       readonly hop?: number;
+      /** 서비스 요청(`curl`, `nslookup` 등)이면 그 서비스 (T0.20). ping이면 없다 */
+      readonly service?: ServiceKind;
     })
   | (TraceSummaryBase & {
       /** RIP 경로 교환 1회. 목록에는 가장 최근 것 하나만 있다 */

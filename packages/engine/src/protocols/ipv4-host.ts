@@ -30,6 +30,22 @@ export interface Ipv4HostConfig {
   readonly ttl: number;
 }
 
+/** IPv4 위에 실리는 것 가운데 ICMP가 아닌 것 (T0.20) */
+export type TransportLayers = Pick<FrameSnapshot, "tcp" | "udp" | "application">;
+
+/** 보냄 이벤트에 공통으로 들어가는 칸. 보내는 쪽이 계층과 설명을 더해 기록한다 */
+export interface SentBase {
+  readonly outPort: string;
+  readonly linkId?: string;
+  readonly parentSeq?: number;
+}
+
+/** TCP·UDP를 다루는 쪽 (T0.20, protocols/transport.ts). 없으면 그런 패킷은 조용히 버린다 */
+export interface TransportHandlers {
+  onPacket(ctx: SimContext, port: string, frame: Frame, address: Ipv4Address): void;
+  onIcmpError(ctx: SimContext, frame: Frame): void;
+}
+
 /** 다음 홉: 같은 네트워크면 목적지, 아니면 게이트웨이. 게이트웨이도 없으면 undefined */
 function nextHop(address: Ipv4Address, targetIp: string): string | undefined {
   if (isSameNetwork(address.ip, targetIp, address.mask)) return targetIp;
@@ -40,10 +56,73 @@ export class Ipv4Host {
   readonly #config: Ipv4HostConfig;
   readonly #arp: ArpModule;
   #replies: number[] = [];
+  #transport: TransportHandlers | undefined;
 
   constructor(config: Ipv4HostConfig, arp: ArpModule) {
     this.#config = config;
     this.#arp = arp;
+  }
+
+  /** TCP·UDP 패킷과 그에 대한 ICMP 오류를 넘겨받을 곳을 정한다 (T0.20) */
+  setTransport(handlers: TransportHandlers): void {
+    this.#transport = handlers;
+  }
+
+  /**
+   * TCP·UDP 패킷을 보낸다 (T0.20). 다음 홉을 정하고 ARP를 거치는 것은 ping과 같다.
+   * 보냄 이벤트는 `record`가 남긴다. 보낼 수 없으면(포트 꺼짐, IP 없음, 게이트웨이 없음) 폐기를 기록한다
+   */
+  sendTransport(
+    ctx: SimContext, port: string, targetIp: string, layers: TransportLayers,
+    record: (ctx: SimContext, frame: Frame, sent: SentBase, ipv4: Ipv4Header) => void, parentSeq?: number,
+  ): void {
+    const { device, macOf, linkOf, ttl } = this.#config;
+    const address = this.#config.addressOf(port);
+    if (this.#config.isUp?.(port) === false) {
+      this.#dropUnsent(ctx, port, { sourceIp: address?.ip ?? "", destinationIp: targetIp, ttl }, layers,
+        { code: "IF_DOWN", params: { device, port } }, parentSeq);
+      return;
+    }
+    if (address === undefined) {
+      this.#dropUnsent(ctx, port, { sourceIp: "", destinationIp: targetIp, ttl }, layers, { code: "NO_IP", params: { device } }, parentSeq);
+      return;
+    }
+    const ipv4: Ipv4Header = { sourceIp: address.ip, destinationIp: targetIp, ttl };
+    const hop = nextHop(address, targetIp);
+    if (hop === undefined) {
+      this.#dropUnsent(ctx, port, ipv4, layers, { code: "NO_GATEWAY", params: { device, targetIp } }, parentSeq);
+      return;
+    }
+    this.#arp.send(ctx, port, hop, {
+      build: (destinationMac): FrameSnapshot => ({ ethernet: { sourceMac: macOf(port), destinationMac }, ipv4, ...layers }),
+      onSend(context, frame, cause) {
+        const linkId = linkOf(port);
+        record(context, frame, {
+          outPort: port, ...(linkId === undefined ? {} : { linkId }), ...(cause === undefined ? {} : { parentSeq: cause }),
+        }, ipv4);
+      },
+    }, parentSeq);
+  }
+
+  /** ICMP 오류를 보낸다 (T0.20: 닫힌 UDP 포트). 보낼 길이 없으면 조용히 그만둔다 */
+  sendIcmpError(ctx: SimContext, port: string, targetIp: string, icmp: IcmpMessage, parentSeq?: number): void {
+    const { device, macOf, linkOf, ttl } = this.#config;
+    const address = this.#config.addressOf(port);
+    if (address === undefined || this.#config.isUp?.(port) === false || !isIcmpError(icmp)) return;
+    const hop = nextHop(address, targetIp);
+    if (hop === undefined) return;
+    const ipv4: Ipv4Header = { sourceIp: address.ip, destinationIp: targetIp, ttl };
+    this.#arp.send(ctx, port, hop, {
+      build: (destinationMac): FrameSnapshot => ({ ethernet: { sourceMac: macOf(port), destinationMac }, ipv4, icmp }),
+      onSend(context, frame, cause) {
+        const linkId = linkOf(port);
+        context.record({
+          frame, deviceId: device.deviceId, outPort: port, ...(linkId === undefined ? {} : { linkId }),
+          layer: "ICMP", action: "reply", ...(cause === undefined ? {} : { parentSeq: cause }),
+          reason: { code: "ICMP_ERROR_SENT", params: { device, sourceIp: ipv4.sourceIp, targetIp, error: icmp.type } },
+        });
+      },
+    }, parentSeq);
   }
 
   /**
@@ -57,7 +136,7 @@ export class Ipv4Host {
 
     // 꺼진 포트로는 보내지 않는다 (T0.14 결정 5). 실제 OS도 패킷을 만들기 전에 막는다. 펭귄이 출발하지 않는다
     if (this.#config.isUp?.(port) === false) {
-      this.#dropUnsent(ctx, port, { sourceIp: address?.ip ?? "", destinationIp: targetIp, ttl }, icmp, {
+      this.#dropUnsent(ctx, port, { sourceIp: address?.ip ?? "", destinationIp: targetIp, ttl }, { icmp }, {
         code: "IF_DOWN", params: { device, port },
       });
       return;
@@ -65,7 +144,7 @@ export class Ipv4Host {
 
     if (address === undefined) {
       // 실제 OS는 패킷을 만들지 않는다. record에 프레임이 필요해서 "보내려던 패킷"을 만든다 (설계 결정 7)
-      this.#dropUnsent(ctx, port, { sourceIp: "", destinationIp: targetIp, ttl }, icmp, {
+      this.#dropUnsent(ctx, port, { sourceIp: "", destinationIp: targetIp, ttl }, { icmp }, {
         code: "NO_IP", params: { device },
       });
       return;
@@ -74,7 +153,7 @@ export class Ipv4Host {
     const ipv4: Ipv4Header = { sourceIp: address.ip, destinationIp: targetIp, ttl };
     const hop = nextHop(address, targetIp);
     if (hop === undefined) {
-      this.#dropUnsent(ctx, port, ipv4, icmp, { code: "NO_GATEWAY", params: { device, targetIp } });
+      this.#dropUnsent(ctx, port, ipv4, { icmp }, { code: "NO_GATEWAY", params: { device, targetIp } });
       return;
     }
 
@@ -111,10 +190,18 @@ export class Ipv4Host {
       return;
     }
 
+    // TCP·UDP는 전송 계층이 다룬다 (T0.20). RIP는 멀티캐스트라 여기까지 오지 않는다
+    if (frame.snapshot.tcp !== undefined || frame.snapshot.udp !== undefined) {
+      this.#transport?.onPacket(ctx, port, frame, address);
+      return;
+    }
+
     if (isIcmpError(icmp)) {
       if (icmp.original.sourceIp !== address.ip || icmp.original.sequence !== icmp.sequence) return;
       ctx.record({ frame, deviceId, inPort: port, layer: "ICMP", action: "receive",
         reason: { code: "ICMP_ERROR_RECEIVED", params: { device, sourceIp: ipv4.sourceIp, targetIp: ipv4.destinationIp, error: icmp.type } } });
+      // 막힌 것이 TCP·UDP 패킷이었으면 기다리던 요청에 알린다 (T0.20)
+      if (icmp.original.protocol !== undefined) this.#transport?.onIcmpError(ctx, frame);
     } else if (icmp?.type === "echo-request") this.#onEchoRequest(ctx, port, frame, address, ipv4, icmp);
     else if (icmp?.type === "echo-reply") {
       ctx.record({
@@ -155,7 +242,7 @@ export class Ipv4Host {
     // 응답의 다음 홉도 보낼 때와 같은 규칙이다. 다른 네트워크에서 왔으면 게이트웨이로
     const hop = nextHop(address, request.sourceIp);
     if (hop === undefined) {
-      this.#dropUnsent(ctx, port, ipv4, reply, {
+      this.#dropUnsent(ctx, port, ipv4, { icmp: reply }, {
         code: "NO_GATEWAY", params: { device, targetIp: request.sourceIp },
       }, received);
       return;
@@ -192,7 +279,7 @@ export class Ipv4Host {
     ctx: SimContext,
     port: string,
     ipv4: Ipv4Header,
-    icmp: IcmpMessage,
+    layers: Pick<FrameSnapshot, "icmp" | "tcp" | "udp" | "application">,
     reason: { readonly code: "NO_IP"; readonly params: { readonly device: DeviceRef } }
       | { readonly code: "NO_GATEWAY"; readonly params: { readonly device: DeviceRef; readonly targetIp: string } }
       | { readonly code: "IF_DOWN"; readonly params: { readonly device: DeviceRef; readonly port: string } },
@@ -201,7 +288,7 @@ export class Ipv4Host {
     const frame = ctx.createFrame({
       ethernet: { sourceMac: this.#config.macOf(port), destinationMac: UNKNOWN_MAC },
       ipv4,
-      icmp,
+      ...layers,
     });
     ctx.record({
       frame, deviceId: this.#config.device.deviceId, layer: "L3", action: "drop",

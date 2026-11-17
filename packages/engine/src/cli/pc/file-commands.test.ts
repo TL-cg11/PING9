@@ -163,7 +163,7 @@ describe("Tab 완성과 후보 (A안: 두 OS 모두 bash처럼)", () => {
     await linux("mkdir notes");
     await linux("touch note.txt");
     expect(port.complete("c")).toBeNull();
-    expect(port.candidates("c")).toEqual(["cat", "cd", "clear", "cp"]);
+    expect(port.candidates("c")).toEqual(["cat", "cd", "clear", "cp", "curl"]);
     expect(port.complete("cat r")).toBe("cat readme.txt ");
     expect(port.complete("cat no")).toBe("cat note");
     expect(port.complete("cat note")).toBeNull();
@@ -182,7 +182,7 @@ describe("Tab 완성과 후보 (A안: 두 OS 모두 bash처럼)", () => {
     const port = sim.console(LAB.pc1.id);
     expect(port.complete("type READ")).toBe("type readme.txt ");
     expect(port.complete("cd \\us")).toBe("cd \\Users\\");
-    expect(port.candidates("c")).toEqual(["cd", "cd..", "cd\\", "cls", "copy"]);
+    expect(port.candidates("c")).toEqual(["cd", "cd..", "cd\\", "cls", "copy", "curl"]);
     expect(port.complete("ipc")).toBe("ipconfig ");
   });
 });

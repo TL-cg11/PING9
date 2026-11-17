@@ -376,7 +376,8 @@ export function App() {
           },
           isHop: (traceId) => {
             const summary = simulator.getSnapshot().traces.find((candidate) => candidate.id === traceId);
-            return summary?.kind === "ping" && summary.hop !== undefined;
+            // 서비스 요청(T0.20)도 회차가 하나라, 멈추면 ping 통계 없이 `^C`만 찍는다
+            return summary?.kind === "ping" && (summary.hop !== undefined || summary.service !== undefined);
           },
           // Firewall의 콘솔은 Linux다 (T14.2.1)
           os: device?.kind === "pc" ? osOf(device.config) : device?.kind === "firewall" ? "linux" : "windows",

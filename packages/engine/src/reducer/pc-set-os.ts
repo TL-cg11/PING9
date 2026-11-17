@@ -1,14 +1,14 @@
-// reducer: `pc/set-os` (T0.7). PC의 OS를 바꾼다.
+// reducer: `pc/set-os` (T0.7). PC의 OS를 바꾼다. Server도 여기서 고른다 (T0.20).
 // IP 구성과 링크는 그대로 둔다. 바뀌는 것은 콘솔의 명령어와 출력 형식, 화면의 아이콘이다.
 
-import { OS_KINDS, errorInfo } from "@ping9/shared";
-import type { OsKind } from "@ping9/shared";
+import { PC_OS_CHOICES, errorInfo } from "@ping9/shared";
+import type { PcOsChoice } from "@ping9/shared";
 
 import { describeValue } from "../describe";
 import type { CommandHandler } from "../reducer";
 
-function isOsKind(value: unknown): value is OsKind {
-  return typeof value === "string" && (OS_KINDS as readonly string[]).includes(value);
+function isOsKind(value: unknown): value is PcOsChoice {
+  return typeof value === "string" && (PC_OS_CHOICES as readonly string[]).includes(value);
 }
 
 export const setPcOs: CommandHandler<"pc/set-os"> = (document, command) => {

@@ -1,7 +1,7 @@
 // 오른쪽 속성 패널. 시안의 selectDevice가 만드는 마크업과 클래스를 따른다.
 // 구성 값은 스냅샷의 Document에서, 포트 상태와 테이블은 스냅샷의 views에서 읽는다 (AD-7).
 
-import { LIMITS, shortPortName } from "@ping9/shared";
+import { LIMITS, isServer, shortPortName } from "@ping9/shared";
 import type { Command, DeviceKind, DispatchResult, PortView, RouteChangeView, Snapshot, TopologyDocument } from "@ping9/shared";
 import type { ReactNode } from "react";
 
@@ -10,8 +10,10 @@ import { DeviceName } from "./device-name";
 import { FirewallRules } from "./firewall-inspector";
 import { PcSettings } from "./pc-settings";
 import { ripSummaryFor, RouteExchange, RouterRoutingTable } from "./router-inspector";
+import { ServerServices } from "./server-services";
 import { SwitchMacTable, SwitchVlanList } from "./switch-inspector";
 import { SwitchPortTag, trunkAllowedText } from "./switch-port-tag";
+import { VpnSettings } from "./vpn-settings";
 
 const KIND_LABEL: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router", firewall: "Firewall" };
 
@@ -89,7 +91,10 @@ export function Inspector({
       </div>
 
       {device.kind === "pc" && <PcSettings key={device.id} device={device} onDispatch={onDispatch} />}
+      {device.kind === "pc" && isServer(device.config) &&
+        <ServerServices key={`services ${device.id}`} device={device} onDispatch={onDispatch} />}
       {device.kind === "switch" && <SwitchVlanList config={device.config} />}
+      {device.kind === "router" && <VpnSettings key={device.id} device={device} onDispatch={onDispatch} />}
 
       <h4>{device.kind === "switch" ? "포트" : "인터페이스"}</h4>
       {view.ports.map((port) => (
@@ -105,6 +110,26 @@ export function Inspector({
           </span>
         </div>
       ))}
+
+      {device.kind === "router" && view.kind === "router" && view.tunnels !== undefined && <>
+        <h4>GRE 터널</h4>
+        {view.tunnels.map(tunnel => <div key={tunnel.name} className="if-row">
+          <span className={tunnel.status === "up" ? "dot" : "dot off"} />
+          {tunnel.name}<span className="port-state">{tunnel.status}</span>
+          <span className="ip">{device.config.tunnels?.[tunnel.name]?.ip ?? "IP 없음"}</span>
+        </div>)}
+        <div className="sub">GRE/IP · 암호화 없음 · CLI에서 설정</div>
+      </>}
+
+      {view.kind === "router" && view.ipsec !== undefined && <>
+        <h4>IPsec 실습</h4>
+        {view.ipsec.map(sa => <div key={sa.name} className="if-row">
+          <span className={sa.status === "active" ? "dot" : "dot off"} />
+          {sa.name}<span className="port-state">{sa.status}</span>
+          <span className="ip">송신 {sa.encapsulated} · 수신 {sa.decapsulated}</span>
+        </div>)}
+        <div className="sub">교육용 시뮬레이션 · 실제 암호화/IKE 없음</div>
+      </>}
 
       {view.kind === "switch" && <SwitchMacTable view={view} />}
       {view.kind === "router" && <RouterRoutingTable view={view} changes={changes} />}

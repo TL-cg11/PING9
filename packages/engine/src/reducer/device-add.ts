@@ -5,13 +5,13 @@ import {
   DEVICE_KINDS,
   EMPTY_FIREWALL_FILTER,
   LIMITS,
-  OS_KINDS,
+  PC_OS_CHOICES,
   PORT_NAMES,
   errorInfo,
   isUuid,
   validateDocument,
 } from "@ping9/shared";
-import type { Device, DeviceKind, OsKind, Position, TopologyDocument } from "@ping9/shared";
+import type { Device, DeviceKind, PcOsChoice, Position, TopologyDocument } from "@ping9/shared";
 
 import { describeValue } from "../describe";
 import type { CommandHandler } from "../reducer";
@@ -25,7 +25,7 @@ function nextName(document: TopologyDocument, kind: DeviceKind): string {
   return `${PREFIX[kind]}${number}`;
 }
 
-function newDevice(kind: DeviceKind, id: string, name: string, position: Position, os: OsKind | undefined): Device {
+function newDevice(kind: DeviceKind, id: string, name: string, position: Position, os: PcOsChoice | undefined): Device {
   const base = { id, name, position };
   switch (kind) {
     case "pc":
@@ -59,7 +59,7 @@ export const addDevice: CommandHandler<"device/add"> = (document, command) => {
     return { ok: false, error: errorInfo("DOCUMENT_INVALID_SHAPE", { path: "kind" }) };
   }
   // `os`는 PC에만 있다 (T0.7)
-  if (command.os !== undefined && (command.kind !== "pc" || !OS_KINDS.includes(command.os))) {
+  if (command.os !== undefined && (command.kind !== "pc" || !PC_OS_CHOICES.includes(command.os))) {
     return { ok: false, error: errorInfo("DOCUMENT_INVALID_SHAPE", { path: "os" }) };
   }
   if (typeof command.id !== "string" || !isUuid(command.id)) {

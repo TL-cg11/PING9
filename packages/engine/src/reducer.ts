@@ -29,9 +29,14 @@ import { setInterfaceAdmin } from "./reducer/interface-admin";
 import { addLink, removeDevice, removeLink } from "./reducer/link";
 import { setPcIp } from "./reducer/pc-set-ip";
 import { setPcOs } from "./reducer/pc-set-os";
+import { addPcDnsRecord, removePcDnsRecord, setPcService } from "./reducer/pc-services";
 import { clearRouterInterfaceIp, setRouterInterfaceIp } from "./reducer/router-interface-ip";
 import { addRipNetwork, disableRip, enableRip, removeRipNetwork, setRipPassive } from "./reducer/router-rip";
 import { addRoute, removeRoute } from "./reducer/router-route";
+import { removeTunnel, setTunnel } from "./reducer/router-tunnel";
+import { removeIpsec, setIpsec } from "./reducer/router-ipsec";
+import { commitVyos, setCliStyle } from "./reducer/router-vyos";
+import { setVpnMode } from "./reducer/router-vpn-mode";
 import {
   setSwitchportAccessVlan,
   setSwitchportAllowedVlans,
@@ -54,6 +59,13 @@ export type CommandHandler<T extends CommandType> = (
 
 // 처리기의 본문은 reducer/ 폴더의 각자 파일에 두고, 여기에는 자기 Command의 줄만 더한다
 const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
+  "router/set-cli-style": setCliStyle,
+  "router/commit-vyos": commitVyos,
+  "router/set-vpn-mode": setVpnMode,
+  "ipsec/set": setIpsec,
+  "ipsec/remove": removeIpsec,
+  "tunnel/set": setTunnel,
+  "tunnel/remove": removeTunnel,
   "device/add": addDevice,
   "device/move": moveDevice,
   "device/rename": renameDevice,
@@ -62,6 +74,9 @@ const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
   "link/remove": removeLink,
   "pc/set-ip": setPcIp,
   "pc/set-os": setPcOs,
+  "pc/set-service": setPcService,
+  "pc/add-dns-record": addPcDnsRecord,
+  "pc/remove-dns-record": removePcDnsRecord,
   // 인터페이스와 Static route의 Command는 Firewall도 쓴다 (T14.2.1). 장비가 Firewall이면 그쪽 처리기로 간다
   "interface/set-admin": orFirewall(setFirewallInterfaceAdmin, setInterfaceAdmin),
   "interface/set-ip": orFirewall(setFirewallInterfaceIp, setRouterInterfaceIp),

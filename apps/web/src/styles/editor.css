@@ -163,6 +163,11 @@ button { font: inherit; cursor: pointer; }
 }
 @media (prefers-reduced-motion: reduce) { .link.selected .cable-halo { animation: none; } }
 .wire-port { font-size: 9px; fill: var(--navy-60); stroke: #fff; stroke-width: 3px; paint-order: stroke; pointer-events: none; }
+/* 포트 위의 주소 끝자리와 케이블 가운데의 대역 (T6.4.1) */
+.wire-ip { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 10px; font-weight: 700; fill: var(--sky-700); stroke: #fff; stroke-width: 3px; paint-order: stroke; pointer-events: none; }
+.wire-band { pointer-events: none; }
+.wire-band rect { fill: #fff; stroke: var(--sky-700); stroke-width: 1; }
+.wire-band text { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 9px; font-weight: 700; fill: var(--sky-700); stroke: none; }
 .link.selected .wire, .link:focus-visible .wire { stroke: var(--sky-700); stroke-width: 4; }
 /* 브라우저 기본 포커스 테두리를 끈다. Chrome은 클릭에도 SVG 묶음 둘레에 굵은 네모를 그린다. 키보드 포커스는 위의 굵은 선으로 보인다 */
 .link:focus, .link:focus-visible { outline: none; }
@@ -309,7 +314,8 @@ button { font: inherit; cursor: pointer; }
 .pc-form .field { margin-bottom: 10px; }
 .pc-form .prefix { display: block; margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--navy-60); }
 /* PC의 OS 고르기 (T0.7). IP 설정 위 */
-.os-choice { border: none; margin: 0 0 14px; padding: 0; display: flex; gap: 14px; align-items: center; }
+/* 고를 것이 셋이라(T0.20) 사이를 좁히고, 패널이 좁으면 줄을 바꾼다 */
+.os-choice { border: none; margin: 0 0 14px; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
 .os-choice legend { float: left; margin-right: 4px; padding: 0; font-size: 12px; color: var(--navy-60); }
 .os-choice label { display: inline-flex; gap: 5px; align-items: center; font-size: 13px; color: var(--navy); cursor: pointer; }
 .os-choice input { margin: 0; accent-color: var(--sky-700); }
@@ -324,6 +330,19 @@ button { font: inherit; cursor: pointer; }
 .port-row.off .port-switch { color: var(--navy-60); }
 .port-row.off .track { background: #B8C2D9; }
 .port-row.off .knob { left: 2px; }
+/* 서버의 DNS 이름 (T0.20). 줄 끝의 지우기 버튼과 추가 칸 */
+.dns-remove { border: none; background: none; padding: 0 2px; font-size: 16px; line-height: 1; color: var(--navy-60); cursor: pointer; }
+.dns-remove:hover, .dns-remove:focus-visible { color: var(--danger); }
+.dns-form { margin-top: 10px; }
+.vpn-settings { margin-top: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--ice-100); }
+.vpn-choice { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
+.vpn-choice legend { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.vpn-choice label { display: flex; gap: 8px; align-items: center; padding: 8px; border: 1px solid transparent; border-radius: 8px; font-size: 12px; cursor: pointer; }
+.vpn-choice label.selected { background: #fff; border-color: var(--sky-500); }
+.vpn-choice input { margin: 0; accent-color: var(--sky-700); }
+.vpn-help { font-size: 12px; line-height: 1.6; margin-top: 10px; }
+.vpn-note { font-size: 11px; line-height: 1.6; color: var(--navy-60); margin-top: 6px; }
+.vpn-error { font-size: 12px; color: var(--danger); margin-top: 8px; }
 .pc-form label { display: block; font-size: 12px; color: var(--navy-60); margin-bottom: 4px; }
 .pc-form input { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--navy); background: #fff; }
 .pc-form input:focus { outline: none; border-color: var(--sky-500); box-shadow: 0 0 0 3px var(--ice-100); }
@@ -366,6 +385,11 @@ button { font: inherit; cursor: pointer; }
   stroke: #fff;
   stroke-width: 3px;
   paint-order: stroke;
+}
+/* ARP의 `?`·`!`는 크게 (T6.4.1과 함께) */
+.penguin-mark.big {
+  font-size: 22px;
+  stroke-width: 4px;
 }
 /* 펭귄을 눌러 패킷 카드 보기 (T6.3.1). 시뮬레이션 모드에서만 눌린다 */
 .packet-layer .penguin.pickable { pointer-events: auto; cursor: pointer; }
@@ -420,6 +444,9 @@ button { font: inherit; cursor: pointer; }
 .pkt-icmp { background: #FFF4DC; border-color: #F2CD7A; } .pkt-icmp > .pkt-box-title .pkt-tag, .pkt-sw.pkt-icmp { background: #C98A12; }
 .pkt-icmp-error { background: #FFECEC; border-color: #F0A2A4; } .pkt-icmp-error > .pkt-box-title .pkt-tag, .pkt-sw.pkt-icmp-error { background: #D9474B; }
 .pkt-rip { background: #F6EAFB; border-color: #D3A4E8; } .pkt-rip > .pkt-box-title .pkt-tag, .pkt-sw.pkt-rip { background: #A452C7; }
+.pkt-tunnel { background: #E9F3FB; border-color: #93BEE3; } .pkt-tunnel > .pkt-box-title .pkt-tag, .pkt-sw.pkt-tunnel { background: #2F7FC1; }
+.pkt-app { background: #FFF0E6; border-color: #F2B48A; } .pkt-app > .pkt-box-title .pkt-tag, .pkt-sw.pkt-app { background: #D9702B; }
+.pkt-box dd.pkt-data { white-space: pre-wrap; word-break: break-all; max-height: 72px; overflow: auto; }
 .pkt-original { background: #fff; border: 1.5px dashed #F0A2A4; }
 .pkt-original > .pkt-box-title .pkt-tag { background: #fff; color: #D9474B; border: 1px solid #D9474B; }
 
@@ -485,6 +512,8 @@ button { font: inherit; cursor: pointer; }
 .ev-row .l { display: inline-block; font-style: normal; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 5px; margin-right: 5px; vertical-align: 1px; }
 .ev-row .l.L2 { background: #E3EEFF; color: #2F6BD8; } .ev-row .l.ARP { background: #FFF2DB; color: #B7791F; }
 .ev-row .l.ICMP { background: #E6F6EC; color: #23874F; } .ev-row .l.L3 { background: #EFE8FF; color: #6B4BD8; } .ev-row .l.RIP { background: #FDE8F4; color: #B83A85; }
+/* TCP, UDP, 응용 계층 (T0.20) */
+.ev-row .l.TCP { background: #E0F4FA; color: #17788F; } .ev-row .l.UDP { background: #FCEBDD; color: #B25A1B; } .ev-row .l.APP { background: #ECEFF6; color: #3D4A6B; }
 .ev-row .x { color: #E5484D; font-weight: 800; }
 .ev-row.drop > button { color: #9AA8BE; } .ev-row.drop .d { color: #9AA8BE; }
 .ev-row.cause { background: #FFF1F1; border: 1px solid #F6C9CB; }

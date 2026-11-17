@@ -8,8 +8,8 @@ import type { FirewallChainConfig, FirewallRule, FirewallTarget, FrameSnapshot }
 export interface FilterPacket {
   readonly sourceIp: string;
   readonly destinationIp: string;
-  /** PING9의 프레임에는 ICMP와 UDP(RIP)만 있다. TCP 규칙은 저장되지만 맞는 패킷이 없다 */
-  readonly protocol?: "icmp" | "udp";
+  /** ICMP(ping), TCP(HTTP, FTP), UDP(DNS, NTP, RIP) */
+  readonly protocol?: "icmp" | "tcp" | "udp";
   readonly icmpType?: NonNullable<FirewallRule["icmpType"]>;
   readonly sourcePort?: number;
   readonly destinationPort?: number;
@@ -28,11 +28,12 @@ export interface FilterVerdict {
 }
 
 /** 프레임에서 필터가 볼 값을 꺼낸다. IPv4가 아니면 undefined (ARP는 iptables가 보지 않는다) */
-export function filterPacketOf(snapshot: Pick<FrameSnapshot, "ipv4" | "icmp" | "udp">): FilterPacket | undefined {
-  const { ipv4, icmp, udp } = snapshot;
+export function filterPacketOf(snapshot: Pick<FrameSnapshot, "ipv4" | "icmp" | "udp" | "tcp">): FilterPacket | undefined {
+  const { ipv4, icmp, udp, tcp } = snapshot;
   if (ipv4 === undefined) return undefined;
   const base = { sourceIp: ipv4.sourceIp, destinationIp: ipv4.destinationIp };
   if (icmp !== undefined) return { ...base, protocol: "icmp", icmpType: icmp.type };
+  if (tcp !== undefined) return { ...base, protocol: "tcp", sourcePort: tcp.sourcePort, destinationPort: tcp.destinationPort };
   if (udp !== undefined) return { ...base, protocol: "udp", sourcePort: udp.sourcePort, destinationPort: udp.destinationPort };
   return base;
 }

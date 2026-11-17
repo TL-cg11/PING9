@@ -147,14 +147,23 @@ test("Linux PC는 아이콘과 이름표에 OS가 나온다 (T0.7)", () => {
 });
 
 
-test("이름·IP·포트·VLAN 글자는 아이콘과 케이블 뒤에 그리는 최상위 글자 레이어에 있다", () => {
+test("장비 이름·IP는 맨 위 글자 층에, 포트·VLAN 글자는 케이블 바로 위·장비 아래 층에 있다", () => {
   const html = render(twoSwitchVlanDocument);
   const overlay = html.indexOf('class="canvas-labels"');
   expect(overlay).toBeGreaterThan(html.lastIndexOf('class="icon icon-'));
-  expect(overlay).toBeGreaterThan(html.lastIndexOf('class="cable"'));
   const textLayer = html.slice(overlay, html.indexOf("</svg>", overlay));
-  for (const label of ['class="lbl"', 'class="ip"', 'class="wire-port"', 'class="cable-text"', 'class="net"']) {
+  for (const label of ['class="lbl"', 'class="ip"']) {
     expect(textLayer).toContain(label);
     expect(html.slice(0, overlay)).not.toContain(label);
+  }
+
+  // 펭귄이 밟고 지나가도록 케이블 글자는 케이블 뒤, 장비 아이콘 앞에 그린다
+  const cableLayer = html.indexOf('class="canvas-labels cable-labels"');
+  expect(cableLayer).toBeGreaterThan(html.lastIndexOf('class="cable"'));
+  expect(cableLayer).toBeLessThan(html.indexOf('class="icon icon-'));
+  const cableText = html.slice(cableLayer, html.indexOf('class="node', cableLayer));
+  for (const label of ['class="wire-port"', 'class="cable-text"', 'class="net"']) {
+    expect(cableText).toContain(label);
+    expect(textLayer).not.toContain(label);
   }
 });

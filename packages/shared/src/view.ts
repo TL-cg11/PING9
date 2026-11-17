@@ -83,7 +83,29 @@ export interface SwitchView {
   readonly macTable: readonly MacTableEntryView[];
 }
 
+export interface GreTunnelView {
+  readonly name: string;
+  readonly status: "up" | "down" | "admin-down";
+  readonly sourceIp?: string;
+  readonly destination?: string;
+}
+
+export interface IpsecSaView {
+  readonly name: string;
+  readonly status: "disabled" | "incomplete" | "configured" | "active" | "expired" | "down";
+  readonly peer?: string;
+  readonly inboundSpi?: number;
+  readonly outboundSpi?: number;
+  readonly txSequence: number;
+  readonly rxHighest: number;
+  readonly encapsulated: number;
+  readonly decapsulated: number;
+  readonly rejected: number;
+}
+
 export interface RouterView {
+  readonly ipsec?: readonly IpsecSaView[];
+  readonly tunnels?: readonly GreTunnelView[];
   readonly kind: "router";
   readonly ports: readonly PortView[];
   readonly arpTable: readonly ArpEntryView[];

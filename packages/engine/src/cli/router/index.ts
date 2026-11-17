@@ -7,6 +7,9 @@ import { ROUTER_ROUTE_COMMANDS } from "./route-commands";
 import { ROUTER_NETWORK_COMMANDS } from "./network-commands";
 import { ROUTER_RIP_COMMANDS } from "./rip-commands";
 import { ROUTER_RIP_SHOW_COMMANDS } from "./rip-show";
+import { ROUTER_TUNNEL_COMMANDS } from "./tunnel-commands";
+import { ROUTER_IPSEC_COMMANDS } from "./ipsec-commands";
+import { ROUTER_VPN_MODE_COMMANDS } from "./vpn-mode-commands";
 
 export const ROUTER_COMMANDS: readonly CommandDefinition[] = [
   ...BASE_COMMANDS,
@@ -17,4 +20,7 @@ export const ROUTER_COMMANDS: readonly CommandDefinition[] = [
   ...ROUTER_NETWORK_COMMANDS,
   ...ROUTER_RIP_COMMANDS,
   ...ROUTER_RIP_SHOW_COMMANDS,
+  ...ROUTER_TUNNEL_COMMANDS,
+  ...ROUTER_IPSEC_COMMANDS,
+  ...ROUTER_VPN_MODE_COMMANDS,
 ];

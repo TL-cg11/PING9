@@ -8,6 +8,8 @@ export const LIMITS = {
   maxStaticRoutesPerRouter: 100,
   /** Router당 RIP `network` 수. 실제 IOS에는 한도가 없으나 문서 크기를 막는 다른 한도와 같은 취지 (T11.2.1) */
   maxRipNetworks: 16,
+  /** 서버 하나의 DNS 이름 수 (T0.20). 문서에 수치가 없어 정함 */
+  maxDnsRecords: 32,
   /** Firewall의 체인 하나에 넣는 규칙 수 (T14.2.1). 문서에 수치가 없어 VLAN 수 한도와 같게 둠 */
   maxFirewallRulesPerChain: 64,
   /** Switch당 VLAN 수 (SEC-15) */
@@ -43,6 +45,7 @@ export type LimitName =
   | "staticRoutes"
   | "ripNetworks"
   | "firewallRules"
+  | "dnsRecords"
   | "vlans"
   | "allowedVlanRanges";
 

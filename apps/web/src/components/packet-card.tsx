@@ -5,7 +5,7 @@ import { macAddressFor } from "@ping9/engine";
 import {
   BROADCAST_MAC, PORT_NAMES, RIP_MULTICAST_IP, RIP_MULTICAST_MAC, UNKNOWN_MAC, isIcmpError, portIndex, shortPortName, switchPort,
 } from "@ping9/shared";
-import type { Device, TopologyDocument, TraceEvent } from "@ping9/shared";
+import type { Device, IcmpMessage, TopologyDocument, TraceEvent } from "@ping9/shared";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -20,6 +20,13 @@ const TITLE: Readonly<Record<FrameKind, string>> = {
   "icmp-error": "ICMP 오류",
   "rip-request": "RIP 요청",
   "rip-response": "RIP 응답",
+  "gre-request": "GRE로 감싼 ping 요청",
+  "gre-reply": "GRE로 감싼 ping 응답",
+  "esp": "IPsec ESP",
+  "tcp-request": "TCP 요청",
+  "tcp-response": "TCP 응답",
+  "udp-request": "UDP 요청",
+  "udp-response": "UDP 응답",
 };
 
 const COLOR: Readonly<Record<FrameKind, string>> = {
@@ -30,6 +37,14 @@ const COLOR: Readonly<Record<FrameKind, string>> = {
   "icmp-error": "#E5484D",
   "rip-request": "#A452C7",
   "rip-response": "#A452C7",
+  // 펭귄 물고기 색과 같다: 요청은 파랑, 응답은 노랑
+  "gre-request": "#4A8CF0",
+  "gre-reply": "#E8B21E",
+  "esp": "#4A8CF0",
+  "tcp-request": "#4A8CF0",
+  "tcp-response": "#E8B21E",
+  "udp-request": "#4A8CF0",
+  "udp-response": "#E8B21E",
 };
 
 /** 주소 → 장비·포트 이름 */
@@ -83,6 +98,26 @@ function Box({ layer, tag, title, children }: {
   );
 }
 
+function IcmpBox({ icmp, ipOwner }: { readonly icmp: IcmpMessage; readonly ipOwner: (ip: string) => string | undefined }) {
+  const error = isIcmpError(icmp);
+  return (
+    <Box layer={error ? "icmp-error" : "icmp"} tag="ICMP" title={icmp.type}>
+      <dl><dt>종류</dt><dd>{icmp.type}</dd><dt>순번</dt><dd>{icmp.sequence}</dd></dl>
+      {error && (
+        <Box layer="original" tag="원래 패킷" title="">
+          <dl>
+            <dt>출발 IP</dt><Value value={icmp.original.sourceIp} owner={ipOwner(icmp.original.sourceIp)} />
+            <dt>도착 IP</dt><Value value={icmp.original.destinationIp} owner={ipOwner(icmp.original.destinationIp)} />
+            {icmp.original.protocol !== undefined
+              ? <><dt>{icmp.original.protocol.toUpperCase()}</dt><dd>도착 포트 {icmp.original.destinationPort}</dd></>
+              : <><dt>순번</dt><dd>{icmp.original.sequence}</dd></>}
+          </dl>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 export function PacketCard({ event, document, linkId, onClose }: {
   readonly event: TraceEvent;
   readonly document: TopologyDocument;
@@ -90,7 +125,7 @@ export function PacketCard({ event, document, linkId, onClose }: {
   readonly linkId: string | undefined;
   readonly onClose: () => void;
 }) {
-  const { ethernet, arp, ipv4, icmp, udp, rip } = event.frame;
+  const { ethernet, arp, ipv4, icmp, udp, tcp, rip, application, gre, esp } = event.frame;
   const kind = frameKind(event);
   const [help, setHelp] = useState(false);
   const owners = ownersOf(document);
@@ -99,6 +134,16 @@ export function PacketCard({ event, document, linkId, onClose }: {
 
   // 안쪽부터 쌓는다
   let inner: ReactNode = null;
+  if (application !== undefined) {
+    inner = (
+      <Box layer="app" tag="L7" title={application.service.toUpperCase()}>
+        <dl>
+          <dt>내용</dt><dd>{application.message}</dd>
+          {application.data !== undefined && <><dt>본문</dt><dd className="pkt-data">{application.data}</dd></>}
+        </dl>
+      </Box>
+    );
+  }
   if (rip !== undefined) {
     inner = (
       <Box layer="rip" tag="RIP" title={rip.command}>
@@ -120,22 +165,37 @@ export function PacketCard({ event, document, linkId, onClose }: {
       </Box>
     );
   }
-  if (icmp !== undefined) {
-    const error = isIcmpError(icmp);
+  if (tcp !== undefined) {
     inner = (
-      <Box layer={error ? "icmp-error" : "icmp"} tag="ICMP" title={icmp.type}>
-        <dl><dt>종류</dt><dd>{icmp.type}</dd><dt>순번</dt><dd>{icmp.sequence}</dd></dl>
-        {error && (
-          <Box layer="original" tag="원래 패킷" title="">
-            <dl>
-              <dt>출발 IP</dt><Value value={icmp.original.sourceIp} owner={ipOwner(icmp.original.sourceIp)} />
-              <dt>도착 IP</dt><Value value={icmp.original.destinationIp} owner={ipOwner(icmp.original.destinationIp)} />
-              <dt>순번</dt><dd>{icmp.original.sequence}</dd>
-            </dl>
-          </Box>
-        )}
+      <Box layer="l4" tag="L4" title="TCP">
+        <dl>
+          <dt>출발 포트</dt><dd>{tcp.sourcePort}</dd><dt>도착 포트</dt><dd>{tcp.destinationPort}</dd>
+          <dt>플래그</dt><dd>{tcp.flags}</dd>
+        </dl>
+        {inner}
       </Box>
     );
+  }
+  // GRE·ESP는 안쪽 IPv4와 ICMP를 따로 싸고 있다. 바깥 ICMP는 그리지 않는다
+  const tunnel = gre ?? esp;
+  if (tunnel !== undefined) {
+    const { payload } = tunnel;
+    inner = (
+      <Box layer="tunnel" tag={gre !== undefined ? "GRE" : "ESP"}
+        title={esp !== undefined ? `SPI ${esp.spi} · 순번 ${esp.sequence} (암호화 없음)` : "감싼 패킷"}>
+        <Box layer="l3" tag="L3" title="안쪽 IPv4">
+          <dl>
+            <dt>출발 IP</dt><Value value={payload.ipv4.sourceIp} owner={ipOwner(payload.ipv4.sourceIp)} />
+            <dt>도착 IP</dt><Value value={payload.ipv4.destinationIp} owner={ipOwner(payload.ipv4.destinationIp)} />
+            <dt>TTL</dt><dd>{payload.ipv4.ttl}</dd>
+          </dl>
+          <IcmpBox icmp={payload.icmp} ipOwner={ipOwner} />
+        </Box>
+      </Box>
+    );
+  }
+  if (icmp !== undefined && tunnel === undefined) {
+    inner = <IcmpBox icmp={icmp} ipOwner={ipOwner} />;
   }
   if (ipv4 !== undefined) {
     inner = (
@@ -192,9 +252,10 @@ export function PacketCard({ event, document, linkId, onClose }: {
         <p>바깥 상자(L2)부터 안쪽으로 패킷이 싸여 있는 순서예요.</p>
         <ul className="pkt-tip-layers">
           <li><i className="pkt-sw pkt-l2" />L2 Ethernet</li><li><i className="pkt-sw pkt-arp" />ARP</li>
-          <li><i className="pkt-sw pkt-l3" />L3 IPv4</li><li><i className="pkt-sw pkt-l4" />L4 UDP</li>
+          <li><i className="pkt-sw pkt-l3" />L3 IPv4</li><li><i className="pkt-sw pkt-l4" />L4 TCP·UDP</li>
           <li><i className="pkt-sw pkt-icmp" />ICMP</li><li><i className="pkt-sw pkt-icmp-error" />ICMP 오류</li>
-          <li><i className="pkt-sw pkt-rip" />RIP</li>
+          <li><i className="pkt-sw pkt-rip" />RIP</li><li><i className="pkt-sw pkt-tunnel" />GRE·ESP</li>
+          <li><i className="pkt-sw pkt-app" />L7 서비스</li>
         </ul>
         <dl>
           <dt>회색 글씨</dt><dd>그 주소를 가진 장비·포트</dd>

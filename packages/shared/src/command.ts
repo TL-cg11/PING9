@@ -4,13 +4,21 @@
 
 import type { ErrorInfo, Notice } from "./codes";
 import type {
-  DeviceKind, FirewallChain, FirewallPolicy, FirewallRule, OsKind, PortRef, Position, SwitchportMode, VlanRange,
+  DeviceKind, FirewallChain, FirewallPolicy, FirewallRule, GreTunnelConfig, IpsecProfileConfig, PcOsChoice, PortRef, Position,
+  RouterConfig, ServiceKind, SwitchportMode, VlanRange, VpnMode,
 } from "./document";
 
 export type Command =
+  | { readonly type: "router/set-cli-style"; readonly deviceId: string; readonly style: "ios" | "vyos" }
+  | { readonly type: "router/commit-vyos"; readonly deviceId: string; readonly config: RouterConfig }
+  | { readonly type: "router/set-vpn-mode"; readonly deviceId: string; readonly mode: VpnMode | null }
+  | { readonly type: "ipsec/set"; readonly deviceId: string; readonly name: string; readonly config: IpsecProfileConfig }
+  | { readonly type: "ipsec/remove"; readonly deviceId: string; readonly name: string }
+  | { readonly type: "tunnel/set"; readonly deviceId: string; readonly name: string; readonly config: GreTunnelConfig }
+  | { readonly type: "tunnel/remove"; readonly deviceId: string; readonly name: string }
   // 장비 (FR-9 ~ FR-11). 기본 이름(PC1, SW1, R1)과 기본 구성은 reducer가 붙인다.
   // `os`는 PC에만 쓴다 (T0.7). 없으면 DEFAULT_OS
-  | { readonly type: "device/add"; readonly id: string; readonly kind: DeviceKind; readonly position: Position; readonly os?: OsKind }
+  | { readonly type: "device/add"; readonly id: string; readonly kind: DeviceKind; readonly position: Position; readonly os?: PcOsChoice }
   | { readonly type: "device/move"; readonly deviceId: string; readonly position: Position }
   | { readonly type: "device/rename"; readonly deviceId: string; readonly name: string }
   | { readonly type: "device/remove"; readonly deviceId: string }
@@ -25,7 +33,12 @@ export type Command =
   // PC의 IP (FR-25). `ip`가 null이면 IP를 지운다. 이때 `mask`와 `gateway`도 null이어야 한다
   | { readonly type: "pc/set-ip"; readonly deviceId: string; readonly ip: string | null; readonly mask: string | null; readonly gateway: string | null }
   // PC의 OS (T0.7). IP 구성은 그대로 둔다
-  | { readonly type: "pc/set-os"; readonly deviceId: string; readonly os: OsKind }
+  | { readonly type: "pc/set-os"; readonly deviceId: string; readonly os: PcOsChoice }
+  // 서버로 쓰는 PC의 서비스 (T0.20). `os`가 `server`인 PC에만 쓴다
+  | { readonly type: "pc/set-service"; readonly deviceId: string; readonly service: ServiceKind; readonly enabled: boolean }
+  // 같은 이름이 있으면 주소를 바꾼다
+  | { readonly type: "pc/add-dns-record"; readonly deviceId: string; readonly name: string; readonly address: string }
+  | { readonly type: "pc/remove-dns-record"; readonly deviceId: string; readonly name: string }
   // Static route (FR-35). Firewall에도 쓴다. Firewall은 distance를 받지 않는다 (T14.2.1)
   // distance (T11.1.1): add는 없으면 1. remove는 없으면 AD와 상관없이, 있으면 같은 AD일 때만 지운다
   | { readonly type: "route/add"; readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string; readonly distance?: number }
@@ -59,6 +72,13 @@ export type CommandOf<T extends CommandType> = Extract<Command, { readonly type:
 
 // Command를 추가하고 여기에 빠뜨리면 타입 오류가 난다
 const COMMAND_TYPE_SET = {
+  "router/set-cli-style": true,
+  "router/commit-vyos": true,
+  "router/set-vpn-mode": true,
+  "ipsec/set": true,
+  "ipsec/remove": true,
+  "tunnel/set": true,
+  "tunnel/remove": true,
   "device/add": true,
   "device/move": true,
   "device/rename": true,
@@ -70,6 +90,9 @@ const COMMAND_TYPE_SET = {
   "interface/clear-ip": true,
   "pc/set-ip": true,
   "pc/set-os": true,
+  "pc/set-service": true,
+  "pc/add-dns-record": true,
+  "pc/remove-dns-record": true,
   "route/add": true,
   "route/remove": true,
   "rip/enable": true,
