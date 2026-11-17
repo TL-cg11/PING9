@@ -4,7 +4,7 @@
 import { osChoiceOf, shortPortName } from "@ping9/shared";
 import type { Device, DeviceKind, PortRef, Position, TopologyDocument } from "@ping9/shared";
 import { useEffect, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from "react";
 
 import { DEVICE_DRAG_TYPE, MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM, clampCanvasPosition, containsPoint, readDraggedDevice, screenToWorld, wheelZoom, zoomAtPoint, zoomViewBox } from "../canvas-interaction";
 import type { CanvasViewBox, DragCancelState } from "../canvas-interaction";
@@ -12,10 +12,11 @@ import { cableLook } from "../format/cable-look";
 import { RING_DY, RING_RX, RING_RY, linkEnds, ringCenter } from "../format/link-ends";
 import { linkVlan } from "../format/link-vlan";
 import { cidrOf, OS_NAMES } from "../format/pc-address";
-import { addressBelow, bandChipWidth, labelSide, lastOctet, linkBand, portAddress, segmentBands, textBox } from "../format/port-address";
+import { addressBelow, bandChipWidth, labelSide, linkBand, portAddress, segmentBands, textBox } from "../format/port-address";
 import type { Box } from "../format/port-address";
 import { nodeKeyAction } from "./canvas-keys";
 import { Cable, CableJointMask, CableLabels, cableGeometry } from "./cable";
+import { CanvasViewMenu, hiddenClasses, useCanvasHidden } from "./canvas-view-menu";
 import type { CableGeometry, RingCenters } from "./cable";
 import { DeviceIcon } from "./device-icons";
 import { PacketLayer } from "./packet-layer";
@@ -211,6 +212,8 @@ export function Canvas({
   const dragRef = useRef<NodeDrag | null>(null);
   const panRef = useRef<{ pointerId: number; start: Position; box: CanvasViewBox; scale: number; moved: boolean } | null>(null);
   const [panning, setPanning] = useState(false);
+  // 보기 메뉴에서 끈 글자 (T6.4.2)
+  const [hidden, toggleHidden] = useCanvasHidden();
   const [stack, setStack] = useState<string[]>([]);
   const raiseDevice = (id: string) => setStack(current => [...current.filter(item => item !== id), id]);
   // 초기 선택과 키보드/우측 패널에서 바뀐 선택도 앞에 보인다.
@@ -458,9 +461,11 @@ export function Canvas({
     };
   });
 
+  // 포트 주소는 장비 아이콘보다 앞에 그린다. 케이블 글자 층에서 자리를 정하고 여기에 모은다 (T6.4.2)
+  const addressTexts: ReactNode[] = [];
   return (
     <>
-      <svg ref={svgRef} className={`topo${panning ? " panning" : ""}${dragOver ? " drop-target" : ""}${cableActive ? " cable-mode" : ""}`}
+      <svg ref={svgRef} className={`topo${panning ? " panning" : ""}${dragOver ? " drop-target" : ""}${cableActive ? " cable-mode" : ""}${hiddenClasses(hidden)}`}
         viewBox={viewBox} preserveAspectRatio="xMidYMin meet"
         onDragOver={event => {
           if (onDropDevice === undefined || !event.dataTransfer.types.includes(DEVICE_DRAG_TYPE)) return;
@@ -616,14 +621,16 @@ export function Canvas({
               return <g key={link.id}>
                 <CableLabels ends={ends} look={look} geometry={geometry} />
                 {labels.get(link.id)!.map(({ at, name, box, address }, index) => {
-                  const text = address === null ? null : lastOctet(address.ip);
+                  // Router 포트는 전체 주소/길이. PC는 이름 아래에 이미 주소가 있어 케이블에는 쓰지 않는다 (T6.4.2)
+                  const isPc = document.devices.find(device => device.id === link.ends[index]!.deviceId)?.kind === "pc";
+                  const text = address === null || isPc ? null : `${address.ip}/${address.prefix}`;
                   const obstacles = [...deviceBoxes, ...portBoxes.filter(other => other !== box)];
                   const below = text !== null && addressBelow(
-                    textBox(at.x, at.y - 11, text, 6.2, 10, at.anchor), textBox(at.x, at.y + 11, text, 6.2, 10, at.anchor), obstacles);
+                    textBox(at.x, at.y - 10, text, 5.6, 9, at.anchor), textBox(at.x, at.y + 10, text, 5.6, 9, at.anchor), obstacles);
                   return <g key={index}>
                     <text className="wire-port" x={at.x} y={at.y} textAnchor={at.anchor}>{name}</text>
-                    {text !== null &&
-                      <text className="wire-ip" x={at.x} y={below ? at.y + 11 : at.y - 11} textAnchor={at.anchor}>{text}</text>}
+                    {text !== null && void addressTexts.push(
+                      <text key={`${link.id}-${index}`} className="wire-ip" x={at.x} y={below ? at.y + 10 : at.y - 10} textAnchor={at.anchor}>{text}</text>)}
                   </g>;
                 })}
                 {showBand && <g className="wire-band">
@@ -707,6 +714,7 @@ export function Canvas({
           </g>
         )}
         {/* 장비 이름·PC IP는 맨 위 */}
+        <g className="canvas-labels port-addresses" aria-hidden="true">{addressTexts}</g>
         <g className="canvas-labels" aria-hidden="true">
           {orderedDevices.map(device => <g key={device.id} className="device-label"
             transform={`translate(${positions.get(device.id)!.x - HALF_WIDTH},${positions.get(device.id)!.y - ABOVE})`}>
@@ -721,6 +729,7 @@ export function Canvas({
           순환 구간 {Math.max(...replays.map(replay => replay.timeline.omittedHops ?? 0))}회 이동을 생략해 재생합니다 · 전체 추적은 유지됩니다
         </div>
       )}
+      <CanvasViewMenu hidden={hidden} onToggle={toggleHidden} />
       <div className="canvas-zoom" role="group" aria-label="실습 확대·축소">
         <button type="button" aria-label="실습 축소" title="실습 축소" onClick={() => changeZoom(-0.25)}
           disabled={zoom <= MIN_CANVAS_ZOOM || paletteDragKind !== null || draft !== null || panning}>−</button>

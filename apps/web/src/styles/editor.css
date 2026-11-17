@@ -164,7 +164,7 @@ button { font: inherit; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .link.selected .cable-halo { animation: none; } }
 .wire-port { font-size: 9px; fill: var(--navy-60); stroke: #fff; stroke-width: 3px; paint-order: stroke; pointer-events: none; }
 /* 포트 위의 주소 끝자리와 케이블 가운데의 대역 (T6.4.1) */
-.wire-ip { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 10px; font-weight: 700; fill: var(--sky-700); stroke: #fff; stroke-width: 3px; paint-order: stroke; pointer-events: none; }
+.wire-ip { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 9px; font-weight: 700; fill: var(--sky-700); stroke: #fff; stroke-width: 3px; paint-order: stroke; pointer-events: none; }
 .wire-band { pointer-events: none; }
 .wire-band rect { fill: #fff; stroke: var(--sky-700); stroke-width: 1; }
 .wire-band text { font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; font-size: 9px; font-weight: 700; fill: var(--sky-700); stroke: none; }
@@ -469,3 +469,27 @@ button { font: inherit; cursor: pointer; }
 .node.ev-hl.cause { filter: drop-shadow(0 0 6px #E5484DCC) drop-shadow(0 0 12px #E5484D88); }
 .link.ev-hl { filter: drop-shadow(0 0 4px #2F7BEA); }
 .link.ev-hl.cause { filter: drop-shadow(0 0 4px #E5484D) drop-shadow(0 0 2px #E5484D); }
+
+/* 캔버스 "보기" 메뉴 (T6.4.2): 끈 글자는 숨긴다 */
+.topo.hide-band .wire-band, .topo.hide-address .wire-ip, .topo.hide-port .wire-port,
+.topo.hide-vlan .cable-text, .topo.hide-vlan .net, .topo.hide-device-ip .device-label .ip { display: none; }
+.canvas-view { position: absolute; top: 14px; right: 16px; z-index: 200; font: 13px system-ui, sans-serif; }
+.canvas-view-button { height: 36px; display: flex; align-items: center; gap: 6px; padding: 0 11px 0 10px; background: #fff; border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: 0 3px 12px #0E1B3814; color: var(--sky-700); font: 700 13px system-ui, sans-serif; cursor: pointer; }
+.canvas-view-button svg { width: 17px; height: 17px; }
+.canvas-view-button .caret { color: var(--navy-60); font-size: 10px; }
+.canvas-view-button:hover, .canvas-view-button.open { background: var(--ice-50); }
+.canvas-view-button.some-off { color: var(--navy-60); }
+.canvas-view-button:focus-visible { outline: 2px solid var(--sky-700); outline-offset: 1px; }
+.canvas-view-menu { position: absolute; top: 44px; right: 0; width: 190px; padding: 6px 0; background: #fff; border: 1px solid var(--line);
+  border-radius: 12px; box-shadow: 0 8px 24px #0E1B3826; color: var(--navy); }
+.canvas-view-menu label { display: flex; align-items: center; gap: 9px; padding: 7px 14px; cursor: pointer; white-space: nowrap; }
+.canvas-view-menu label:hover { background: var(--ice-50); }
+.canvas-view-menu input { position: absolute; opacity: 0; pointer-events: none; }
+.canvas-view-menu .box { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid #B9C4D8; background: #fff; flex: none; display: flex; align-items: center; justify-content: center; }
+.canvas-view-menu input:checked + .box { background: var(--sky-700); border-color: var(--sky-700); }
+.canvas-view-menu input:checked + .box::after { content: ""; width: 7px; height: 4px; border: solid #fff; border-width: 0 0 2px 2px; transform: translateY(-1px) rotate(-45deg); }
+.canvas-view-menu input:focus-visible + .box { outline: 2px solid var(--sky-700); outline-offset: 1px; }
+.canvas-view-menu label.all { font-weight: 700; border-bottom: 1px solid #E6EDF7; margin-bottom: 4px; padding-bottom: 9px; }
+.canvas-view-menu input:indeterminate + .box { background: var(--sky-700); border-color: var(--sky-700); }
+.canvas-view-menu input:indeterminate + .box::after { content: ""; width: 7px; height: 2px; background: #fff; }
