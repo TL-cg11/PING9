@@ -114,4 +114,4 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T15.2.3 VPN 명령어 작성법과 예시 | [T15.2.3-vpn-command-syntax.md](T15.2.3-vpn-command-syntax.md) | 문서 | ssunyoung2 | 문서 수정·검증 완료, 리뷰 전 |
 | T15.2.4 VPN·VyOS 최종 검사와 PR | [T15.2.4-vpn-vyos-pr.md](T15.2.4-vpn-vyos-pr.md) | 검증·Git·문서 | ssunyoung2 | [PR #63](https://github.com/TL-cg11/PING9/pull/63) 리뷰 대기 |
 | T0.20 서버로 쓰는 PC와 HTTP·DNS·NTP·FTP 서비스 (계획에 없는 새 ID. OS 고르기에 Server, TCP·UDP 패킷, `curl`·`nslookup`) | [T0.20-server-services.md](T0.20-server-services.md) | 공통, 엔진, 화면 | SDY | 병합됨 ([PR #66](https://github.com/TL-cg11/PING9/pull/66), 팀원 검토 없이). PC·Router 담당의 파일과 `shared`를 고쳐 팀 확인 필요 |
-| T14.2.2 버그 수정: Firewall이 GRE·ESP 패킷을 넘길 때 감싼 내용을 떼어 버림 (계획에 없는 새 ID. T14.2.1 후속) | [T14.2.2-firewall-vpn-passthrough.md](T14.2.2-firewall-vpn-passthrough.md) | 엔진 | SDY | 검토 대기 ([PR #67](https://github.com/TL-cg11/PING9/pull/67)) |
+| T14.2.2 버그 수정: Firewall이 GRE·ESP 패킷을 넘길 때 감싼 내용을 떼어 버림 (계획에 없는 새 ID. T14.2.1 후속) | [T14.2.2-firewall-vpn-passthrough.md](T14.2.2-firewall-vpn-passthrough.md) | 엔진 | SDY | 병합됨 ([PR #67](https://github.com/TL-cg11/PING9/pull/67), 팀원 검토 없이) |
