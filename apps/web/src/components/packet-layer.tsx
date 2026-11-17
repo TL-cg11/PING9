@@ -2,7 +2,7 @@
 // 위치는 매 프레임 `지금 - 시작`으로 계산한다. 캔버스 SVG 안에 그리므로 확대·이동·장비 끌기를 따로 처리하지 않는다.
 // 그림은 사용자의 스프라이트 시트를 포즈마다 잘라 줄인 PNG다 (설계안 2절 ②).
 
-import type { Position } from "@ping9/shared";
+import type { DeviceKind, Position } from "@ping9/shared";
 import { useEffect, useState } from "react";
 
 import dropBlue from "../assets/penguin/drop-blue.png";
@@ -29,6 +29,8 @@ import type { FrameKind } from "../replay/steps";
 import { spritesAt } from "../replay/timeline";
 import type { Sprite, Timeline } from "../replay/timeline";
 import type { CableGeometry } from "./cable";
+import { FIREWALL_SHIFT, Shield } from "./device-icons";
+import type { ShieldState } from "./device-icons";
 
 /** 펭귄 그림의 크기 (장비 아이콘 50보다 조금 작게) */
 const SIZE = 36;
@@ -126,8 +128,18 @@ export interface PenguinPick {
   readonly at: Position;
 }
 
+/**
+ * Firewall 장면 (T14.2.3).
+ * - `reject`: 멈칫. 선 그림에 `!`
+ * - `vanish`: DROP. 펭귄은 눈가루로 흩어지고 물고기는 방패로 빨려 들어간다. `progress`는 0~1, `shield`는 방패 자리
+ */
+type Scene = { readonly type: "vanish"; readonly progress: number; readonly shield: Position | undefined };
+
 interface Placed {
   readonly key: string;
+  /** 돌아서서 걷는다 (REJECT가 돌려보낸 ICMP 오류) */
+  readonly mirror?: boolean;
+  readonly scene?: Scene;
   readonly seq: number;
   readonly linkId: string | undefined;
   readonly href: string;
@@ -153,6 +165,7 @@ function place(
       key, seq: sprite.hop.seq, linkId: sprite.hop.linkId, href: PICTURES[color][sprite.stride], width: SIZE, opacity: 1,
       at: path.geometry.at(forward ? sprite.progress : 1 - sprite.progress),
       mark: markOf(sprite.hop.kind), label: KIND_NAME[sprite.hop.kind],
+      ...(sprite.hop.rejected === undefined ? {} : { mirror: true }),
     };
   }
   const { fall } = sprite;
@@ -169,9 +182,125 @@ function place(
   if (at === undefined) return undefined;
   const pictures = PICTURES[colorOf(fall.kind)];
   const base = { key, seq: fall.seq, linkId: fall.linkId };
+  if (sprite.type === "drop" && fall.blocked !== undefined) {
+    // Firewall이 막음: REJECT는 멈칫(!) 하고, 돌려보낸 ICMP 오류 펭귄이 돌아서서 걷는다. DROP은 흩어진다
+    const label = `${KIND_NAME[fall.kind]}을 Firewall이 막음 (${fall.blocked.target})`;
+    if (fall.blocked.target === "REJECT") {
+      return { ...base, href: pictures.stand, at, width: SIZE, mark: "!", opacity: sprite.opacity, label };
+    }
+    const device = positionOf(fall.deviceId);
+    return {
+      ...base, href: pictures.drop, at, width: SIZE, mark: undefined, opacity: sprite.opacity, label,
+      scene: { type: "vanish", progress: sprite.progress, shield: device === undefined ? undefined : shieldAt(device) },
+    };
+  }
   return sprite.type === "drop"
     ? { ...base, href: pictures.drop, at, width: DROP_WIDTH, mark: undefined, opacity: sprite.opacity, label: `${KIND_NAME[fall.kind]}을 잃어버림` }
     : { ...base, href: pictures.stand, at, width: SIZE, mark: markOf(fall.kind), opacity: sprite.opacity, label: KIND_NAME[fall.kind] };
+}
+
+/** 장비 아이콘(50×50, 32 격자)의 왼쪽 위. canvas.tsx의 배치와 같다 */
+const iconBox = (device: Position) => ({ x: device.x - 25, y: device.y - 33 });
+/** 아이콘 안 방패의 가운데 (32 격자의 23.5, 17.4) */
+const shieldAt = (device: Position): Position => ({ x: device.x - 25 + (23.5 + FIREWALL_SHIFT) * 50 / 32, y: device.y - 33 + 17.4 * 50 / 32 });
+
+/**
+ * 놓침 그림(152×128)에서 펭귄과 물고기만 오려 낸다. `×` 표시와 물고기 밑의 날아간 자국은 뺀다.
+ * 펭귄: 오른쪽 위의 `×`를 피한 모양. 물고기: 꼬리까지, 밑의 점선 앞에서 자름
+ */
+// 경계는 drop 그림(152×128)의 픽셀에 맞췄다: 펭귄은 x≤104, ×는 x 87~105·y≤23, 물고기는 x 103~145·y 20~47,
+// 물고기 아래·오른쪽의 짧은 선은 어느 쪽에도 넣지 않는다
+const DROP_PENGUIN = { box: [0, 0, 106, 128], clip: "0,0 86,0 86,26 96,26 96,52 106,52 106,128 0,128" } as const;
+const DROP_FISH = { box: [102, 17, 45, 32], clip: "102,25 118,17 147,17 147,37 134,39.5 128,43 113,48.5 102,48.5" } as const;
+
+/** 놓침 그림의 한 부분만 `width`×`height`로 그린다 */
+function DropPart({ href, part, id, x, y, width, height, opacity }: {
+  readonly href: string; readonly part: typeof DROP_PENGUIN | typeof DROP_FISH; readonly id: string;
+  readonly x: number; readonly y: number; readonly width: number; readonly height: number; readonly opacity: number;
+}) {
+  return (
+    <svg x={x} y={y} width={width} height={height} viewBox={part.box.join(" ")} opacity={opacity}>
+      <clipPath id={id}><polygon points={part.clip} /></clipPath>
+      <image href={href} width={152} height={128} clipPath={`url(#${id})`} />
+    </svg>
+  );
+}
+/** 흩어지는 눈가루의 방향 */
+const SNOW: readonly (readonly [number, number])[] = [[-1, -0.6], [-0.4, -1], [0.3, -0.9], [0.9, -0.4], [-0.9, 0.3], [0.6, 0.5], [0, 0.8]];
+
+function Vanish({ item, scene }: { readonly item: Placed; readonly scene: Scene }) {
+  const t = scene.progress;
+  const top = item.at.y - SIZE + FOOT;
+  const left = item.at.x - SIZE / 2;
+  const scale = SIZE / 128;
+  const penguinWidth = DROP_PENGUIN.box[2] * scale;
+  // 물고기는 펭귄 손 옆(그림 속 자리)에서 출발해 앞 60% 동안 방패로 날아가며 작아지고, 남은 동안 사라진다
+  const startW = DROP_FISH.box[2] * scale;
+  const from = { x: left + (DROP_FISH.box[0] + DROP_FISH.box[2] / 2) * scale, y: top + (DROP_FISH.box[1] + DROP_FISH.box[3] / 2) * scale };
+  const to = scene.shield ?? from;
+  const f = Math.min(1, t / 0.6);
+  const ease = f * f;
+  const fishW = startW * (1 - 0.6 * f);
+  const fishH = fishW * DROP_FISH.box[3] / DROP_FISH.box[2];
+  const center = { x: left + penguinWidth / 2, y: top + SIZE / 2 };
+  const id = `vanish-${item.key.replace(/[^A-Za-z0-9_-]/g, "-")}`;
+  return (
+    <>
+      <DropPart href={item.href} part={DROP_PENGUIN} id={`${id}-p`} x={left} y={top} width={penguinWidth} height={SIZE} opacity={1 - t} />
+      {SNOW.map(([dx, dy], index) => (
+        <circle key={index} className="snow-dust" cx={center.x + dx * (6 + t * 20)} cy={center.y + dy * (6 + t * 16) - t * 4}
+          r={1.6 - t * 0.6} opacity={Math.min(1, t * 4) * (1 - t)} />
+      ))}
+      <DropPart href={item.href} part={DROP_FISH} id={`${id}-f`}
+        x={from.x + (to.x - from.x) * ease - fishW / 2} y={from.y + (to.y - from.y) * ease - fishH / 2}
+        width={fishW} height={fishH} opacity={1 - Math.max(0, (t - 0.6) / 0.4)} />
+    </>
+  );
+}
+
+interface ShieldView {
+  readonly state: Exclude<ShieldState, "idle">;
+  readonly text: string;
+}
+
+const blockedText = (blocked: { readonly rule?: number }) => (blocked.rule === undefined ? "기본 정책 차단" : `규칙 ${blocked.rule} 차단`);
+
+/** 지금 그릴 Firewall 방패. 막힘이 허용보다 앞선다 */
+function shieldsOf(sprites: readonly Sprite[], isFirewall: (deviceId: string) => boolean): Map<string, ShieldView> {
+  const shields = new Map<string, ShieldView>();
+  const allow = (deviceId: string) => {
+    if (isFirewall(deviceId) && !shields.has(deviceId)) shields.set(deviceId, { state: "allow", text: "허용" });
+  };
+  for (const sprite of sprites) {
+    if (sprite.type === "walk") {
+      const { hop, progress } = sprite;
+      if (hop.rejected !== undefined && progress < 0.35 && isFirewall(hop.fromDeviceId)) {
+        shields.set(hop.fromDeviceId, { state: "deny", text: blockedText(hop.rejected) });
+      }
+      if (hop.passesAt !== undefined && progress >= 0.6) allow(hop.passesAt);
+      if (hop.forwarded === true && progress < 0.35) allow(hop.fromDeviceId);
+    } else if (sprite.type === "drop" && sprite.fall.blocked !== undefined && isFirewall(sprite.fall.deviceId)) {
+      shields.set(sprite.fall.deviceId, { state: "deny", text: blockedText(sprite.fall.blocked) });
+    }
+  }
+  return shields;
+}
+
+function FirewallShield({ device, view }: { readonly device: Position; readonly view: ShieldView }) {
+  const box = iconBox(device);
+  const center = shieldAt(device);
+  const width = view.text.length * 9 + 16;
+  const top = box.y - 14;
+  return (
+    <g className={`fw-shield ${view.state}`} aria-hidden="true">
+      <svg x={box.x} y={box.y} width={50} height={50} viewBox="0 0 32 32"><g transform={`translate(${FIREWALL_SHIFT} 0)`}><Shield state={view.state} /></g></svg>
+      <g className="fw-say">
+        <rect x={center.x - width / 2} y={top - 18} width={width} height={18} rx={6} />
+        <path d={`M${center.x - 4} ${top}l4 5 4-5Z`} />
+        <text x={center.x} y={top - 5.5}>{view.text}</text>
+      </g>
+    </g>
+  );
 }
 
 function reducedMotion(): boolean {
@@ -190,6 +319,7 @@ export function PacketLayer({
   paused = false,
   onPick,
   pickedKey,
+  kindOf,
 }: {
   readonly replays: readonly Replay[];
   readonly pathOf: (linkId: string) => LinkPath | undefined;
@@ -204,6 +334,8 @@ export function PacketLayer({
   readonly onPick?: (pick: PenguinPick) => void;
   /** 카드를 띄운 펭귄의 `key` */
   readonly pickedKey?: string | undefined;
+  /** 장비 종류. Firewall의 방패 장면에 쓴다. 없으면 방패를 바꾸지 않는다 */
+  readonly kindOf?: (deviceId: string) => DeviceKind | undefined;
 }) {
   const [clock, setClock] = useState(time);
   const now = fixedNow ?? clock;
@@ -226,17 +358,25 @@ export function PacketLayer({
   }, [replays, fixedNow, time, paused]);
 
   const reduced = reducedMotion();
-  const placed = replays.flatMap((replay) =>
-    spritesAt(replay.timeline, now - replay.startedAt, reduced).flatMap((sprite) => {
+  const sprites = replays.map((replay) => ({ replay, sprites: spritesAt(replay.timeline, now - replay.startedAt, reduced) }));
+  const isFirewall = (deviceId: string) => kindOf?.(deviceId) === "firewall";
+  const shields = [...shieldsOf(sprites.flatMap((entry) => entry.sprites), isFirewall)]
+    .flatMap(([deviceId, view]) => {
+      const device = positionOf(deviceId);
+      return device === undefined ? [] : [{ deviceId, device, view }];
+    });
+  const placed = sprites.flatMap(({ replay, sprites: current }) =>
+    current.flatMap((sprite) => {
       const seq = sprite.type === "walk" ? sprite.hop.seq : sprite.fall.seq;
       const item = place(sprite, `${replay.key}-${seq}`, pathOf, positionOf);
       return item === undefined ? [] : [{ ...item, traceId: replay.traceId }];
     }),
   );
-  if (placed.length === 0) return null;
+  if (placed.length === 0 && shields.length === 0) return null;
 
   return (
     <g className="packet-layer">
+      {shields.map(({ deviceId, device, view }) => <FirewallShield key={deviceId} device={device} view={view} />)}
       {placed.map((item) => (
         <g key={item.key} className={["penguin", onPick ? "pickable" : "", pickedKey === item.key ? "picked" : ""].filter(Boolean).join(" ")}
           opacity={item.opacity} role={onPick ? "button" : "img"} aria-label={item.label}
@@ -248,7 +388,10 @@ export function PacketLayer({
               onPick({ key: item.key, traceId: item.traceId, seq: item.seq, linkId: item.linkId, at: item.at });
             },
           } : {})}>
-          <image href={item.href} x={item.at.x - SIZE / 2} y={item.at.y - SIZE + FOOT} width={item.width} height={SIZE} />
+          {item.scene !== undefined
+            ? <Vanish item={item} scene={item.scene} />
+            : <image href={item.href} x={item.at.x - SIZE / 2} y={item.at.y - SIZE + FOOT} width={item.width} height={SIZE}
+                {...(item.mirror === true ? { transform: `translate(${2 * item.at.x} 0) scale(-1 1)` } : {})} />}
           {item.mark !== undefined && (
             // ARP의 `?`·`!`는 한 글자라 크게 (22px), RIP의 `R?`·`R!`는 그대로 15px
             item.mark.length === 1

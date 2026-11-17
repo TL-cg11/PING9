@@ -713,6 +713,7 @@ export function Canvas({
         {/* 펭귄 층: 케이블 글자와 장비 아이콘 위, 장비 이름 아래. 펭귄이 아이콘 뒤에 가려지지 않고,
             장비 이름은 늘 읽힌다 (T6.4.1. T6.1.2에서는 장비 아래였다) */}
         <PacketLayer replays={replays} pathOf={pathOf} positionOf={deviceId => positions.get(deviceId)}
+          kindOf={deviceId => document.devices.find(device => device.id === deviceId)?.kind}
           {...(replayTime !== undefined ? { time: replayTime } : {})} paused={replayPaused}
           {...(onPickPenguin ? { onPick: onPickPenguin } : {})} pickedKey={pickedPenguin?.key} />
         {paletteDragKind !== null && cursor !== null && (

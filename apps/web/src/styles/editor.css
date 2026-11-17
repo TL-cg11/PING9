@@ -87,6 +87,8 @@ button { font: inherit; cursor: pointer; }
 .tool.device-tool:not(:disabled):active { cursor: grabbing; }
 .placement-preview { pointer-events: none; opacity: .65; }
 .device-tool svg { pointer-events: none; }
+/* Firewall은 벽이 왼쪽으로 길어 작아 보인다. 조금 키운다 (버튼 높이는 그대로). 오른쪽 정렬은 그림 안에서 (FIREWALL_SHIFT) */
+.device-tool svg.icon-firewall { width: 34px; height: 34px; margin: -2px 0; }
 .palette-note { font-size: 11px; line-height: 1.4; text-align: center; color: var(--navy-60); }
 /* 목록에서 끌어 온 새 장비를 장비 목록에 다시 놓으면 취소된다 (T0.12). 끄는 동안 안내를 바꾸고, 목록 위에 오면 표시한다 */
 .palette.cancel-armed .palette-note { color: var(--sky-700); font-weight: 600; }
@@ -393,6 +395,11 @@ button { font: inherit; cursor: pointer; }
 }
 /* 펭귄을 눌러 패킷 카드 보기 (T6.3.1). 시뮬레이션 모드에서만 눌린다 */
 .packet-layer .penguin.pickable { pointer-events: auto; cursor: pointer; }
+/* Firewall 장면 (T14.2.3): 방패와 말풍선, DROP의 눈가루 */
+.packet-layer .fw-say rect, .packet-layer .fw-say path { fill: #1E9E6A; }
+.packet-layer .fw-shield.deny .fw-say rect, .packet-layer .fw-shield.deny .fw-say path { fill: #D9413E; }
+.packet-layer .fw-say text { fill: #fff; font-size: 11px; font-weight: 700; text-anchor: middle; }
+.packet-layer .snow-dust { fill: #fff; stroke: #C6D8F2; stroke-width: 0.6; }
 .packet-layer .penguin.pickable:focus { outline: none; }
 .packet-layer .penguin.pickable:focus-visible image { filter: drop-shadow(0 0 3px var(--cyan)); }
 .pkt-host { position: absolute; z-index: 6; }

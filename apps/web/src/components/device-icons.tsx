@@ -1,5 +1,5 @@
 // 장비 아이콘 (T0.6). PC는 이글루, Switch는 갈림길 표지판, Router는 열린 관문이다.
-// Firewall은 불꽃이 올라온 벽돌 벽이다 (T14.2.1). 임시 그림이고 팀에서 바꿀 예정이다.
+// Firewall은 눈이 덮인 벽돌 벽과 방패다 (T14.2.3. T14.2.1의 불꽃 벽을 바꿈).
 // 시안의 펭귄·물고기 은유를 따른다: 펭귄이 사는 집, 길을 알려 주는 표지판, 다른 동네로 가는 문.
 // 캔버스와 왼쪽 장비 목록이 같은 그림을 쓴다. 모두 32×32 기준이다.
 
@@ -123,28 +123,41 @@ export function GateClosedIcon(box: Box) {
   );
 }
 
-/** 임시 Firewall 그림 (T14.2.1): 벽돌 벽과 그 위의 불꽃. 다른 장비와 겹치지 않게 주황색을 쓴다 */
-function FireWall() {
-  const edge = "#B4472B";
+export type ShieldState = "idle" | "allow" | "deny";
+
+/**
+ * Firewall의 방패 (T14.2.3). 평소는 분홍 바탕에 흰 별표,
+ * 펭귄이 허용되어 지나가면 초록 체크, 막히면 빨간 X. 펭귄 층이 같은 자리에 겹쳐 그린다
+ */
+export function Shield({ state }: { readonly state: ShieldState }) {
+  const [fill, edge] = state === "allow" ? ["#1E9E6A", "#0F6B47"] : state === "deny" ? ["#E04848", "#A12828"] : ["#D6517A", "#8E2A4C"];
   return (
-    <>
-      <rect x="4" y="11.5" width="24" height="14.3" rx="1.2" fill="#FBE3D6" stroke={edge} strokeWidth="1.1" {...LINE} />
+    <g className={`shield shield-${state}`}>
+      <path d="M23.5 8.6L29.6 11v6.4c0 4.2-2.7 7.3-6.1 9-3.4-1.7-6.1-4.8-6.1-9V11Z" fill={fill} stroke={edge} strokeWidth="1.1" {...LINE} />
       <path
-        d="M4 16.3h24M4 21h24M12 11.5v4.8M20 11.5v4.8M8 16.3V21M16 16.3V21M24 16.3V21M12 21v4.8M20 21v4.8"
-        fill="none"
-        stroke="#D9623B"
-        strokeWidth="0.9"
-        {...LINE}
+        d={state === "allow" ? "M20.8 17.3l2 2 3.9-4.2" : state === "deny" ? "M21.4 15l4.2 4.2M25.6 15l-4.2 4.2" : "M23.5 14v6M20.9 15.5l5.2 3M20.9 18.5l5.2-3"}
+        fill="none" stroke="#fff" strokeWidth={state === "idle" ? 1.3 : 1.7} {...LINE}
       />
+    </g>
+  );
+}
+
+/** Firewall 그림을 오른쪽으로 미는 양 (32 격자). 벽이 왼쪽으로 길어 치우쳐 보인다. 펭귄 층의 방패도 같이 민다 */
+export const FIREWALL_SHIFT = 1.2;
+
+/** Firewall (T14.2.3): 눈이 덮인 분홍 벽돌 벽과 방패 */
+function FireWall() {
+  return (
+    <g transform={`translate(${FIREWALL_SHIFT} 0)`}>
+      <rect x="3" y="14" width="17" height="11.8" rx="1.2" fill="#FFF1F5" stroke="#9C3557" strokeWidth="1.1" {...LINE} />
+      <path d="M3 18h17M3 22h17M9 14v4M15 14v4M6 18v4M12 18v4M18 18v4M9 22v3.8M15 22v3.8"
+        fill="none" stroke="#EE9AB5" strokeWidth="0.8" {...LINE} />
       <path
-        d="M16 3c2.7 2.3 3.7 4 3.7 5.8a3.7 3.7 0 0 1-7.4 0c0-1 .5-2 1.3-2.8.2 1 .7 1.6 1.4 1.7-.3-1.7 0-3.2 1-4.7Z"
-        fill="#F28C38"
-        stroke={edge}
-        strokeWidth="0.9"
-        {...LINE}
+        d="M2.5 14.8c-.5-2.2 1.1-3.4 2.7-2.9.6-1.6 3-1.9 4.2-.6 1-1.4 3.6-1.4 4.6.1 1.3-.9 3.6-.6 4.4 1 1.6-.1 2.6 1.2 2.2 2.4h-5v1.8a.9.9 0 0 1-1.8 0v-1.8H7.4v1.1a.8.8 0 0 1-1.6 0v-1.1Z"
+        fill="#fff" stroke="#A9C6EC" strokeWidth="0.9" {...LINE}
       />
-      <path d="M3 25.8h26" fill="none" stroke={edge} strokeWidth="1.1" {...LINE} />
-    </>
+      <Shield state="idle" />
+    </g>
   );
 }
 
