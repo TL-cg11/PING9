@@ -4,7 +4,7 @@
 import { osOf, shortPortName } from "@ping9/shared";
 import type { Device, DeviceKind, PortRef, Position, TopologyDocument } from "@ping9/shared";
 import { useEffect, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
+import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from "react";
 
 import { DEVICE_DRAG_TYPE, MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM, clampCanvasPosition, containsPoint, readDraggedDevice, screenToWorld, wheelZoom, zoomAtPoint, zoomViewBox } from "../canvas-interaction";
 import type { CanvasViewBox, DragCancelState } from "../canvas-interaction";
@@ -17,6 +17,7 @@ import { Cable, CableJointMask, CableLabels, cableGeometry } from "./cable";
 import type { CableGeometry, RingCenters } from "./cable";
 import { DeviceIcon } from "./device-icons";
 import { PacketLayer } from "./packet-layer";
+import type { PenguinPick } from "./packet-layer";
 import type { LinkPath, Replay } from "./packet-layer";
 import { PortPicker } from "./port-picker";
 
@@ -140,6 +141,9 @@ function viewBoxFor(devices: readonly Device[]): CanvasViewBox {
   return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
+/** 펭귄 카드의 폭 (화면 px) */
+const PENGUIN_CARD_WIDTH = 300;
+
 export function Canvas({
   document,
   selectedDeviceId,
@@ -164,6 +168,9 @@ export function Canvas({
   replayTime,
   replayPaused = false,
   eventHighlight,
+  onPickPenguin,
+  pickedPenguin,
+  penguinCard,
 }: {
   readonly document: TopologyDocument;
   readonly selectedDeviceId: string | null;
@@ -195,6 +202,12 @@ export function Canvas({
   readonly replayPaused?: boolean;
   /** 이벤트 목록에서 고른 줄의 장비와 케이블 (T1.9.3) */
   readonly eventHighlight?: { readonly deviceId: string; readonly linkId?: string; readonly cause: boolean } | undefined;
+  /** 펭귄을 눌렀을 때 (T6.3.1) */
+  readonly onPickPenguin?: (pick: PenguinPick) => void;
+  /** 카드를 띄운 펭귄 */
+  readonly pickedPenguin?: PenguinPick | null;
+  /** 그 펭귄 옆에 띄울 카드 */
+  readonly penguinCard?: ReactNode;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const viewportSizeRef = useRef<{ width: number; height: number } | null>(null);
@@ -552,7 +565,8 @@ export function Canvas({
         )}
         {/* 펭귄 층: 케이블 위, 장비 아래. 펭귄이 장비 아이콘 밑에서 나와 밑으로 들어간다 (T6.1.2) */}
         <PacketLayer replays={replays} pathOf={pathOf} positionOf={deviceId => positions.get(deviceId)}
-          {...(replayTime !== undefined ? { time: replayTime } : {})} paused={replayPaused} />
+          {...(replayTime !== undefined ? { time: replayTime } : {})} paused={replayPaused}
+          {...(onPickPenguin ? { onPick: onPickPenguin } : {})} pickedKey={pickedPenguin?.key} />
         <g>
           {orderedDevices.map((device) => (
             <g
@@ -646,6 +660,26 @@ export function Canvas({
           </g>)}
         </g>
       </svg>
+      {/* 펭귄 카드 (T6.3.1). 확대 배율과 상관없이 같은 크기로, 화면 좌표에 띄운다.
+          오른쪽에 자리가 없으면 펭귄 왼쪽에, 위아래는 캔버스 안에 들어오게 */}
+      {pickedPenguin && penguinCard !== undefined && penguinCard !== null && (() => {
+        const svg = svgRef.current;
+        const matrix = svg?.getScreenCTM();
+        const host = svg?.parentElement?.getBoundingClientRect();
+        if (!svg || !matrix || !host) return null;
+        const px = matrix.a * pickedPenguin.at.x + matrix.e - host.left;
+        const py = matrix.d * pickedPenguin.at.y + matrix.f - host.top;
+        const gap = 18 * matrix.a + 12;
+        const right = px + gap + PENGUIN_CARD_WIDTH + 8 <= host.width;
+        const left = right ? px + gap : Math.max(8, px - gap - PENGUIN_CARD_WIDTH);
+        const top = Math.min(Math.max(8, py - 70), Math.max(8, host.height - 420));
+        // 꼬리는 펭귄 몸 가운데 높이를 가리킨다
+        const tail = Math.min(Math.max(16, py - 14 * matrix.d - top), 400);
+        return (
+          <div className={`pkt-host ${right ? "tail-left" : "tail-right"}`}
+            style={{ left, top, ["--tail-y" as string]: `${tail}px` }}>{penguinCard}</div>
+        );
+      })()}
       {replays.some(replay => (replay.timeline.omittedHops ?? 0) > 0) && (
         <div className="replay-hint" role="status">
           순환 구간 {Math.max(...replays.map(replay => replay.timeline.omittedHops ?? 0))}회 이동을 생략해 재생합니다 · 전체 추적은 유지됩니다

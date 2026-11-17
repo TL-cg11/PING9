@@ -97,8 +97,20 @@ export interface LinkPath {
   readonly startDeviceId: string;
 }
 
+/** 누른 펭귄 (T6.3.1). 이 이벤트의 프레임을 카드로 보인다 */
+export interface PenguinPick {
+  readonly key: string;
+  readonly traceId: number | undefined;
+  readonly seq: number;
+  /** 펭귄이 있는 케이블. 링크 없는 폐기면 undefined */
+  readonly linkId: string | undefined;
+  readonly at: Position;
+}
+
 interface Placed {
   readonly key: string;
+  readonly seq: number;
+  readonly linkId: string | undefined;
   readonly href: string;
   readonly at: Position;
   readonly width: number;
@@ -119,7 +131,7 @@ function place(
     const forward = sprite.hop.fromDeviceId === path.startDeviceId;
     const color = colorOf(sprite.hop.kind);
     return {
-      key, href: PICTURES[color][sprite.stride], width: SIZE, opacity: 1,
+      key, seq: sprite.hop.seq, linkId: sprite.hop.linkId, href: PICTURES[color][sprite.stride], width: SIZE, opacity: 1,
       at: path.geometry.at(forward ? sprite.progress : 1 - sprite.progress),
       mark: markOf(sprite.hop.kind), label: KIND_NAME[sprite.hop.kind],
     };
@@ -137,9 +149,10 @@ function place(
   }
   if (at === undefined) return undefined;
   const pictures = PICTURES[colorOf(fall.kind)];
+  const base = { key, seq: fall.seq, linkId: fall.linkId };
   return sprite.type === "drop"
-    ? { key, href: pictures.drop, at, width: DROP_WIDTH, mark: undefined, opacity: sprite.opacity, label: `${KIND_NAME[fall.kind]}을 잃어버림` }
-    : { key, href: pictures.stand, at, width: SIZE, mark: markOf(fall.kind), opacity: sprite.opacity, label: KIND_NAME[fall.kind] };
+    ? { ...base, href: pictures.drop, at, width: DROP_WIDTH, mark: undefined, opacity: sprite.opacity, label: `${KIND_NAME[fall.kind]}을 잃어버림` }
+    : { ...base, href: pictures.stand, at, width: SIZE, mark: markOf(fall.kind), opacity: sprite.opacity, label: KIND_NAME[fall.kind] };
 }
 
 function reducedMotion(): boolean {
@@ -156,6 +169,8 @@ export function PacketLayer({
   now: fixedNow,
   time = realTime,
   paused = false,
+  onPick,
+  pickedKey,
 }: {
   readonly replays: readonly Replay[];
   readonly pathOf: (linkId: string) => LinkPath | undefined;
@@ -166,6 +181,10 @@ export function PacketLayer({
   readonly time?: () => number;
   /** 시계가 멈췄다. 펭귄이 그 자리에 서고 다시 그리지 않는다 (T0.15) */
   readonly paused?: boolean;
+  /** 펭귄을 눌렀을 때. 없으면 펭귄은 눌리지 않는다 (T6.3.1) */
+  readonly onPick?: (pick: PenguinPick) => void;
+  /** 카드를 띄운 펭귄의 `key` */
+  readonly pickedKey?: string | undefined;
 }) {
   const [clock, setClock] = useState(time);
   const now = fixedNow ?? clock;
@@ -192,7 +211,7 @@ export function PacketLayer({
     spritesAt(replay.timeline, now - replay.startedAt, reduced).flatMap((sprite) => {
       const seq = sprite.type === "walk" ? sprite.hop.seq : sprite.fall.seq;
       const item = place(sprite, `${replay.key}-${seq}`, pathOf, positionOf);
-      return item === undefined ? [] : [item];
+      return item === undefined ? [] : [{ ...item, traceId: replay.traceId }];
     }),
   );
   if (placed.length === 0) return null;
@@ -200,7 +219,16 @@ export function PacketLayer({
   return (
     <g className="packet-layer">
       {placed.map((item) => (
-        <g key={item.key} className="penguin" opacity={item.opacity} role="img" aria-label={item.label}>
+        <g key={item.key} className={["penguin", onPick ? "pickable" : "", pickedKey === item.key ? "picked" : ""].filter(Boolean).join(" ")}
+          opacity={item.opacity} role={onPick ? "button" : "img"} aria-label={item.label}
+          {...(onPick ? {
+            tabIndex: 0,
+            onPointerDown: (event: { stopPropagation: () => void }) => event.stopPropagation(),
+            onClick: (event: { stopPropagation: () => void }) => {
+              event.stopPropagation();
+              onPick({ key: item.key, traceId: item.traceId, seq: item.seq, linkId: item.linkId, at: item.at });
+            },
+          } : {})}>
           <image href={item.href} x={item.at.x - SIZE / 2} y={item.at.y - SIZE + FOOT} width={item.width} height={SIZE} />
           {item.mark !== undefined && (
             <text className="penguin-mark" x={item.at.x + 9 - (item.mark.length - 1) * 6} y={item.at.y - SIZE + FOOT + 2}>{item.mark}</text>

@@ -15,7 +15,8 @@ import { Inspector } from "./components/inspector";
 import { LinkInspector } from "./components/link-inspector";
 import { Palette } from "./components/palette";
 import { useSideWidth } from "./components/side-resize";
-import type { Replay } from "./components/packet-layer";
+import { PacketCard } from "./components/packet-card";
+import type { PenguinPick, Replay } from "./components/packet-layer";
 import { TerminalWindow } from "./components/terminal-window";
 import { focusCanvasNode, focusTerminalInput } from "./focus";
 import { TopBar } from "./components/top-bar";
@@ -268,6 +269,22 @@ export function App() {
   const [pickedTrace, setPickedTrace] = useState<number | null>(null);
   const [lastPlayed, setLastPlayed] = useState<number | null>(null);
   const [selectedSeq, setSelectedSeq] = useState<number | null>(null);
+  // 누른 펭귄 (T6.3.1). 누르면 시계를 멈추고, 카드를 닫거나 다시 실행하면 카드를 내린다
+  const [picked, setPicked] = useState<PenguinPick | null>(null);
+  useEffect(() => {
+    if (!clockState.paused) setPicked(null);
+  }, [clockState.paused]);
+  useEffect(() => {
+    if (picked !== null && ![...replays.values()].some((replay) => picked.key.startsWith(`${replay.key}-`))) setPicked(null);
+  }, [replays, picked]);
+  const pickPenguin = (pick: PenguinPick) => {
+    if (mode !== "simulation") return;
+    if (picked?.key === pick.key) { setPicked(null); clock.resume(); return; }
+    clock.pause();
+    setPicked(pick);
+    if (pick.traceId !== undefined) { setPickedTrace(pick.traceId); setSelectedSeq(pick.seq); }
+  };
+  const pickedEvent = picked?.traceId === undefined ? undefined : simulator.getTrace(picked.traceId)?.events[picked.seq];
   // 이벤트 탭을 마지막으로 봤을 때의 최신 추적. 그 뒤에 새 기록이 생기면 탭에 점을 단다
   const [seenTrace, setSeenTrace] = useState<number | null>(null);
   const latestTrace = snapshot.traces[0]?.id ?? null;
@@ -538,6 +555,12 @@ export function App() {
             cancelZoneRef={paletteRef} onCancelZone={setDragCancel}
             replayTime={clock.now} replayPaused={clockState.paused}
             eventHighlight={eventHighlight}
+            {...(mode === "simulation" ? { onPickPenguin: pickPenguin } : {})}
+            pickedPenguin={picked}
+            penguinCard={picked !== null && pickedEvent !== undefined
+              ? <PacketCard event={pickedEvent} document={document} linkId={picked.linkId}
+                  onClose={() => { setPicked(null); clock.resume(); }} />
+              : undefined}
           />
           {ui.terminals.map((placement, index) => {
             const device = document.devices.find((candidate) => candidate.id === placement.deviceId);
