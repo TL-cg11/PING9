@@ -2,7 +2,7 @@
 // 위치는 매 프레임 `지금 - 시작`으로 계산한다. 캔버스 SVG 안에 그리므로 확대·이동·장비 끌기를 따로 처리하지 않는다.
 // 그림은 사용자의 스프라이트 시트를 포즈마다 잘라 줄인 PNG다 (설계안 2절 ②).
 
-import type { DeviceKind, Position } from "@ping9/shared";
+import type { Position } from "@ping9/shared";
 import { useEffect, useState } from "react";
 
 import dropBlue from "../assets/penguin/drop-blue.png";
@@ -25,11 +25,11 @@ import walkBGreen from "../assets/penguin/walk-b-green.png";
 import walkBPurple from "../assets/penguin/walk-b-purple.png";
 import walkBRed from "../assets/penguin/walk-b-red.png";
 import walkBYellow from "../assets/penguin/walk-b-yellow.png";
-import type { FrameKind } from "../replay/steps";
+import type { FrameKind, Hop } from "../replay/steps";
 import { spritesAt } from "../replay/timeline";
 import type { Sprite, Timeline } from "../replay/timeline";
 import type { CableGeometry } from "./cable";
-import { FIREWALL_SHIFT, Shield } from "./device-icons";
+import { FILTER_BADGE, FilterBadge } from "./device-icons";
 import type { ShieldState } from "./device-icons";
 
 /** 펭귄 그림의 크기 (장비 아이콘 50보다 조금 작게) */
@@ -116,6 +116,8 @@ export interface LinkPath {
   readonly geometry: CableGeometry;
   /** `geometry.at(0)` 쪽 장비 */
   readonly startDeviceId: string;
+  /** `geometry.at(1)` 쪽 장비. 없으면 도착한 서버의 허용 방패를 그리지 않는다 (T0.21) */
+  readonly endDeviceId?: string;
 }
 
 /** 누른 펭귄 (T6.3.1). 이 이벤트의 프레임을 카드로 보인다 */
@@ -129,7 +131,7 @@ export interface PenguinPick {
 }
 
 /**
- * Firewall 장면 (T14.2.3).
+ * 서버의 필터 규칙(iptables)이 막은 장면 (T14.2.3, T0.21).
  * - `reject`: 멈칫. 선 그림에 `!`
  * - `vanish`: DROP. 펭귄은 눈가루로 흩어지고 물고기는 방패로 빨려 들어간다. `progress`는 0~1, `shield`는 방패 자리
  */
@@ -183,8 +185,8 @@ function place(
   const pictures = PICTURES[colorOf(fall.kind)];
   const base = { key, seq: fall.seq, linkId: fall.linkId };
   if (sprite.type === "drop" && fall.blocked !== undefined) {
-    // Firewall이 막음: REJECT는 멈칫(!) 하고, 돌려보낸 ICMP 오류 펭귄이 돌아서서 걷는다. DROP은 흩어진다
-    const label = `${KIND_NAME[fall.kind]}을 Firewall이 막음 (${fall.blocked.target})`;
+    // 필터 규칙이 막음: REJECT는 멈칫(!) 하고, 돌려보낸 ICMP 오류 펭귄이 돌아서서 걷는다. DROP은 흩어진다
+    const label = `${KIND_NAME[fall.kind]}을 iptables 규칙이 막음 (${fall.blocked.target})`;
     if (fall.blocked.target === "REJECT") {
       return { ...base, href: pictures.stand, at, width: SIZE, mark: "!", opacity: sprite.opacity, label };
     }
@@ -196,13 +198,17 @@ function place(
   }
   return sprite.type === "drop"
     ? { ...base, href: pictures.drop, at, width: DROP_WIDTH, mark: undefined, opacity: sprite.opacity, label: `${KIND_NAME[fall.kind]}을 잃어버림` }
-    : { ...base, href: pictures.stand, at, width: SIZE, mark: markOf(fall.kind), opacity: sprite.opacity, label: KIND_NAME[fall.kind] };
+    : {
+      ...base, href: pictures.stand, at, width: SIZE, mark: markOf(fall.kind), opacity: sprite.opacity,
+      // 원인 폐기가 아니어도 필터가 버렸으면 그렇게 읽어 준다
+      label: fall.blocked === undefined ? KIND_NAME[fall.kind] : `${KIND_NAME[fall.kind]}을 iptables 규칙이 막음 (${fall.blocked.target})`,
+    };
 }
 
 /** 장비 아이콘(50×50, 32 격자)의 왼쪽 위. canvas.tsx의 배치와 같다 */
 const iconBox = (device: Position) => ({ x: device.x - 25, y: device.y - 33 });
-/** 아이콘 안 방패의 가운데 (32 격자의 23.5, 17.4) */
-const shieldAt = (device: Position): Position => ({ x: device.x - 25 + (23.5 + FIREWALL_SHIFT) * 50 / 32, y: device.y - 33 + 17.4 * 50 / 32 });
+/** 서버 아이콘 위 방패 배지의 가운데 */
+const shieldAt = (device: Position): Position => ({ x: device.x - 25 + FILTER_BADGE.x * 50 / 32, y: device.y - 33 + FILTER_BADGE.y * 50 / 32 });
 
 /**
  * 놓침 그림(152×128)에서 펭귄과 물고기만 오려 낸다. `×` 표시와 물고기 밑의 날아간 자국은 뺀다.
@@ -265,35 +271,50 @@ interface ShieldView {
 
 const blockedText = (blocked: { readonly rule?: number }) => (blocked.rule === undefined ? "기본 정책 차단" : `규칙 ${blocked.rule} 차단`);
 
-/** 지금 그릴 Firewall 방패. 막힘이 허용보다 앞선다 */
-function shieldsOf(sprites: readonly Sprite[], isFirewall: (deviceId: string) => boolean): Map<string, ShieldView> {
+/**
+ * 지금 그릴 서버의 방패. 막힘이 허용보다 앞선다.
+ * - 막힘: 추적에 `FIREWALL_BLOCKED`가 있으면 그린다 (그 뒤에 규칙을 지웠어도 그때는 막았다)
+ * - 허용: 지금 필터 규칙을 건 서버(`filtersAt`)가 패킷을 받아들이거나(INPUT) 내보낼 때(OUTPUT).
+ *   ARP는 iptables가 거르지 않으므로 방패가 반응하지 않는다
+ */
+function shieldsOf(
+  sprites: readonly Sprite[],
+  filtersAt: (deviceId: string) => boolean,
+  arrivalOf: (hop: Hop) => string | undefined,
+): Map<string, ShieldView> {
   const shields = new Map<string, ShieldView>();
   const allow = (deviceId: string) => {
-    if (isFirewall(deviceId) && !shields.has(deviceId)) shields.set(deviceId, { state: "allow", text: "허용" });
+    if (filtersAt(deviceId) && !shields.has(deviceId)) shields.set(deviceId, { state: "allow", text: "허용" });
   };
   for (const sprite of sprites) {
     if (sprite.type === "walk") {
       const { hop, progress } = sprite;
-      if (hop.rejected !== undefined && progress < 0.35 && isFirewall(hop.fromDeviceId)) {
-        shields.set(hop.fromDeviceId, { state: "deny", text: blockedText(hop.rejected) });
+      const filtered = hop.kind !== "arp-request" && hop.kind !== "arp-reply";
+      if (hop.rejected !== undefined) {
+        if (progress < 0.35) shields.set(hop.fromDeviceId, { state: "deny", text: blockedText(hop.rejected) });
+      } else if (filtered && progress < 0.35) {
+        allow(hop.fromDeviceId);
       }
-      if (hop.passesAt !== undefined && progress >= 0.6) allow(hop.passesAt);
-      if (hop.forwarded === true && progress < 0.35) allow(hop.fromDeviceId);
-    } else if (sprite.type === "drop" && sprite.fall.blocked !== undefined && isFirewall(sprite.fall.deviceId)) {
+      if (filtered && progress >= 0.6) {
+        const arrival = arrivalOf(hop);
+        if (arrival !== undefined && hop.acceptedBy?.includes(arrival) === true) allow(arrival);
+      }
+    } else if (sprite.fall.blocked !== undefined) {
+      // 원인 폐기(drop)도, 다른 실패 뒤에 버려진 것(fade)도 필터가 막은 것이다
       shields.set(sprite.fall.deviceId, { state: "deny", text: blockedText(sprite.fall.blocked) });
     }
   }
   return shields;
 }
 
-function FirewallShield({ device, view }: { readonly device: Position; readonly view: ShieldView }) {
+function FilterShield({ device, view }: { readonly device: Position; readonly view: ShieldView }) {
   const box = iconBox(device);
   const center = shieldAt(device);
   const width = view.text.length * 9 + 16;
   const top = box.y - 14;
   return (
     <g className={`fw-shield ${view.state}`} aria-hidden="true">
-      <svg x={box.x} y={box.y} width={50} height={50} viewBox="0 0 32 32"><g transform={`translate(${FIREWALL_SHIFT} 0)`}><Shield state={view.state} /></g></svg>
+      <svg x={box.x} y={box.y} width={50} height={50} viewBox="0 0 32 32"><FilterBadge state={view.state} /></svg>
       <g className="fw-say">
         <rect x={center.x - width / 2} y={top - 18} width={width} height={18} rx={6} />
         <path d={`M${center.x - 4} ${top}l4 5 4-5Z`} />
@@ -332,7 +353,7 @@ export function PacketLayer({
   paused = false,
   onPick,
   pickedKey,
-  kindOf,
+  filtersAt,
   deviceCards,
 }: {
   readonly replays: readonly Replay[];
@@ -348,8 +369,8 @@ export function PacketLayer({
   readonly onPick?: (pick: PenguinPick) => void;
   /** 카드를 띄운 펭귄의 `key` */
   readonly pickedKey?: string | undefined;
-  /** 장비 종류. Firewall의 방패 장면에 쓴다. 없으면 방패를 바꾸지 않는다 */
-  readonly kindOf?: (deviceId: string) => DeviceKind | undefined;
+  /** 이 장비가 지금 필터 규칙(iptables)을 건 서버인가. 허용 방패에 쓴다. 없으면 막힘만 그린다 (T0.21) */
+  readonly filtersAt?: (deviceId: string) => boolean;
   /** 장비마다 누르기를 받는 네모(카드). 펭귄을 누르는 자리에서 뺀다: 겹친 곳을 누르면 장비가 받는다 */
   readonly deviceCards?: readonly CardBox[];
 }) {
@@ -375,8 +396,11 @@ export function PacketLayer({
 
   const reduced = reducedMotion();
   const sprites = replays.map((replay) => ({ replay, sprites: spritesAt(replay.timeline, now - replay.startedAt, reduced) }));
-  const isFirewall = (deviceId: string) => kindOf?.(deviceId) === "firewall";
-  const shields = [...shieldsOf(sprites.flatMap((entry) => entry.sprites), isFirewall)]
+  const arrivalOf = (hop: Hop) => {
+    const path = pathOf(hop.linkId);
+    return path === undefined ? undefined : path.startDeviceId === hop.fromDeviceId ? path.endDeviceId : path.startDeviceId;
+  };
+  const shields = [...shieldsOf(sprites.flatMap((entry) => entry.sprites), (deviceId) => filtersAt?.(deviceId) === true, arrivalOf)]
     .flatMap(([deviceId, view]) => {
       const device = positionOf(deviceId);
       return device === undefined ? [] : [{ deviceId, device, view }];
@@ -403,7 +427,7 @@ export function PacketLayer({
           <path clipRule="evenodd" d={`${EVERYWHERE}${(deviceCards ?? []).map(cardPath).join("")}`} />
         </clipPath>
       )}
-      {shields.map(({ deviceId, device, view }) => <FirewallShield key={deviceId} device={device} view={view} />)}
+      {shields.map(({ deviceId, device, view }) => <FilterShield key={deviceId} device={device} view={view} />)}
       {placed.map((item) => (
         <g key={item.key} className={["penguin", pickable(item) ? "pickable" : "", pickedKey === item.key ? "picked" : ""].filter(Boolean).join(" ")}
           opacity={item.opacity} role={pickable(item) ? "button" : "img"} aria-label={item.label}

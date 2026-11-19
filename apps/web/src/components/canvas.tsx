@@ -1,7 +1,7 @@
 // 가운데 캔버스. 드래그 중 위치만 임시로 그리고, 놓을 때 원본 변경 명령을 보낸다.
 // 노드는 장비 아이콘과 이름이다 (T0.6). 흰 카드는 보이지 않고 클릭 영역으로만 남는다. 캔버스는 자체 상태로 장비 목록을 들고 있지 않다 (AD-4).
 
-import { osChoiceOf, shortPortName } from "@ping9/shared";
+import { hasActiveFilter, osChoiceOf, shortPortName } from "@ping9/shared";
 import type { Device, DeviceKind, PortRef, Position, TopologyDocument } from "@ping9/shared";
 import { useEffect, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent, ReactNode, RefObject } from "react";
@@ -47,7 +47,7 @@ interface NodeDrag {
   moved: boolean;
 }
 /** 화면 낭독기가 읽는 장비 종류 */
-const KIND_NAME: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router", firewall: "Firewall" };
+const KIND_NAME: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router" };
 
 /**
  * 타원 받침. 안(fill)과 테두리(edge)를 따로 그린다. 테두리는 길이 들어오는 자리를 mask로 지운다 (시안 C).
@@ -259,7 +259,7 @@ export function Canvas({
     const from = link && positions.get(link.ends[0].deviceId);
     const to = link && positions.get(link.ends[1].deviceId);
     if (link === undefined || from === undefined || to === undefined) return undefined;
-    return { geometry: linkShape(document, link, from, to).geometry, startDeviceId: link.ends[0].deviceId };
+    return { geometry: linkShape(document, link, from, to).geometry, startDeviceId: link.ends[0].deviceId, endDeviceId: link.ends[1].deviceId };
   };
 
   useEffect(() => {
@@ -709,7 +709,8 @@ export function Canvas({
               <circle className="focus-ring" cx="40" cy="33" r="31" />
               <DeviceIcon
                 kind={device.kind}
-                {...(device.kind === "pc" ? { os: osChoiceOf(device.config) } : {})}
+                // 필터 규칙을 건 서버는 방패 배지를 단다 (T0.21)
+                {...(device.kind === "pc" ? { os: osChoiceOf(device.config), filtering: hasActiveFilter(device.config) } : {})}
                 // 56에서 50으로 줄였다. 바닥선(그림의 25.8/32 높이)은 제자리라 이름과의 간격이 그대로다
                 x={15}
                 y={3}
@@ -723,7 +724,10 @@ export function Canvas({
         {/* 펭귄 층: 케이블 글자와 장비 아이콘 위, 장비 이름 아래. 펭귄이 아이콘 뒤에 가려지지 않고,
             장비 이름은 늘 읽힌다 (T6.4.1. T6.1.2에서는 장비 아래였다) */}
         <PacketLayer replays={replays} pathOf={pathOf} positionOf={deviceId => positions.get(deviceId)}
-          kindOf={deviceId => document.devices.find(device => device.id === deviceId)?.kind}
+          filtersAt={deviceId => {
+            const device = document.devices.find(candidate => candidate.id === deviceId);
+            return device?.kind === "pc" && hasActiveFilter(device.config);
+          }}
           {...(replayTime !== undefined ? { time: replayTime } : {})} paused={replayPaused}
           {...(onPickPenguin ? { onPick: onPickPenguin } : {})} pickedKey={pickedPenguin?.key}
           deviceCards={orderedDevices.flatMap(device => {

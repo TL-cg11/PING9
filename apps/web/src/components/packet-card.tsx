@@ -62,7 +62,7 @@ function ownersOf(document: TopologyDocument): Owners {
         device.kind === "pc" ? device.name : `${device.name} ${shortPortName(port)}`);
     }
     if (device.kind === "pc" && device.config.ip !== undefined) ip.set(device.config.ip, device.name);
-    if (device.kind === "router" || device.kind === "firewall") {
+    if (device.kind === "router") {
       for (const iface of Object.values(device.config.interfaces)) if (iface.ip !== undefined) ip.set(iface.ip, device.name);
     }
   }

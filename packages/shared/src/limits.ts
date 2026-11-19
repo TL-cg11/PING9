@@ -10,7 +10,7 @@ export const LIMITS = {
   maxRipNetworks: 16,
   /** 서버 하나의 DNS 이름 수 (T0.20). 문서에 수치가 없어 정함 */
   maxDnsRecords: 32,
-  /** Firewall의 체인 하나에 넣는 규칙 수 (T14.2.1). 문서에 수치가 없어 VLAN 수 한도와 같게 둠 */
+  /** 서버의 필터 체인 하나에 넣는 규칙 수 (T14.2.1). 문서에 수치가 없어 VLAN 수 한도와 같게 둠 */
   maxFirewallRulesPerChain: 64,
   /** Switch당 VLAN 수 (SEC-15) */
   maxVlansPerSwitch: 64,

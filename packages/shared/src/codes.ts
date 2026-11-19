@@ -128,7 +128,7 @@ export interface ErrorParamsByCode {
   /** 서비스 요청의 주소(`curl`의 URL)를 읽을 수 없음 */
   SERVICE_URL_INVALID: { readonly value: string };
 
-  // Firewall (T14.2.1)
+  // 서버의 필터 규칙 (T14.2.1, T0.21)
   /** 그 체인에 없는 규칙 번호를 지우거나, 끼울 수 없는 자리에 끼우려 함 */
   FIREWALL_RULE_NOT_FOUND: { readonly deviceId: string; readonly chain: FirewallChain; readonly index: number };
   /**
@@ -320,7 +320,7 @@ export interface DropParamsByReason {
   /** RIP를 보낸 IP가 받은 인터페이스의 네트워크가 아님 (T11.2.2) */
   RIP_SOURCE_NOT_ON_LINK: { readonly device: DeviceRef; readonly port: string; readonly sourceIp: string };
   /**
-   * Firewall의 필터 규칙이나 체인의 기본 정책이 막음 (T14.2.1, Story 14.3).
+   * 서버의 필터 규칙이나 체인의 기본 정책이 막음 (T14.2.1, Story 14.3. T0.21부터 서버로 쓰는 PC가 남긴다).
    * `rule`은 막은 규칙의 번호(1부터). 없으면 기본 정책이 막은 것이다
    */
   FIREWALL_BLOCKED: {

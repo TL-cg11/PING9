@@ -27,7 +27,7 @@ export type Command =
   | { readonly type: "link/remove"; readonly linkId: string }
   // 포트 켜고 끄기 (FR-18)
   | { readonly type: "interface/set-admin"; readonly deviceId: string; readonly port: string; readonly adminUp: boolean }
-  // Router 인터페이스의 IP (FR-26). Firewall 인터페이스에도 쓴다 (T14.2.1)
+  // Router 인터페이스의 IP (FR-26)
   | { readonly type: "interface/set-ip"; readonly deviceId: string; readonly port: string; readonly ip: string; readonly mask: string }
   | { readonly type: "interface/clear-ip"; readonly deviceId: string; readonly port: string }
   // PC의 IP (FR-25). `ip`가 null이면 IP를 지운다. 이때 `mask`와 `gateway`도 null이어야 한다
@@ -39,7 +39,7 @@ export type Command =
   // 같은 이름이 있으면 주소를 바꾼다
   | { readonly type: "pc/add-dns-record"; readonly deviceId: string; readonly name: string; readonly address: string }
   | { readonly type: "pc/remove-dns-record"; readonly deviceId: string; readonly name: string }
-  // Static route (FR-35). Firewall에도 쓴다. Firewall은 distance를 받지 않는다 (T14.2.1)
+  // Static route (FR-35)
   // distance (T11.1.1): add는 없으면 1. remove는 없으면 AD와 상관없이, 있으면 같은 AD일 때만 지운다
   | { readonly type: "route/add"; readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string; readonly distance?: number }
   | { readonly type: "route/remove"; readonly deviceId: string; readonly network: string; readonly mask: string; readonly nextHop: string; readonly distance?: number }
@@ -49,7 +49,8 @@ export type Command =
   | { readonly type: "rip/add-network"; readonly deviceId: string; readonly network: string }
   | { readonly type: "rip/remove-network"; readonly deviceId: string; readonly network: string }
   | { readonly type: "rip/set-passive"; readonly deviceId: string; readonly port: string; readonly passive: boolean }
-  // Firewall의 필터 규칙 (T14.2.1). `index`는 1부터 세는 규칙 번호다 (`iptables --line-numbers`)
+  // 서버로 쓰는 PC의 필터 규칙 (T14.2.1, T0.21에서 Firewall 장비 대신 서버로). `os`가 `server`인 PC에만 쓴다.
+  // `index`는 1부터 세는 규칙 번호다 (`iptables --line-numbers`)
   // add-rule: index가 없으면 끝에 붙이고(`-A`), 있으면 그 자리에 끼운다(`-I`)
   | { readonly type: "firewall/add-rule"; readonly deviceId: string; readonly chain: FirewallChain; readonly rule: FirewallRule; readonly index?: number }
   | { readonly type: "firewall/remove-rule"; readonly deviceId: string; readonly chain: FirewallChain; readonly index: number }

@@ -39,11 +39,10 @@ import { INITIAL_UI_STATE, uiReducer } from "./ui-state";
 
 type Terminals = Readonly<Record<string, TerminalState>>;
 
-const KIND_LABEL: Readonly<Record<DeviceKind, "PC" | "Switch" | "Router" | "Firewall">> = {
+const KIND_LABEL: Readonly<Record<DeviceKind, "PC" | "Switch" | "Router">> = {
   pc: "PC",
   switch: "Switch",
   router: "Router",
-  firewall: "Firewall",
 };
 
 /** 시안에서 터미널 창이 쌓이기 시작하는 z-index */
@@ -389,8 +388,7 @@ export function App() {
             // 서비스 요청(T0.20)도 회차가 하나라, 멈추면 ping 통계 없이 `^C`만 찍는다
             return summary?.kind === "ping" && (summary.hop !== undefined || summary.service !== undefined);
           },
-          // Firewall의 콘솔은 Linux다 (T14.2.1)
-          os: device?.kind === "pc" ? osOf(device.config) : device?.kind === "firewall" ? "linux" : "windows",
+          os: device?.kind === "pc" ? osOf(device.config) : "windows",
           // 실시간이면 재생하지 않는다. 0을 돌려주면 회차 줄이 실제 OS처럼 바로 뜬다 (응답 없는 회차는 4초)
           play: (traceId) => (modeRef.current === "simulation" ? play(deviceId, traceId) : 0),
         });

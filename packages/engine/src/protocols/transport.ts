@@ -42,7 +42,7 @@ export interface TransportHostConfig {
   respond(service: ServiceKind, message: string): { readonly message: string; readonly data?: string };
 }
 
-/** 전달하는 장비(Router, Firewall)가 프레임을 다시 만들 때 그대로 옮길 계층 */
+/** 전달하는 장비(Router)가 프레임을 다시 만들 때 그대로 옮길 계층 */
 export function transportLayersOf(snapshot: FrameSnapshot): Pick<FrameSnapshot, "tcp" | "udp" | "application"> {
   const { tcp, udp, application } = snapshot;
   return {

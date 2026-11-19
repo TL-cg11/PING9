@@ -1,4 +1,5 @@
 // iptables의 filter 테이블 판정 (T14.2.1, 02 문서 F1). 무상태다: 패킷 하나와 규칙 목록만 본다.
+// 서버로 쓰는 PC의 호스트(ipv4-host.ts)가 받는 길목(INPUT)과 보내는 길목(OUTPUT)에서 부른다 (T0.21).
 // 규칙을 위에서부터 보고 처음 맞는 규칙의 대상을 따른다. 맞는 규칙이 없으면 체인의 기본 정책이다.
 
 import { cidrContains, parsePortRange } from "@ping9/shared";
@@ -8,14 +9,14 @@ import type { FirewallChainConfig, FirewallRule, FirewallTarget, FrameSnapshot }
 export interface FilterPacket {
   readonly sourceIp: string;
   readonly destinationIp: string;
-  /** ICMP(ping), TCP(HTTP, FTP), UDP(DNS, NTP, RIP) */
+  /** ICMP(ping), TCP(HTTP, FTP), UDP(DNS, NTP) */
   readonly protocol?: "icmp" | "tcp" | "udp";
   readonly icmpType?: NonNullable<FirewallRule["icmpType"]>;
   readonly sourcePort?: number;
   readonly destinationPort?: number;
 }
 
-/** 패킷이 지나는 인터페이스. INPUT은 `inPort`만, OUTPUT은 `outPort`만, FORWARD는 둘 다 있다 */
+/** 패킷이 지나는 인터페이스. INPUT은 `inPort`만, OUTPUT은 `outPort`만 있다 */
 export interface FilterPorts {
   readonly inPort?: string;
   readonly outPort?: string;
@@ -44,7 +45,7 @@ function portMatches(range: string | undefined, port: number | undefined): boole
   return parsed !== null && port !== undefined && port >= parsed[0] && port <= parsed[1];
 }
 
-export function ruleMatches(rule: FirewallRule, packet: FilterPacket, ports: FilterPorts): boolean {
+function ruleMatches(rule: FirewallRule, packet: FilterPacket, ports: FilterPorts): boolean {
   return (rule.protocol === undefined || rule.protocol === packet.protocol) &&
     (rule.source === undefined || cidrContains(rule.source, packet.sourceIp)) &&
     (rule.destination === undefined || cidrContains(rule.destination, packet.destinationIp)) &&

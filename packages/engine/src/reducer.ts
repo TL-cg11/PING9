@@ -13,18 +13,7 @@ import { describeValue } from "./describe";
 import { addDevice } from "./reducer/device-add";
 import { moveDevice } from "./reducer/device-move";
 import { renameDevice } from "./reducer/device-rename";
-import {
-  addFirewallRoute,
-  addFirewallRule,
-  clearFirewallInterfaceIp,
-  flushFirewallRules,
-  orFirewall,
-  removeFirewallRoute,
-  removeFirewallRule,
-  setFirewallInterfaceAdmin,
-  setFirewallInterfaceIp,
-  setFirewallPolicy,
-} from "./reducer/firewall";
+import { addFirewallRule, flushFirewallRules, removeFirewallRule, setFirewallPolicy } from "./reducer/firewall";
 import { setInterfaceAdmin } from "./reducer/interface-admin";
 import { addLink, removeDevice, removeLink } from "./reducer/link";
 import { setPcIp } from "./reducer/pc-set-ip";
@@ -77,12 +66,12 @@ const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
   "pc/set-service": setPcService,
   "pc/add-dns-record": addPcDnsRecord,
   "pc/remove-dns-record": removePcDnsRecord,
-  // 인터페이스와 Static route의 Command는 Firewall도 쓴다 (T14.2.1). 장비가 Firewall이면 그쪽 처리기로 간다
-  "interface/set-admin": orFirewall(setFirewallInterfaceAdmin, setInterfaceAdmin),
-  "interface/set-ip": orFirewall(setFirewallInterfaceIp, setRouterInterfaceIp),
-  "interface/clear-ip": orFirewall(clearFirewallInterfaceIp, clearRouterInterfaceIp),
-  "route/add": orFirewall(addFirewallRoute, addRoute),
-  "route/remove": orFirewall(removeFirewallRoute, removeRoute),
+  "interface/set-admin": setInterfaceAdmin,
+  "interface/set-ip": setRouterInterfaceIp,
+  "interface/clear-ip": clearRouterInterfaceIp,
+  "route/add": addRoute,
+  "route/remove": removeRoute,
+  // 서버로 쓰는 PC의 필터 규칙 (T0.21)
   "firewall/add-rule": addFirewallRule,
   "firewall/remove-rule": removeFirewallRule,
   "firewall/flush-rules": flushFirewallRules,

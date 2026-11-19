@@ -87,8 +87,6 @@ button { font: inherit; cursor: pointer; }
 .tool.device-tool:not(:disabled):active { cursor: grabbing; }
 .placement-preview { pointer-events: none; opacity: .65; }
 .device-tool svg { pointer-events: none; }
-/* Firewall은 벽이 왼쪽으로 길어 작아 보인다. 조금 키운다 (버튼 높이는 그대로). 오른쪽 정렬은 그림 안에서 (FIREWALL_SHIFT) */
-.device-tool svg.icon-firewall { width: 34px; height: 34px; margin: -2px 0; }
 .palette-note { font-size: 11px; line-height: 1.4; text-align: center; color: var(--navy-60); }
 /* 목록에서 끌어 온 새 장비를 장비 목록에 다시 놓으면 취소된다 (T0.12). 끄는 동안 안내를 바꾸고, 목록 위에 오면 표시한다 */
 .palette.cancel-armed .palette-note { color: var(--sky-700); font-weight: 600; }
@@ -287,7 +285,7 @@ button { font: inherit; cursor: pointer; }
 .route-main { display: flex; gap: 6px; align-items: baseline; white-space: nowrap; }
 .route-main .code { width: 12px; flex: none; color: var(--sky-700); font-weight: 700; }
 .route-main .hop { margin-left: auto; color: var(--navy-60); }
-/* Firewall의 필터 규칙 (T14.2.1). 긴 규칙은 패널 안에서 줄을 바꾼다 */
+/* 서버의 필터 규칙 (T14.2.1, T0.21). 긴 규칙은 패널 안에서 줄을 바꾼다 */
 .route-main.fw-rule { white-space: normal; overflow-wrap: anywhere; }
 .route-meta { display: flex; gap: 8px; align-items: center; padding-left: 18px; }
 .route-meta .metric { color: var(--navy-60); font-size: 11px; }
@@ -397,7 +395,7 @@ button { font: inherit; cursor: pointer; }
 /* 누르기는 그림이 아니라 `.penguin-hit` 네모가 받는다. 그 네모는 장비 카드와 겹친 곳이 잘려 있어, 겹친 곳의 누르기는 장비로 간다 (T6.3.1 수정) */
 .packet-layer .penguin.pickable { cursor: pointer; }
 .packet-layer .penguin-hit { fill: transparent; pointer-events: all; }
-/* Firewall 장면 (T14.2.3): 방패와 말풍선, DROP의 눈가루 */
+/* 서버의 필터 장면 (T14.2.3, T0.21): 방패와 말풍선, DROP의 눈가루 */
 .packet-layer .fw-say rect, .packet-layer .fw-say path { fill: #1E9E6A; }
 .packet-layer .fw-shield.deny .fw-say rect, .packet-layer .fw-shield.deny .fw-say path { fill: #D9413E; }
 .packet-layer .fw-say text { fill: #fff; font-size: 11px; font-weight: 700; text-anchor: middle; }

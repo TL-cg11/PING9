@@ -32,6 +32,7 @@ const pcConfigSchema = z.object({
   adminUp: z.boolean().optional(),
   services: z.array(z.enum(SERVICE_KINDS)).optional(),
   dnsRecords: z.array(z.object({ name: shortString, address: shortString })).optional(),
+  filter: z.lazy(() => filterSchema).optional(),
 });
 
 const vlanSchema = z.object({ id: integer, name: shortString });
@@ -105,11 +106,8 @@ const firewallChainSchema = z.object({
   rules: z.array(firewallRuleSchema),
 });
 
-const firewallConfigSchema = z.object({
-  interfaces: z.record(shortString, routerInterfaceConfigSchema),
-  staticRoutes: z.array(staticRouteSchema),
-  filter: z.object({ INPUT: firewallChainSchema, FORWARD: firewallChainSchema, OUTPUT: firewallChainSchema }),
-});
+/** 서버로 쓰는 PC의 필터 (T0.21). 세 체인이 모두 있어야 한다 */
+const filterSchema = z.object({ INPUT: firewallChainSchema, FORWARD: firewallChainSchema, OUTPUT: firewallChainSchema });
 
 const deviceBase = { id: shortString, name: shortString, position: positionSchema };
 
@@ -117,7 +115,6 @@ const deviceSchema = z.discriminatedUnion("kind", [
   z.object({ ...deviceBase, kind: z.literal("pc"), config: pcConfigSchema }),
   z.object({ ...deviceBase, kind: z.literal("switch"), config: switchConfigSchema }),
   z.object({ ...deviceBase, kind: z.literal("router"), config: routerConfigSchema }),
-  z.object({ ...deviceBase, kind: z.literal("firewall"), config: firewallConfigSchema }),
 ]);
 
 const linkSchema = z.object({

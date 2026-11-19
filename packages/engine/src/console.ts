@@ -4,17 +4,17 @@
 // 목록이 없는 종류는 아직 모든 명령어가 알 수 없는 명령어다. 담당이 자기 목록을 아래에 더한다.
 // `complete`와 `help`는 E3(T3.2.x)에서 같은 명령 정의로 계산한다.
 
-import { LIMITS, errorInfo, osOf } from "@ping9/shared";
+import { LIMITS, errorInfo, isServer, osOf } from "@ping9/shared";
 import type { ConsoleLine, ConsoleResult, Device, DeviceKind, HelpEntry, OsKind, PcDevice } from "@ping9/shared";
 
 import { iosCandidates, iosComplete, iosExec, iosHelp, iosPrompt } from "./cli/ios";
 import type { PathCompleter } from "./cli/ios";
-import { FIREWALL_COMMANDS, firewallPrompt, runIptables } from "./cli/firewall";
 import { pathCompletions } from "./cli/pc/file-tree";
 import type { CommandDefinition, IosConsoleEnv } from "./cli/ios";
 import { initialFiles, parseEcho, pcCommandsFor, pcPrompt, runEcho, unknownCommandText, unsupportedSyntaxAt } from "./cli/pc";
 import type { PcFiles } from "./cli/pc";
 import { splitWords } from "./cli/ios/parse";
+import { runIptables } from "./cli/pc/iptables-run";
 import { ROUTER_COMMANDS } from "./cli/router";
 import { vyosExec, vyosPrompt, vyosHelp, vyosComplete } from "./cli/vyos/console";
 import { SWITCH_COMMANDS } from "./cli/switch";
@@ -36,12 +36,11 @@ export interface ConsolePort {
 const DEFINITIONS_BY_KIND: Partial<Record<Exclude<DeviceKind, "pc">, readonly CommandDefinition[]>> = {
   router: ROUTER_COMMANDS,
   switch: SWITCH_COMMANDS,
-  firewall: FIREWALL_COMMANDS,
 };
 
 /**
  * PC에서 첫 단어가 없는 명령어면 OS 형식의 줄(`ls: command not found`)과 한국어 안내로 바꾼다 (T0.9).
- * 첫 단어는 맞고 뒤가 틀린 줄은 `^` 표시가 있는 오류 그대로 둔다. Firewall도 Linux의 줄을 쓴다 (T14.2.1)
+ * 첫 단어는 맞고 뒤가 틀린 줄은 `^` 표시가 있는 오류 그대로 둔다
  */
 function pcUnknownCommand(lines: readonly ConsoleLine[], text: string, os: OsKind): readonly ConsoleLine[] {
   const [only] = lines;
@@ -72,12 +71,15 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
     if (device.kind === "router" && device.config.cliStyle === "vyos") return vyosPrompt(device, env);
     // PC에는 모드가 없고 OS마다 프롬프트가 다르다 (Windows `PC1 User>`, Linux `user@PC2 ~ $`, T0.19)
     if (device.kind === "pc") return pcPrompt(device, filesOf(device));
-    // Firewall은 Linux 장비라 모드가 없다 (T14.2.1)
-    if (device.kind === "firewall") return firewallPrompt(device);
     return definitionsFor(device) === undefined ? `${device.name}>` : iosPrompt(device, env);
   };
 
   const result = (...lines: ConsoleLine[]): ConsoleResult => ({ lines, prompt: prompt() });
+
+  // 서버에서는 앞의 `sudo`를 같은 길이의 빈칸으로 바꿔 읽는다. 오류의 `^` 위치가 그대로다 (T14.2.1, T0.21)
+  const SUDO = /^(\s*)sudo(?=\s)/;
+  const withoutSudo = (device: Device, line: string): string =>
+    device.kind === "pc" && isServer(device.config) ? line.replace(SUDO, "$1    ") : line;
 
   // 완성과 도움말을 계산할 수 있는 경우만 돌려준다. 장비가 없거나, 명령 정의가 없는 종류거나,
   // 글이 아니거나 너무 긴 줄이면 완성도 도움말도 없다 (예외를 던지지 않는다, AD-16)
@@ -87,7 +89,7 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
     const definitions = definitionsFor(device);
     if (definitions === undefined) return undefined;
     if (typeof line !== "string" || line.length > LIMITS.maxConsoleLineLength) return undefined;
-    return { text: line, device, definitions };
+    return { text: withoutSudo(device, line), device, definitions };
   };
 
   return {
@@ -99,9 +101,7 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
         return result({ kind: "error", code: "DEVICE_NOT_FOUND", params: { deviceId } });
       }
 
-      // Firewall에서는 앞의 `sudo`를 같은 길이의 빈칸으로 바꿔 읽는다. 오류의 `^` 위치가 그대로다 (T14.2.1)
-      const typed = typeof line === "string" ? line : "";
-      const text = device.kind === "firewall" ? typed.replace(/^(\s*)sudo(?=\s)/, "$1    ") : typed;
+      const text = withoutSudo(device, typeof line === "string" ? line : "");
       if (text.length > LIMITS.maxConsoleLineLength) {
         return result({
           kind: "error",
@@ -121,8 +121,8 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
         }
       }
 
-      // PC와 Firewall 콘솔은 한 줄에 명령 하나다. 파이프, 리다이렉트, 명령 연결은 실행하지 않는다 (T0.9)
-      if (device.kind === "pc" || device.kind === "firewall") {
+      // PC 콘솔은 한 줄에 명령 하나다. 파이프, 리다이렉트, 명령 연결은 실행하지 않는다 (T0.9)
+      if (device.kind === "pc") {
         const blocked = unsupportedSyntaxAt(text);
         if (blocked !== undefined) {
           return result({
@@ -133,8 +133,8 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
         }
       }
 
-      // `iptables`는 옵션 순서가 자유로워 명령 정의로 읽지 않고 따로 읽는다 (T14.2.1)
-      if (device.kind === "firewall") {
+      // 서버의 `iptables`는 옵션 순서가 자유로워 명령 정의로 읽지 않고 따로 읽는다 (T14.2.1, T0.21)
+      if (device.kind === "pc" && isServer(device.config)) {
         const [first, ...rest] = splitWords(text);
         if (first?.text === "iptables") return result(...runIptables(rest, device, env.dispatch));
       }
@@ -144,7 +144,6 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
         const executed = iosExec(text, device, definitions, env);
         // iosExec의 프롬프트는 IOS 모드의 것이다. PC는 실행 뒤의 문서로 OS별 프롬프트를 다시 만든다
         if (device.kind === "pc") return { lines: pcUnknownCommand(executed.lines, text, osOf(device.config)), prompt: prompt() };
-        if (device.kind === "firewall") return { lines: pcUnknownCommand(executed.lines, text, "linux"), prompt: prompt() };
         return executed;
       }
 
@@ -163,7 +162,12 @@ export function createConsolePort(deviceId: string, env: IosConsoleEnv): Console
     complete: (line: string): string | null => {
       const target = assistTarget(line);
       if (target?.device.kind === "router" && target.device.config.cliStyle === "vyos") return vyosComplete(target.text, target.device, env);
-      return target === undefined ? null : iosComplete(target.text, target.device, target.definitions, env, pathsOf(target.device));
+      if (target === undefined) return null;
+      const completed = iosComplete(target.text, target.device, target.definitions, env, pathsOf(target.device));
+      // 빈칸으로 바꿔 읽은 `sudo`를 완성한 줄에 되돌린다
+      const sudo = target.text === line ? null : SUDO.exec(line);
+      return completed === null || sudo === null || !completed.startsWith(" ".repeat(sudo[0].length))
+        ? completed : `${sudo[0]}${completed.slice(sudo[0].length)}`;
     },
 
     candidates: (line: string): readonly string[] => {

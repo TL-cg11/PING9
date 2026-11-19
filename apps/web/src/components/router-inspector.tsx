@@ -33,8 +33,7 @@ function changeTag(change: RouteChangeView | undefined): "새로" | "바뀜" | u
 }
 
 export function RouterRoutingTable({ view, changes }: {
-  /** Firewall의 라우팅 테이블도 같은 모양이라 함께 쓴다 (T14.2.1) */
-  readonly view: Pick<RouterView, "routingTable">;
+  readonly view: RouterView;
   /** 마지막 경로 교환에서 이 Router의 바뀐 경로 */
   readonly changes: readonly RouteChangeView[];
 }) {

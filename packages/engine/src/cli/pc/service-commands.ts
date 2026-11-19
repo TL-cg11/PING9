@@ -17,6 +17,7 @@ import type { ConsoleLine, ErrorInfo, OsKind, PcDevice, ServiceKind } from "@pin
 import { listeningService, serviceResponse } from "../../devices/pc/services";
 import type { ServiceOutcome } from "../../runtime";
 import { customParam, defineCommand, linesFromDispatch, param } from "../ios";
+import { IPTABLES_USAGE } from "./iptables-run";
 import type { CommandArgs, CommandContext, CommandDefinition, CommandOutcome, ParamValue } from "../ios";
 
 const text = (value: string): ConsoleLine => ({ kind: "text", text: value });
@@ -280,6 +281,8 @@ export const SERVER_ONLY_COMMANDS: readonly CommandDefinition[] = [
   pcCommand(["systemctl", "start", serviceParam], "Turn a service on", setService(true)),
   pcCommand(["systemctl", "stop", serviceParam], "Turn a service off", setService(false)),
   pcCommand(["systemctl", "status", serviceParam], "Show whether a service is running", serviceStatus),
+  // 실행은 console.ts가 iptables-run으로 넘긴다 (옵션 순서가 자유롭다). 이 정의는 `help`, `?`, Tab이 명령을 알게 한다 (T0.21)
+  pcCommand(["iptables"], "Packet filter rules (iptables -h)", () => ({ lines: IPTABLES_USAGE.map(text) })),
 ];
 
 /** 서버가 아닌 PC에서 서버 명령을 쓸 수 없게, 목록을 고르는 쪽(os.ts)이 이 판정을 쓴다 */

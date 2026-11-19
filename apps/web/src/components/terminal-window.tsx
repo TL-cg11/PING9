@@ -1,5 +1,5 @@
 // 터미널 창. 시안의 .term 마크업과 동작(끌어 옮기기, 크기 바꾸기, 닫기)을 옮긴 것이다.
-// 장비 종류를 모른다. 받은 상태를 그리고 입력을 위로 올릴 뿐이라 PC, Switch, Router, Firewall이 함께 쓴다.
+// 장비 종류를 모른다. 받은 상태를 그리고 입력을 위로 올릴 뿐이라 PC, Switch, Router가 함께 쓴다.
 // 글은 React의 글자 노드로만 넣는다. HTML로 해석되는 길이 없다 (SEC-11).
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -52,7 +52,7 @@ export function TerminalWindow({
   onMove,
 }: {
   readonly deviceName: string;
-  readonly kindLabel: "PC" | "Switch" | "Router" | "Firewall";
+  readonly kindLabel: "PC" | "Switch" | "Router";
   readonly state: TerminalState;
   /**
    * 출력이 이어지는 중 (ping 회차를 하나씩 보이는 중). 입력 줄을 숨긴다.

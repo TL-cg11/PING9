@@ -2,7 +2,7 @@
 // 구성(IP, OS, 링크)은 복사하지 않고 매번 지금 Document에서 읽는다. 그래서 IP를 바꿔도 모델을 다시 만들 필요가 없다.
 // 모델이 들고 있는 것은 Document에 없는 동적 상태(ARP 테이블)뿐이다.
 
-import { PORT_NAMES, osOf } from "@ping9/shared";
+import { PORT_NAMES, filterOf, osOf } from "@ping9/shared";
 import type { DeviceView, PcDevice, TopologyDocument } from "@ping9/shared";
 
 import type { Frame, SimContext, TimerRef } from "../../kernel";
@@ -76,6 +76,8 @@ export class PcModel implements DeviceModel {
         get ttl() {
           return TTL_BY_OS[osOf(pc().config)];
         },
+        // 서버로 쓰는 PC의 iptables 규칙 (T0.21). 서버가 아니면 빈 필터라 모두 지나간다
+        filter: () => filterOf(pc().config),
       },
       this.arp,
     );

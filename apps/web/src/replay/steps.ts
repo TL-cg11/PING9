@@ -18,15 +18,16 @@ export interface Hop {
   /** 내보낸 장비. 링크의 반대쪽 끝이 도착 장비다 */
   readonly fromDeviceId: string;
   readonly kind: FrameKind;
-  /** 장비가 받은 프레임을 그대로 넘겼다 (`forward`). Firewall이면 방패가 허용을 보인다 (T14.2.3) */
-  readonly forwarded?: true;
-  /** 도착 장비가 이 프레임을 다음에 넘긴다. Firewall이면 다가갈 때 방패가 허용을 보인다 */
-  readonly passesAt?: string;
-  /** Firewall의 REJECT가 돌려보낸 ICMP 오류. 펭귄이 돌아서서 걷는다 */
+  /**
+   * 이 프레임을 받아들인 장비들 (`receive`). 필터 규칙을 건 서버면 펭귄이 다가갈 때 방패가 허용을 보인다
+   * (T0.21. T14.2.3에서는 Firewall 장비가 넘긴 프레임이었다)
+   */
+  readonly acceptedBy?: readonly string[];
+  /** 서버의 REJECT가 돌려보낸 ICMP 오류. 펭귄이 돌아서서 걷는다 */
   readonly rejected?: Blocked;
 }
 
-/** Firewall이 막음 (`FIREWALL_BLOCKED`). `rule`이 없으면 체인의 기본 정책 */
+/** 서버의 필터 규칙(iptables)이 막음 (`FIREWALL_BLOCKED`). `rule`이 없으면 체인의 기본 정책 */
 export interface Blocked {
   readonly target: "DROP" | "REJECT";
   readonly rule?: number;
@@ -83,17 +84,34 @@ function blockedOf(event: TraceEvent): Blocked | undefined {
   return rule === undefined ? { target } : { target, rule };
 }
 
+/**
+ * 이 ICMP 오류가 서버의 REJECT가 돌려보낸 것이면 그 막힘.
+ * 서버가 보낸 쪽의 MAC을 몰라 ARP부터 하면 막은 이벤트와 오류 사이에 ARP 이벤트가 낀다: 그것들은 건너 올라간다
+ */
+function rejectedBy(trace: Trace, event: TraceEvent): Blocked | undefined {
+  if (frameKind(event) !== "icmp-error") return undefined;
+  let parent = event.parentSeq === undefined ? undefined : trace.events[event.parentSeq];
+  // 부모는 늘 앞선 이벤트다. 형태가 다른 추적에서도 돌지 않게 횟수를 막는다
+  for (let guard = 0; parent !== undefined && guard < trace.events.length; guard += 1) {
+    const blocked = blockedOf(parent);
+    if (blocked !== undefined) return blocked;
+    if (parent.frame.arp === undefined) return undefined;
+    parent = parent.parentSeq === undefined ? undefined : trace.events[parent.parentSeq];
+  }
+  return undefined;
+}
+
 export function replaySteps(trace: Trace): Step[] {
   const cause = trace.result.primaryDropSeq === undefined ? undefined : trace.events[trace.result.primaryDropSeq];
   const isCause = (event: TraceEvent) =>
     cause !== undefined && event.deviceId === cause.deviceId && event.dropReason === cause.dropReason;
   const steps: { time: number; hops: Hop[]; falls: Fall[] }[] = [];
-  // 프레임마다 그 프레임을 넘긴 이벤트 (seq 순)
-  const forwards = new Map<number, TraceEvent[]>();
+  // 프레임마다 그 프레임을 받아들인 이벤트 (seq 순)
+  const receives = new Map<number, TraceEvent[]>();
   for (const event of trace.events) {
-    if (event.action !== "forward") continue;
-    const list = forwards.get(event.frameId);
-    if (list === undefined) forwards.set(event.frameId, [event]);
+    if (event.action !== "receive") continue;
+    const list = receives.get(event.frameId);
+    if (list === undefined) receives.set(event.frameId, [event]);
     else list.push(event);
   }
   for (const event of trace.events) {
@@ -103,13 +121,12 @@ export function replaySteps(trace: Trace): Step[] {
       steps.push(step);
     }
     if (event.linkId !== undefined && event.action !== "drop") {
-      const passer = forwards.get(event.frameId)?.find((later) => later.seq > event.seq && later.deviceId !== event.deviceId);
-      const parent = event.parentSeq === undefined ? undefined : trace.events[event.parentSeq];
-      const rejected = parent === undefined ? undefined : blockedOf(parent);
+      const acceptedBy = [...new Set((receives.get(event.frameId) ?? [])
+        .filter((later) => later.seq > event.seq && later.deviceId !== event.deviceId).map((later) => later.deviceId))];
+      const rejected = rejectedBy(trace, event);
       step.hops.push({
         seq: event.seq, linkId: event.linkId, fromDeviceId: event.deviceId, kind: frameKind(event),
-        ...(event.action === "forward" ? { forwarded: true as const } : {}),
-        ...(passer === undefined ? {} : { passesAt: passer.deviceId }),
+        ...(acceptedBy.length === 0 ? {} : { acceptedBy }),
         ...(rejected === undefined ? {} : { rejected }),
       });
     }

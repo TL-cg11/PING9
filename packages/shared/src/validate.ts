@@ -7,7 +7,7 @@ import type { ErrorInfo } from "./codes";
 import { isPortName } from "./document";
 import type { DeviceKind, TopologyDocument } from "./document";
 import { TOPOLOGY_EXPORT_KIND } from "./export-file";
-import { checkFirewallConfig } from "./firewall-config";
+import { checkPcFilter } from "./firewall-config";
 import { CURRENT_SCHEMA_VERSION, LIMITS } from "./limits";
 import { checkRipConfig, checkRouterInterfaceOverlap, checkStaticRoute } from "./router-config";
 import { topologyDocumentSchema, traceSchema } from "./schema";
@@ -93,11 +93,12 @@ function checkVersion(input: Record<string, unknown>): ErrorInfo | null {
 type ParsedDevice = ParsedDocument["devices"][number];
 
 function checkPcConfig(
+  deviceId: string,
   config: Extract<ParsedDevice, { kind: "pc" }>["config"],
   path: string,
 ): ErrorInfo | null {
-  // 서비스 구성은 주소와 상관없이 본다 (T0.20)
-  const servicesError = checkPcServices(config, path);
+  // 서비스 구성과 필터 규칙은 주소와 상관없이 본다 (T0.20, T0.21)
+  const servicesError = checkPcServices(config, path) ?? checkPcFilter(deviceId, config);
   if (servicesError) return servicesError;
 
   const { ip, mask, gateway } = config;
@@ -202,13 +203,11 @@ function checkRouterConfig(
 function checkDeviceConfig(device: ParsedDevice, path: string): ErrorInfo | null {
   switch (device.kind) {
     case "pc":
-      return checkPcConfig(device.config, path);
+      return checkPcConfig(device.id, device.config, path);
     case "switch":
       return checkSwitchConfig(device.id, device.config, path);
     case "router":
       return checkRouterConfig(device.id, device.config, path);
-    case "firewall":
-      return checkFirewallConfig(device.id, device.config, path);
   }
 }
 
@@ -325,12 +324,50 @@ export function validateDocument(input: unknown): DocumentResult {
   }
 }
 
+/** 없어진 Firewall 장비의 포트 이름을 Router의 것으로 (T0.21). 순번이 같은 포트다 */
+const FIREWALL_PORTS = ["Ethernet0", "Ethernet1", "Ethernet2", "Ethernet3"] as const;
+const FIREWALL_PORT = /^Ethernet([0-3])$/;
+const routerPortFor = (port: unknown): unknown => {
+  const match = typeof port === "string" ? FIREWALL_PORT.exec(port) : null;
+  return match === null ? port : `GigabitEthernet0/${match[1]}`;
+};
+
 /**
- * 옛 버전의 문서를 현재 버전으로 올린다 (AD-9). 지금은 버전이 1뿐이라 그대로 돌려준다.
- * 형태를 바꿔 `schemaVersion`을 올릴 때 여기에 변환을 넣는다.
+ * 옛 버전의 문서를 현재 버전으로 올린다 (AD-9). 형태를 바꿔 `schemaVersion`을 올릴 때 여기에 변환을 넣는다.
+ *
+ * T0.21: 2026-11-16 ~ 11-19에 있던 Firewall 장비(`kind: "firewall"`)는 Router로 바꾼다.
+ * 인터페이스의 주소·켜짐과 Static route는 그대로 옮기고, 포트 이름과 그 포트에 걸린 링크를 Router의 이름으로 바꾼다.
+ * 필터 규칙은 읽지 않고 버린다 (Router에는 필터가 없다. 규칙은 이제 서버로 쓰는 PC에 건다).
+ * Firewall은 구성에 없는 인터페이스가 켜진 것이었고 Router는 꺼진 것이라, 없는 인터페이스를 켜진 것으로 채운다.
+ * 넣은 값은 고치지 않는다. 구성이나 인터페이스 표가 Firewall의 것이 아니면 그대로 돌려줘 검증이 오류를 낸다
  */
 export function migrateDocument(input: unknown): unknown {
-  return input;
+  if (!isRecord(input) || !Array.isArray(input.devices)) return input;
+  const firewallIds = new Set<unknown>();
+  const devices = input.devices.map((device: unknown): unknown => {
+    if (!isRecord(device) || device.kind !== "firewall" || !isRecord(device.config)) return device;
+    const { interfaces, staticRoutes } = device.config;
+    if (!isRecord(interfaces) || Object.keys(interfaces).some((port) => !FIREWALL_PORT.test(port))) return device;
+    firewallIds.add(device.id);
+    return {
+      id: device.id, name: device.name, position: device.position, kind: "router",
+      config: {
+        interfaces: Object.fromEntries(FIREWALL_PORTS.map((port) =>
+          [routerPortFor(port), Object.hasOwn(interfaces, port) ? interfaces[port] : { adminUp: true }])),
+        staticRoutes,
+      },
+    };
+  });
+  if (firewallIds.size === 0) return input;
+  const links = !Array.isArray(input.links) ? input.links : input.links.map((link: unknown): unknown => {
+    if (!isRecord(link) || !Array.isArray(link.ends)) return link;
+    return {
+      ...link,
+      ends: link.ends.map((end: unknown): unknown =>
+        isRecord(end) && firewallIds.has(end.deviceId) ? { ...end, port: routerPortFor(end.port) } : end),
+    };
+  });
+  return { ...input, devices, links };
 }
 
 type JsonResult = { readonly ok: true; readonly raw: unknown } | { readonly ok: false; readonly error: ErrorInfo };

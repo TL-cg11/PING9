@@ -1,17 +1,17 @@
-// 속성 패널에서 Firewall에만 있는 구역: iptables 필터 규칙 (T14.2.1).
+// 속성 패널에서 서버(종류가 Server인 PC)에만 있는 구역: iptables 필터 규칙 (T14.2.1, T0.21).
 // 규칙은 구성이라 스냅샷의 Document에서 읽고, 글은 콘솔의 `iptables -S`와 같은 함수로 만든다 (AD-7).
 // 규칙을 바꾸는 곳은 콘솔이다. 여기서는 보기만 한다.
 
 import { FIREWALL_CHAINS, firewallRuleSpec } from "@ping9/shared";
-import type { FirewallConfig } from "@ping9/shared";
+import type { PcFilter } from "@ping9/shared";
 import { Fragment } from "react";
 
-export function FirewallRules({ config }: { readonly config: FirewallConfig }) {
+export function FilterRules({ filter }: { readonly filter: PcFilter }) {
   return (
     <>
       <h4>필터 규칙 (iptables)</h4>
       {FIREWALL_CHAINS.map((chain) => {
-        const { policy, rules } = config.filter[chain];
+        const { policy, rules } = filter[chain];
         return (
           <Fragment key={chain}>
             <div className="if-row">

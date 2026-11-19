@@ -75,7 +75,7 @@ function keptGateway(pc: PcDevice, ip: string, mask: string | null): string | nu
 }
 
 /** 링크 상태 줄. 상태는 화면과 같은 값을 쓴다 (AD-7) */
-export const LINK_STATE: Readonly<Record<PortStatus, string>> = {
+const LINK_STATE: Readonly<Record<PortStatus, string>> = {
   up: "<BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 state UP",
   "no-link": "<NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 state DOWN",
   "peer-down": "<NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 state DOWN",

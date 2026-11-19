@@ -43,9 +43,6 @@ export function isAdminUp(device: Device, port: string): boolean {
       return device.config.ports[port]?.adminUp ?? true;
     case "router":
       return device.config.interfaces[port]?.adminUp ?? false;
-    case "firewall":
-      // Linux 장비라 설정 전에도 켜져 있다 (T14.2.1)
-      return device.config.interfaces[port]?.adminUp ?? true;
   }
 }
 

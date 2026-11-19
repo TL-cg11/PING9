@@ -1,20 +1,36 @@
-// Firewall의 구성 규칙 (T14.2.1). 문서 불러오기(validateDocument)와 reducer, CLI가 같은 함수를 쓴다.
+// 서버로 쓰는 PC의 패킷 필터 규칙 (T14.2.1에서 만들고 T0.21에서 Firewall 장비 대신 서버로 옮겼다).
+// 문서 불러오기(validateDocument)와 reducer, CLI가 같은 함수를 쓴다.
 // 필터는 iptables의 filter 테이블을 본뜬 무상태 패킷 필터다 (02 문서 F1).
+// 서버는 포트가 하나인 호스트라 INPUT(서버로 온 것)과 OUTPUT(서버가 보내는 것)만 패킷을 본다.
+// FORWARD 체인은 실제 Linux처럼 있고 규칙도 넣을 수 있지만, 서버가 패킷을 전달하지 않아 맞는 패킷이 없다.
 
 import { errorInfo } from "./codes";
 import type { ErrorInfo } from "./codes";
 import { FIREWALL_CHAINS, PORT_NAMES, isPortName } from "./document";
-import type { FirewallChain, FirewallChainConfig, FirewallConfig, FirewallRule, RouterInterfaceConfig } from "./document";
+import type { FirewallChain, FirewallChainConfig, FirewallRule, PcConfig, PcFilter } from "./document";
 import { LIMITS } from "./limits";
-import { checkStaticRoute } from "./router-config";
-import { checkInterfaceAddress, formatIpv4, networksOverlap, parseIpv4, prefixLengthToMask } from "./values";
+import { formatIpv4, parseIpv4 } from "./values";
 
-/** 새 Firewall의 필터: 세 체인 모두 정책 ACCEPT, 규칙 없음 (실제 iptables의 처음 상태) */
-export const EMPTY_FIREWALL_FILTER: FirewallConfig["filter"] = {
+/** 처음 상태의 필터: 세 체인 모두 정책 ACCEPT, 규칙 없음 (실제 iptables의 처음 상태) */
+export const EMPTY_FIREWALL_FILTER: PcFilter = {
   INPUT: { policy: "ACCEPT", rules: [] },
   FORWARD: { policy: "ACCEPT", rules: [] },
   OUTPUT: { policy: "ACCEPT", rules: [] },
 };
+
+/**
+ * 지금 적용되는 필터. 서버가 아니면 규칙이 문서에 남아 있어도 적용하지 않는다 (서비스와 같은 규칙).
+ * 서버인데 `filter` 칸이 없으면 처음 상태다
+ */
+export function filterOf(config: PcConfig): PcFilter {
+  return config.os === "server" ? (config.filter ?? EMPTY_FIREWALL_FILTER) : EMPTY_FIREWALL_FILTER;
+}
+
+/** 패킷을 막을 수 있는 필터인지: INPUT이나 OUTPUT에 규칙이 있거나 기본 정책이 ACCEPT가 아니다. 화면이 방패를 보일지 정한다 */
+export function hasActiveFilter(config: PcConfig): boolean {
+  const filter = filterOf(config);
+  return (["INPUT", "OUTPUT"] as const).some((chain) => filter[chain].rules.length > 0 || filter[chain].policy !== "ACCEPT");
+}
 
 const PREFIX_LENGTH = /^(0|[1-9][0-9]?)$/;
 
@@ -42,13 +58,6 @@ export function cidrContains(cidr: string, ip: string): boolean {
   return Math.floor(address / size) === Math.floor(base / size);
 }
 
-/** `네트워크/길이`를 네트워크와 마스크로. `ip route add 10.0.0.0/24 via ...`가 쓴다. 틀리면 null */
-export function cidrToNetworkAndMask(cidr: string): { readonly network: string; readonly mask: string } | null {
-  const [network = "", lengthText = ""] = cidr.split("/");
-  const mask = PREFIX_LENGTH.test(lengthText) ? prefixLengthToMask(Number(lengthText)) : null;
-  return parseIpv4(network) === null || mask === null ? null : { network, mask };
-}
-
 /** `80`이나 `1000:2000`을 [처음, 끝]으로. 틀리면 null */
 export function parsePortRange(value: string): readonly [number, number] | null {
   const match = /^(0|[1-9][0-9]{0,4})(?::(0|[1-9][0-9]{0,4}))?$/.exec(value);
@@ -64,8 +73,8 @@ export function checkFirewallRule(deviceId: string, chain: FirewallChain, rule: 
     if (cidr !== undefined && normalizeCidr(cidr) !== cidr) return errorInfo("INVALID_IPV4", { value: cidr });
   }
   for (const port of [rule.inInterface, rule.outInterface]) {
-    if (port !== undefined && !isPortName("firewall", port)) {
-      return errorInfo("UNKNOWN_PORT", { deviceId, kind: "firewall", port });
+    if (port !== undefined && !isPortName("pc", port)) {
+      return errorInfo("UNKNOWN_PORT", { deviceId, kind: "pc", port });
     }
   }
   if (rule.inInterface !== undefined && chain === "OUTPUT") return errorInfo("FIREWALL_RULE_INVALID", { reason: "in-interface" });
@@ -79,50 +88,12 @@ export function checkFirewallRule(deviceId: string, chain: FirewallChain, rule: 
   return null;
 }
 
-/** 꺼진 인터페이스도 겹침 검사 대상이다 (Router와 같은 규칙, FR-27) */
-export function checkFirewallInterfaceOverlap(
-  deviceId: string,
-  port: string,
-  ip: string,
-  mask: string,
-  interfaces: Readonly<Record<string, RouterInterfaceConfig>>,
-): ErrorInfo<"INTERFACE_NETWORK_OVERLAP"> | null {
-  for (const otherPort of PORT_NAMES.firewall) {
-    const other = interfaces[otherPort];
-    if (otherPort === port || other?.ip === undefined || other.mask === undefined) continue;
-    if (networksOverlap(ip, mask, other.ip, other.mask)) {
-      return errorInfo("INTERFACE_NETWORK_OVERLAP", { deviceId, port, otherPort, ip, mask });
-    }
-  }
-  return null;
-}
-
-/** 문서 불러오기와 reducer가 같은 규칙을 쓴다. `path`는 형태 오류의 위치에 쓴다 */
-export function checkFirewallConfig(deviceId: string, config: FirewallConfig, path: string): ErrorInfo | null {
-  const shape = (where: string) => errorInfo("DOCUMENT_INVALID_SHAPE", { path: `${path}.${where}`.slice(0, 200) });
-
-  for (const [port, iface] of Object.entries(config.interfaces)) {
-    if (!isPortName("firewall", port)) return errorInfo("UNKNOWN_PORT", { deviceId, kind: "firewall", port });
-    if ((iface.ip === undefined) !== (iface.mask === undefined)) return shape(`interfaces.${port}`);
-    if (iface.ip !== undefined && iface.mask !== undefined) {
-      const error = checkInterfaceAddress(iface.ip, iface.mask) ??
-        checkFirewallInterfaceOverlap(deviceId, port, iface.ip, iface.mask, config.interfaces);
-      if (error !== null) return error;
-    }
-  }
-
-  if (config.staticRoutes.length > LIMITS.maxStaticRoutesPerRouter) {
-    return errorInfo("LIMIT_EXCEEDED", { limit: "staticRoutes", max: LIMITS.maxStaticRoutesPerRouter });
-  }
-  for (const route of config.staticRoutes) {
-    // Firewall의 경로에는 AD가 없다
-    if (route.distance !== undefined) return shape("staticRoutes");
-    const error = checkStaticRoute(deviceId, route, config.interfaces);
-    if (error !== null) return error;
-  }
-
+/** PC 구성의 `filter` 칸. 문서 불러오기와 reducer가 같은 규칙을 쓴다. 칸의 형태는 스키마가 본다 */
+export function checkPcFilter(deviceId: string, config: PcConfig): ErrorInfo | null {
+  const { filter } = config;
+  if (filter === undefined) return null;
   for (const chain of FIREWALL_CHAINS) {
-    const { rules } = config.filter[chain];
+    const { rules } = filter[chain];
     if (rules.length > LIMITS.maxFirewallRulesPerChain) {
       return errorInfo("LIMIT_EXCEEDED", { limit: "firewallRules", max: LIMITS.maxFirewallRulesPerChain });
     }
@@ -156,35 +127,26 @@ function normalizeChain(chain: FirewallChainConfig): FirewallChainConfig {
   return { policy: chain.policy, rules: chain.rules.map(normalizeFirewallRule) };
 }
 
-/** 인터페이스를 포트 순서대로 채우고 규칙의 칸 순서를 맞춘다. 같은 구성은 늘 같은 JSON이 된다 */
-export function normalizeFirewallConfig(config: FirewallConfig): FirewallConfig {
+/** 체인의 순서와 규칙의 칸 순서를 맞춘다. 같은 필터는 늘 같은 JSON이 된다 */
+export function normalizeFilter(filter: PcFilter): PcFilter {
   return {
-    interfaces: Object.fromEntries(PORT_NAMES.firewall.map((port) => {
-      const iface = config.interfaces[port];
-      return [port, {
-        adminUp: iface?.adminUp ?? true,
-        ...(iface?.ip !== undefined && iface.mask !== undefined ? { ip: iface.ip, mask: iface.mask } : {}),
-      }];
-    })),
-    staticRoutes: config.staticRoutes.map(({ network, mask, nextHop }) => ({ network, mask, nextHop })),
-    filter: {
-      INPUT: normalizeChain(config.filter.INPUT),
-      FORWARD: normalizeChain(config.filter.FORWARD),
-      OUTPUT: normalizeChain(config.filter.OUTPUT),
-    },
+    INPUT: normalizeChain(filter.INPUT),
+    FORWARD: normalizeChain(filter.FORWARD),
+    OUTPUT: normalizeChain(filter.OUTPUT),
   };
 }
 
-/** 콘솔에 보이는 인터페이스 이름. `Ethernet2` → `eth2`. Firewall 포트가 아니면 받은 글 그대로 */
+/** 서버의 포트 하나 */
+const SERVER_PORT = PORT_NAMES.pc[0];
+
+/** 콘솔에 보이는 인터페이스 이름. `Ethernet0` → `eth0`. 서버의 포트가 아니면 받은 글 그대로 */
 export function firewallInterfaceName(port: string): string {
-  const index = (PORT_NAMES.firewall as readonly string[]).indexOf(port);
-  return index < 0 ? port : `eth${index}`;
+  return port === SERVER_PORT ? "eth0" : port;
 }
 
-/** `eth2` → `Ethernet2`. 없는 이름이면 undefined */
+/** `eth0` → `Ethernet0`. 서버에는 인터페이스가 하나다. 없는 이름이면 undefined */
 export function firewallPortOf(name: string): string | undefined {
-  const match = /^eth([0-9])$/.exec(name);
-  return match === null ? undefined : PORT_NAMES.firewall[Number(match[1])];
+  return name === "eth0" ? SERVER_PORT : undefined;
 }
 
 /** ICMP 종류의 번호. `iptables -S`가 번호로 보인다 */
