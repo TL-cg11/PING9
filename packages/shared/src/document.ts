@@ -1,7 +1,7 @@
 // 저장되는 문서(Document)의 형태. 출처: docs/project-plan/03-system-design.md 3.4절 "Document 형태", AD-9.
 // 모든 값은 변경 불가능한 단순 JSON 자료다 (AD-16). 바꿀 때는 새 객체를 만든다.
 
-export const DEVICE_KINDS = ["pc", "switch", "router", "firewall"] as const;
+export const DEVICE_KINDS = ["pc", "switch", "router"] as const;
 export type DeviceKind = (typeof DEVICE_KINDS)[number];
 
 /** 장비 종류별 포트의 전체 이름. 배열의 순서가 포트 순번이다 (MAC 주소 계산에 씀) */
@@ -23,8 +23,6 @@ export const PORT_NAMES = {
     "GigabitEthernet0/2",
     "GigabitEthernet0/3",
   ],
-  // Firewall은 Linux 장비다 (T14.2.1). 콘솔에는 `eth0`~`eth3`으로 보인다
-  firewall: ["Ethernet0", "Ethernet1", "Ethernet2", "Ethernet3"],
 } as const satisfies Record<DeviceKind, readonly string[]>;
 
 /** 그 종류의 장비에 있는 포트 이름인지 */
@@ -95,6 +93,8 @@ export interface PcConfig {
   readonly services?: readonly ServiceKind[];
   /** DNS 서비스가 답하는 이름 (T0.20). 칸이 없으면 없음 */
   readonly dnsRecords?: readonly DnsRecord[];
+  /** iptables의 필터 규칙 (T0.21). `os`가 `server`일 때만 쓴다. 칸이 없으면 세 체인 모두 ACCEPT에 규칙 없음 */
+  readonly filter?: PcFilter;
 }
 
 /** PC의 OS. 칸이 없으면 `DEFAULT_OS`. 서버는 Linux다 (T0.20) */
@@ -202,7 +202,10 @@ export interface RouterConfig {
   readonly ipsec?: Readonly<Record<string, IpsecProfileConfig>>;
 }
 
-/** iptables의 filter 테이블에 있는 체인 (T14.2.1). 순서는 `iptables -L`이 보이는 순서다 */
+// 패킷 필터 (T14.2.1). 처음에는 Firewall 장비의 것이었고, T0.21에서 서버로 쓰는 PC로 옮겼다.
+// 이름의 Firewall은 "방화벽 규칙"이라는 뜻으로 남겼다. 장비 종류가 아니다.
+
+/** iptables의 filter 테이블에 있는 체인. 순서는 `iptables -L`이 보이는 순서다 */
 export const FIREWALL_CHAINS = ["INPUT", "FORWARD", "OUTPUT"] as const;
 export type FirewallChain = (typeof FIREWALL_CHAINS)[number];
 
@@ -230,9 +233,9 @@ export interface FirewallRule {
   readonly source?: string;
   /** `-d` */
   readonly destination?: string;
-  /** `-i`. 포트의 전체 이름. INPUT과 FORWARD에만 */
+  /** `-i`. 포트의 전체 이름(`Ethernet0`). INPUT과 FORWARD에만 */
   readonly inInterface?: string;
-  /** `-o`. 포트의 전체 이름. FORWARD와 OUTPUT에만 */
+  /** `-o`. 포트의 전체 이름(`Ethernet0`). FORWARD와 OUTPUT에만 */
   readonly outInterface?: string;
   /** `--icmp-type`. `protocol`이 icmp일 때만 */
   readonly icmpType?: FirewallIcmpType;
@@ -247,15 +250,8 @@ export interface FirewallChainConfig {
   readonly rules: readonly FirewallRule[];
 }
 
-/**
- * Firewall 구성 (T14.2.1). 인터페이스와 Static route는 Router와 같은 모양이다.
- * `interfaces`에 없는 인터페이스는 켜져 있고 주소가 없다. Static route에 AD는 쓰지 않는다
- */
-export interface FirewallConfig {
-  readonly interfaces: Readonly<Record<string, RouterInterfaceConfig>>;
-  readonly staticRoutes: readonly StaticRoute[];
-  readonly filter: Readonly<Record<FirewallChain, FirewallChainConfig>>;
-}
+/** 서버의 필터: 체인마다 기본 정책과 규칙 목록 (T0.21) */
+export type PcFilter = Readonly<Record<FirewallChain, FirewallChainConfig>>;
 
 interface DeviceBase {
   /** web이 `crypto.randomUUID()`로 만든 UUID */
@@ -280,12 +276,7 @@ export interface RouterDevice extends DeviceBase {
   readonly config: RouterConfig;
 }
 
-export interface FirewallDevice extends DeviceBase {
-  readonly kind: "firewall";
-  readonly config: FirewallConfig;
-}
-
-export type Device = PcDevice | SwitchDevice | RouterDevice | FirewallDevice;
+export type Device = PcDevice | SwitchDevice | RouterDevice;
 
 /** 링크. 방향이 없고 서로 다른 두 장비를 잇는다 */
 export interface Link {

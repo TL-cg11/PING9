@@ -3,7 +3,6 @@ import {
   DEFAULT_VLAN_ID,
   DEFAULT_VLAN_NAME,
   DEVICE_KINDS,
-  EMPTY_FIREWALL_FILTER,
   LIMITS,
   PC_OS_CHOICES,
   PORT_NAMES,
@@ -16,7 +15,7 @@ import type { Device, DeviceKind, PcOsChoice, Position, TopologyDocument } from 
 import { describeValue } from "../describe";
 import type { CommandHandler } from "../reducer";
 
-const PREFIX: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "SW", router: "R", firewall: "FW" };
+const PREFIX: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "SW", router: "R" };
 
 function nextName(document: TopologyDocument, kind: DeviceKind): string {
   const used = new Set(document.devices.map(device => device.name));
@@ -39,16 +38,6 @@ function newDevice(kind: DeviceKind, id: string, name: string, position: Positio
         config: {
           interfaces: Object.fromEntries(PORT_NAMES.router.map(port => [port, { adminUp: false }])),
           staticRoutes: [],
-        },
-      };
-    case "firewall":
-      // 인터페이스는 켜져 있고 주소가 없다. 필터는 세 체인 모두 ACCEPT에 규칙이 없다 (T14.2.1)
-      return {
-        ...base, kind,
-        config: {
-          interfaces: Object.fromEntries(PORT_NAMES.firewall.map(port => [port, { adminUp: true }])),
-          staticRoutes: [],
-          filter: EMPTY_FIREWALL_FILTER,
         },
       };
   }

@@ -33,13 +33,12 @@ function readField(value: unknown): string | null | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-/** 이 장비가 `ip`를 쓰는가. PC는 자기 주소, Router와 Firewall은 모든 인터페이스의 주소를 본다 */
+/** 이 장비가 `ip`를 쓰는가. PC는 자기 주소, Router는 모든 인터페이스의 주소를 본다 */
 function usesIp(device: Device, ip: string): boolean {
   switch (device.kind) {
     case "pc":
       return device.config.ip === ip;
     case "router":
-    case "firewall":
       return Object.values(device.config.interfaces).some((iface) => iface.ip === ip);
     case "switch":
       return false;
@@ -110,14 +109,15 @@ export function setPcIp(
     if (others.length > 0) notices.push({ code: "DUPLICATE_IP", params: { ip, others } });
   }
 
-  // 주소가 아닌 칸은 있던 그대로 옮긴다. 없던 칸은 만들지 않는다. 서비스 구성도 주소와 상관없다 (T0.20)
-  const { os, adminUp, services, dnsRecords } = device.config;
+  // 주소가 아닌 칸은 있던 그대로 옮긴다. 없던 칸은 만들지 않는다. 서비스 구성과 필터 규칙도 주소와 상관없다 (T0.20, T0.21)
+  const { os, adminUp, services, dnsRecords, filter } = device.config;
   const config: PcConfig = {
     ...address,
     ...(os === undefined ? {} : { os }),
     ...(adminUp === undefined ? {} : { adminUp }),
     ...(services === undefined ? {} : { services }),
     ...(dnsRecords === undefined ? {} : { dnsRecords }),
+    ...(filter === undefined ? {} : { filter }),
   };
 
   // 받은 Document는 고치지 않고 새 객체를 만든다

@@ -1,9 +1,11 @@
-// `iptables` 한 줄의 실행과 출력 (T14.2.1). 규칙을 바꾸는 명령은 `firewall/*` Command를 낸다 (AD-3).
+// `iptables` 한 줄의 실행과 출력 (T14.2.1, T0.21부터 서버로 쓰는 PC의 명령). 규칙을 바꾸는 명령은 `firewall/*` Command를 낸다 (AD-3).
 // 보는 명령(`-L`, `-S`)은 Document의 필터를 실제 iptables의 모양으로 쓴다.
 // 실제와 다른 점: 규칙이 토폴로지에 저장된다 (실제는 재부팅하면 사라진다). 패킷·바이트 수는 세지 않아 `-v`에 그 칸이 없다.
 
-import { FIREWALL_CHAINS, FIREWALL_ICMP_TYPE_NUMBERS, firewallInterfaceName, firewallRuleSpec, normalizeFirewallRule } from "@ping9/shared";
-import type { Command, ConsoleLine, DispatchResult, FirewallChain, FirewallConfig, FirewallDevice, FirewallRule } from "@ping9/shared";
+import {
+  FIREWALL_CHAINS, FIREWALL_ICMP_TYPE_NUMBERS, filterOf, firewallInterfaceName, firewallRuleSpec, normalizeFirewallRule,
+} from "@ping9/shared";
+import type { Command, ConsoleLine, DispatchResult, FirewallChain, FirewallRule, PcDevice, PcFilter } from "@ping9/shared";
 
 import { linesFromDispatch } from "../ios";
 import type { Word } from "../ios/parse";
@@ -20,9 +22,9 @@ export const IPTABLES_USAGE: readonly string[] = [
   "       iptables -F [chain]",
   "       iptables -P chain ACCEPT|DROP",
   "",
-  "Chains: INPUT, FORWARD, OUTPUT (filter table only)",
+  "Chains: INPUT (to this server), OUTPUT (from this server), FORWARD (unused: a server does not forward)",
   "Rule:   [-p icmp|tcp|udp|all] [-s address[/len]] [-d address[/len]]",
-  "        [-i eth0..eth3] [-o eth0..eth3]",
+  "        [-i eth0] [-o eth0]",
   "        [--icmp-type echo-request|echo-reply|destination-unreachable|time-exceeded]",
   "        [--sport port[:port]] [--dport port[:port]]",
   "        -j ACCEPT|DROP|REJECT",
@@ -54,7 +56,7 @@ function extraText(rule: FirewallRule, numeric: boolean): string {
   return parts.join(" ");
 }
 
-function chainLines(chain: FirewallChain, filter: FirewallConfig["filter"], options: ListOptions): string[] {
+function chainLines(chain: FirewallChain, filter: PcFilter, options: ListOptions): string[] {
   const { policy, rules } = filter[chain];
   const interfaces = options.verbose ? `${"in".padEnd(6)} ${"out".padEnd(6)} ` : "";
   const header = `${options.lineNumbers ? "num  " : ""}${"target".padEnd(10)} ${"prot"} opt ${interfaces}${"source".padEnd(20)} destination`;
@@ -76,13 +78,13 @@ function chainLines(chain: FirewallChain, filter: FirewallConfig["filter"], opti
 }
 
 /** `iptables -L`. 체인 사이에 빈 줄을 둔다 */
-export function listLines(filter: FirewallConfig["filter"], chain: FirewallChain | undefined, options: ListOptions): string[] {
+export function listLines(filter: PcFilter, chain: FirewallChain | undefined, options: ListOptions): string[] {
   const chains = chain === undefined ? FIREWALL_CHAINS : [chain];
   return chains.flatMap((name, index) => [...(index === 0 ? [] : [""]), ...chainLines(name, filter, options)]);
 }
 
 /** `iptables -S`. 정책 줄이 먼저, 그 뒤에 규칙 줄. 앞에 `iptables `를 붙이면 다시 입력할 수 있다 */
-export function ruleSpecLines(filter: FirewallConfig["filter"], chain: FirewallChain | undefined): string[] {
+export function ruleSpecLines(filter: PcFilter, chain: FirewallChain | undefined): string[] {
   const chains = chain === undefined ? FIREWALL_CHAINS : [chain];
   return [
     ...chains.map((name) => `-P ${name} ${filter[name].policy}`),
@@ -96,7 +98,7 @@ const sameRule = (a: FirewallRule, b: FirewallRule): boolean =>
 /** `words`는 `iptables`를 뺀 나머지 단어다 */
 export function runIptables(
   words: readonly Word[],
-  device: FirewallDevice,
+  device: PcDevice,
   dispatch: (command: Command) => DispatchResult,
 ): readonly ConsoleLine[] {
   const parsed = parseIptables(words);
@@ -104,7 +106,7 @@ export function runIptables(
     return [parsed.position === undefined ? { kind: "error", ...parsed.error } : { kind: "error", ...parsed.error, position: parsed.position }];
   }
   const { command } = parsed;
-  const { filter } = device.config;
+  const filter = filterOf(device.config);
   const deviceId = device.id;
 
   switch (command.kind) {

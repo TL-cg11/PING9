@@ -1,5 +1,5 @@
 // 서버로 쓰는 PC의 서비스와 그것을 쓰는 명령어 (T0.20). 공개 인터페이스(createSimulator)로만 확인한다.
-// 토폴로지: PC1 — eth0 [FW1] eth1 — SRV1. Firewall의 TCP·UDP 규칙을 실제 패킷으로 확인한다.
+// 토폴로지: PC1 — R1(또는 Switch) — SRV1. 서버의 iptables 규칙은 server-iptables.test.ts가 본다 (T0.21).
 import { validateDocument, validateTrace } from "@ping9/shared";
 import type { Command, ConsoleResult, PcDevice, Trace } from "@ping9/shared";
 import { describe, expect, test } from "vitest";
@@ -9,7 +9,6 @@ import { parseUrl } from "./service-commands";
 
 const PC1 = "11111111-1111-4111-8111-111111111111";
 const SRV = "22222222-2222-4222-8222-222222222222";
-const FW = "33333333-3333-4333-8333-333333333333";
 const MID = "44444444-4444-4444-8444-444444444444";
 const LINK1 = "55555555-5555-4555-8555-555555555555";
 const LINK2 = "66666666-6666-4666-8666-666666666666";
@@ -17,19 +16,19 @@ const LINK2 = "66666666-6666-4666-8666-666666666666";
 const texts = (result: ConsoleResult): string[] => result.lines.flatMap((line) => (line.kind === "text" ? [line.text] : line.kind === "trace" ? [] : [`[${line.kind}]`]));
 const PAGE = "<html><body><h1>SRV1</h1><p>PING9 web server</p></body></html>";
 
-type Middle = "firewall" | "router" | "switch";
+type Middle = "router" | "switch";
 
 /** PC1 — 가운데 장비 — SRV1. 가운데가 Switch면 한 네트워크다 */
-async function lab(middle: Middle = "firewall", clientOs: "windows" | "linux" = "linux") {
+async function lab(middle: Middle = "router", clientOs: "windows" | "linux" = "linux") {
   const sim = createSimulator();
   const send = (command: unknown) => sim.dispatch(command as Command);
   const must = (command: unknown) => expect(send(command)).toMatchObject({ ok: true });
   must({ type: "device/add", id: PC1, kind: "pc", position: { x: 0, y: 0 }, os: clientOs });
   must({ type: "device/add", id: SRV, kind: "pc", position: { x: 400, y: 0 }, os: "server" });
   must({ type: "device/rename", deviceId: SRV, name: "SRV1" });
-  must({ type: "device/add", id: middle === "firewall" ? FW : MID, kind: middle, position: { x: 200, y: 0 } });
-  const mid = middle === "firewall" ? FW : MID;
-  const ports = { firewall: ["Ethernet0", "Ethernet1"], router: ["GigabitEthernet0/0", "GigabitEthernet0/1"], switch: ["FastEthernet0/1", "FastEthernet0/2"] }[middle];
+  must({ type: "device/add", id: MID, kind: middle, position: { x: 200, y: 0 } });
+  const mid = MID;
+  const ports = { router: ["GigabitEthernet0/0", "GigabitEthernet0/1"], switch: ["FastEthernet0/1", "FastEthernet0/2"] }[middle];
   must({ type: "link/add", id: LINK1, ends: [{ deviceId: PC1, port: "Ethernet0" }, { deviceId: mid, port: ports[0] }] });
   must({ type: "link/add", id: LINK2, ends: [{ deviceId: SRV, port: "Ethernet0" }, { deviceId: mid, port: ports[1] }] });
 
@@ -46,11 +45,6 @@ async function lab(middle: Middle = "firewall", clientOs: "windows" | "linux" = 
 
   const run = async (deviceId: string, line: string) => sim.console(deviceId).exec(line);
   const pc = (line: string) => run(PC1, line);
-  const fw = async (line: string) => {
-    const result = await run(FW, line);
-    expect(result.lines.filter((entry) => entry.kind === "error")).toEqual([]);
-    return result;
-  };
   const lastTrace = (): Trace => sim.getTrace(sim.getSnapshot().traces[0]!.id)!;
   const primaryDrop = () => {
     const trace = lastTrace();
@@ -58,7 +52,7 @@ async function lab(middle: Middle = "firewall", clientOs: "windows" | "linux" = 
     return trace.events[trace.result.primaryDropSeq!]!;
   };
   const serverConfig = () => (sim.getSnapshot().document.devices.find((device) => device.id === SRV) as PcDevice).config;
-  return { sim, send, must, run, pc, fw, lastTrace, primaryDrop, serverConfig, serverIp };
+  return { sim, send, must, run, pc, lastTrace, primaryDrop, serverConfig, serverIp };
 }
 
 describe("서버의 서비스에 요청한다", () => {
@@ -79,16 +73,16 @@ describe("서버의 서비스에 요청한다", () => {
     expect(sim.getSnapshot().traces[0]).toMatchObject({ kind: "ping", service: "http", targetIp: "10.0.2.10", status: "success" });
   });
 
-  test("Firewall이 전달한 프레임에도 TCP와 응용 계층이 그대로 있다", async () => {
+  test("Router가 전달한 프레임에도 TCP와 응용 계층이 그대로 있다", async () => {
     const { pc, lastTrace } = await lab();
     await pc("curl 10.0.2.10");
-    const forwarded = lastTrace().events.filter((event) => event.deviceId === FW && event.reason.code === "IPV4_FORWARDED");
+    const forwarded = lastTrace().events.filter((event) => event.deviceId === MID && event.reason.code === "IPV4_FORWARDED");
     expect(forwarded.length).toBe(5);
     expect(forwarded.every((event) => event.frame.tcp !== undefined)).toBe(true);
     expect(forwarded.at(-1)!.frame.application).toEqual({ service: "http", message: "200 OK", data: PAGE });
   });
 
-  test.each<[Middle]>([["router"], ["switch"]])("%s를 지나서도 된다", async (middle) => {
+  test.each<[Middle]>([["router"], ["switch"]])("%s를 지나 다른 파일과 DNS도 된다", async (middle) => {
     const { pc, serverIp, lastTrace } = await lab(middle);
     expect(texts(await pc(`curl http://${serverIp}/readme.txt`))).toEqual(["Files on SRV1 are served over HTTP and FTP."]);
     expect(validateTrace(lastTrace())).toMatchObject({ ok: true });
@@ -118,7 +112,7 @@ describe("서버의 서비스에 요청한다", () => {
     expect(linux.lastTrace().events.filter((event) => event.frame.udp !== undefined && event.action !== "receive" && event.action !== "forward")
       .map((event) => event.frame.application?.message)).toEqual(["A www.ping9.test", "www.ping9.test A 10.0.2.10"]);
 
-    const windows = await lab("firewall", "windows");
+    const windows = await lab("router", "windows");
     windows.must({ type: "pc/add-dns-record", deviceId: SRV, name: "www.ping9.test", address: "10.0.2.10" });
     expect(texts(await windows.pc("nslookup WWW.PING9.TEST 10.0.2.10"))).toEqual([
       "Server:  UnKnown", "Address:  10.0.2.10", "", "Name:    www.ping9.test", "Address:  10.0.2.10",
@@ -129,7 +123,7 @@ describe("서버의 서비스에 요청한다", () => {
   test("NTP는 계층과 왕복 시간을 답한다", async () => {
     const linux = await lab();
     expect(texts(await linux.pc("ntpdate -q 10.0.2.10"))[0]).toMatch(/^server 10\.0\.2\.10, stratum 1, offset \+0\.000000, delay 0\.00\d{3}$/);
-    const windows = await lab("firewall", "windows");
+    const windows = await lab("router", "windows");
     expect(texts(await windows.pc("w32tm /stripchart /computer:10.0.2.10"))[0]).toMatch(/^d:\+00\.00\d{5}s o:\+00\.0000000s {2}\[10\.0\.2\.10:123\]$/);
   });
 });
@@ -170,72 +164,12 @@ describe("서비스가 꺼져 있거나 닿지 않을 때", () => {
     const { pc, must, sim } = await lab();
     // 같은 네트워크의 없는 주소: ARP 응답이 없다
     expect(texts(await pc("curl http://10.0.1.99/"))).toEqual(["curl: (7) Failed to connect to 10.0.1.99 port 80: No route to host"]);
-    // 서버의 케이블을 뗀다: Firewall에 그쪽 경로가 없어 ICMP 도달 불가가 돌아온다. 거절로 보인다
+    // 서버의 케이블을 뗀다: Router에 그쪽 경로가 없어 ICMP 도달 불가가 돌아온다. 거절로 보인다
     expect(sim.dispatch({ type: "link/remove", linkId: LINK2 }).ok).toBe(true);
     expect(texts(await pc("curl http://10.0.2.10/"))).toEqual(["curl: (7) Failed to connect to 10.0.2.10 port 80: Connection refused"]);
     expect(texts(await pc("ntpdate -q 10.0.2.10"))).toEqual(["ntpdate: no server suitable for synchronization found"]);
     must({ type: "pc/set-ip", deviceId: PC1, ip: null, mask: null, gateway: null });
     expect(texts(await pc("curl http://10.0.2.10/"))).toEqual(["curl: (7) Failed to connect to 10.0.2.10 port 80: Network is unreachable"]);
-  });
-});
-
-describe("Firewall의 TCP·UDP 규칙이 실제 패킷을 거른다", () => {
-  test("`--dport 80`을 DROP하면 HTTP만 시간 초과다. FTP, DNS, ping은 지나간다", async () => {
-    const { pc, fw, primaryDrop } = await lab();
-    await fw("iptables -A FORWARD -p tcp --dport 80 -j DROP");
-    expect(texts(await pc("curl http://10.0.2.10/"))).toEqual(["curl: (28) Failed to connect to 10.0.2.10 port 80: Connection timed out"]);
-    const drop = primaryDrop();
-    expect(drop.reason).toEqual({
-      code: "FIREWALL_BLOCKED", params: { device: { deviceId: FW, deviceName: "FW1" }, chain: "FORWARD", target: "DROP", rule: 1 },
-    });
-    expect(drop.frame.tcp).toEqual({ sourcePort: 49152, destinationPort: 80, flags: "SYN" });
-
-    expect(texts(await pc("curl ftp://10.0.2.10/"))).toHaveLength(2);
-    expect(texts(await pc("nslookup a.test 10.0.2.10")).at(-1)).toContain("NXDOMAIN");
-    expect(texts(await pc("ping -c 1 10.0.2.10")).join("\n")).toContain("1 received");
-  });
-
-  test("REJECT는 ICMP 도달 불가를 돌려줘 바로 거절로 보인다", async () => {
-    const { pc, fw, primaryDrop } = await lab();
-    await fw("iptables -A FORWARD -p tcp --dport 21 -j REJECT");
-    expect(texts(await pc("curl ftp://10.0.2.10/"))).toEqual(["curl: (7) Failed to connect to 10.0.2.10 port 21: Connection refused"]);
-    expect(primaryDrop().reason).toMatchObject({ code: "FIREWALL_BLOCKED", params: { target: "REJECT" } });
-  });
-
-  test("UDP 포트로 고른다", async () => {
-    const { pc, fw } = await lab();
-    await fw("iptables -A FORWARD -p udp --dport 53 -j DROP");
-    expect(texts(await pc("nslookup a.test 10.0.2.10"))).toEqual([
-      ";; communications error to 10.0.2.10#53: timed out", ";; no servers could be reached",
-    ]);
-    expect(texts(await pc("ntpdate -q 10.0.2.10"))[0]).toMatch(/^server 10\.0\.2\.10/);
-  });
-
-  test("무상태라 돌아오는 SYN-ACK를 막아도 연결이 맺어지지 않는다", async () => {
-    const { pc, fw, primaryDrop } = await lab();
-    await fw("iptables -A FORWARD -p tcp --sport 80 -j DROP");
-    expect(texts(await pc("curl http://10.0.2.10/"))[0]).toContain("Connection timed out");
-    expect(primaryDrop().frame.tcp?.flags).toBe("SYN-ACK");
-  });
-
-  test("기본 정책을 DROP으로 두고 웹만 양방향으로 연다", async () => {
-    const { pc, fw } = await lab();
-    await fw("iptables -P FORWARD DROP");
-    expect(texts(await pc("curl http://10.0.2.10/"))[0]).toContain("Connection timed out");
-    await fw("iptables -A FORWARD -i eth0 -o eth1 -p tcp --dport 80 -j ACCEPT");
-    await fw("iptables -A FORWARD -i eth1 -o eth0 -p tcp --sport 80 -j ACCEPT");
-    expect(texts(await pc("curl http://10.0.2.10/"))).toEqual([PAGE]);
-    expect(texts(await pc("curl ftp://10.0.2.10/"))[0]).toContain("Connection timed out");
-    expect(texts(await pc("ping -c 1 10.0.2.10")).join("\n")).toContain("100% packet loss");
-  });
-
-  test("포트 범위와 프로토콜 없는 규칙도 맞는다", async () => {
-    const { pc, fw } = await lab();
-    await fw("iptables -A FORWARD -p tcp --dport 20:21 -j DROP");
-    expect(texts(await pc("curl ftp://10.0.2.10/"))[0]).toContain("Connection timed out");
-    expect(texts(await pc("curl http://10.0.2.10/"))).toEqual([PAGE]);
-    await fw("iptables -I FORWARD -d 10.0.2.10 -j DROP");
-    expect(texts(await pc("curl http://10.0.2.10/"))[0]).toContain("Connection timed out");
   });
 });
 
@@ -323,7 +257,7 @@ describe("서비스 구성의 Command", () => {
     expect(send({ type: "pc/set-service", deviceId: PC1, service: "http", enabled: false })).toEqual({
       ok: false, error: { code: "PC_NOT_SERVER", params: { deviceId: PC1 } },
     });
-    expect(send({ type: "pc/add-dns-record", deviceId: FW, name: "a.test", address: "10.0.0.1" })).toMatchObject({
+    expect(send({ type: "pc/add-dns-record", deviceId: MID, name: "a.test", address: "10.0.0.1" })).toMatchObject({
       ok: false, error: { code: "DEVICE_KIND_MISMATCH" },
     });
   });
@@ -387,24 +321,19 @@ describe("검토에서 나온 것", () => {
     for (const summary of sim.getSnapshot().traces) expect(validateTrace(sim.getTrace(summary.id))).toMatchObject({ ok: true });
   });
 
-  test("Firewall 자신의 주소로 보낸 요청은 닫힌 포트로 거절되고 이유가 남는다", async () => {
-    const { pc, primaryDrop } = await lab();
-    expect(texts(await pc("curl http://10.0.1.1/"))).toEqual(["curl: (7) Failed to connect to 10.0.1.1 port 80: Connection refused"]);
-    expect(primaryDrop().reason).toEqual({ code: "PORT_CLOSED", params: { device: { deviceId: FW, deviceName: "FW1" }, protocol: "tcp", port: 80 } });
-    expect(texts(await pc("nslookup a.test 10.0.1.1"))[0]).toBe(";; communications error to 10.0.1.1#53: connection refused");
-    expect(primaryDrop().reason).toMatchObject({ code: "PORT_CLOSED", params: { protocol: "udp", port: 53 } });
-  });
-
   test("경로가 고리를 이뤄 TTL이 끝나면 거절이 아니라 닿지 않음으로 보인다", async () => {
-    const { pc, fw, must, run, lastTrace } = await lab();
-    // 두 번째 Firewall을 달고 172.16/16을 서로에게 보내게 한다
-    must({ type: "device/add", id: MID, kind: "firewall", position: { x: 200, y: 200 } });
-    must({ type: "link/add", id: "77777777-7777-4777-8777-777777777777", ends: [{ deviceId: FW, port: "Ethernet2" }, { deviceId: MID, port: "Ethernet0" }] });
-    await fw("ip addr add 10.0.3.1/24 dev eth2");
-    await fw("ip route add 172.16.0.0/16 via 10.0.3.2");
-    for (const line of ["ip addr add 10.0.3.2/24 dev eth0", "ip route add 172.16.0.0/16 via 10.0.3.1", "ip route add 10.0.1.0/24 via 10.0.3.1"]) {
-      expect((await run(MID, line)).lines).toEqual([]);
+    const { pc, must, lastTrace } = await lab();
+    // 두 번째 Router를 달고 172.16/16을 서로에게 보내게 한다
+    const R2 = "88888888-8888-4888-8888-888888888888";
+    must({ type: "device/add", id: R2, kind: "router", position: { x: 200, y: 200 } });
+    must({ type: "link/add", id: "77777777-7777-4777-8777-777777777777", ends: [{ deviceId: MID, port: "GigabitEthernet0/2" }, { deviceId: R2, port: "GigabitEthernet0/0" }] });
+    for (const [deviceId, port, ip] of [[MID, "GigabitEthernet0/2", "10.0.3.1"], [R2, "GigabitEthernet0/0", "10.0.3.2"]] as const) {
+      must({ type: "interface/set-ip", deviceId, port, ip, mask: "255.255.255.0" });
+      must({ type: "interface/set-admin", deviceId, port, adminUp: true });
     }
+    must({ type: "route/add", deviceId: MID, network: "172.16.0.0", mask: "255.255.0.0", nextHop: "10.0.3.2" });
+    must({ type: "route/add", deviceId: R2, network: "172.16.0.0", mask: "255.255.0.0", nextHop: "10.0.3.1" });
+    must({ type: "route/add", deviceId: R2, network: "10.0.1.0", mask: "255.255.255.0", nextHop: "10.0.3.1" });
     expect(texts(await pc("curl http://172.16.0.1/"))).toEqual(["curl: (7) Failed to connect to 172.16.0.1 port 80: No route to host"]);
     const trace = lastTrace();
     expect(validateTrace(trace)).toMatchObject({ ok: true });

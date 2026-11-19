@@ -6,7 +6,7 @@ import type { DeviceKind, ErrorCode, ErrorInfo, ErrorParamsByCode, LimitName } f
 
 import { withSubject, withTopic } from "./particles";
 
-const KIND_NAMES: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router", firewall: "Firewall" };
+const KIND_NAMES: Readonly<Record<DeviceKind, string>> = { pc: "PC", switch: "Switch", router: "Router" };
 
 const LIMIT_MESSAGES: Readonly<Record<LimitName, (max: number) => string>> = {
   devices: (max) => `장비는 토폴로지 하나에 ${max}대까지 놓을 수 있어요`,
@@ -106,7 +106,7 @@ export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsBy
   DNS_NAME_INVALID: ({ value }) => `DNS 이름은 영문 소문자, 숫자, -를 .으로 이어 45자까지 쓸 수 있어요: ${value}`,
   DNS_RECORD_NOT_FOUND: ({ name }) => `이 서버에는 ${name} 이름이 없어요`,
   SERVICE_URL_INVALID: ({ value }) => `주소를 읽을 수 없어요: ${value}. http://10.0.2.10/ 처럼 IP 주소로 적어 주세요 (이름은 nslookup으로 찾아요)`,
-  // Firewall (T14.2.1)
+  // 서버의 iptables 필터 규칙 (T14.2.1, T0.21)
   FIREWALL_RULE_NOT_FOUND: ({ chain, index }) => `${chain} 체인에 ${index}번 규칙이 없어요. iptables -L ${chain} --line-numbers로 번호를 볼 수 있어요`,
   FIREWALL_RULE_INVALID: ({ reason }) => FIREWALL_RULE_REASONS[reason],
   FIREWALL_PORT_INVALID: ({ value }) => `포트 번호는 0~65535이고, 범위는 작은 수부터 써야 해요: ${value}`,

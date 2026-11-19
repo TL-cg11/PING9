@@ -1,5 +1,5 @@
 // 장비 아이콘 (T0.6). PC는 이글루, Switch는 갈림길 표지판, Router는 열린 관문이다.
-// Firewall은 눈이 덮인 벽돌 벽과 방패다 (T14.2.3. T14.2.1의 불꽃 벽을 바꿈).
+// 필터 규칙(iptables)을 건 서버는 이글루 오른쪽 위에 방패 배지를 단다 (T0.21. T14.2.3의 Firewall 방패를 옮김).
 // 시안의 펭귄·물고기 은유를 따른다: 펭귄이 사는 집, 길을 알려 주는 표지판, 다른 동네로 가는 문.
 // 캔버스와 왼쪽 장비 목록이 같은 그림을 쓴다. 모두 32×32 기준이다.
 
@@ -126,10 +126,10 @@ export function GateClosedIcon(box: Box) {
 export type ShieldState = "idle" | "allow" | "deny";
 
 /**
- * Firewall의 방패 (T14.2.3). 평소는 분홍 바탕에 흰 별표,
- * 펭귄이 허용되어 지나가면 초록 체크, 막히면 빨간 X. 펭귄 층이 같은 자리에 겹쳐 그린다
+ * 필터의 방패 (T14.2.3). 평소는 분홍 바탕에 흰 별표,
+ * 펭귄이 허용되면 초록 체크, 막히면 빨간 X. 펭귄 층이 같은 자리에 겹쳐 그린다
  */
-export function Shield({ state }: { readonly state: ShieldState }) {
+function Shield({ state }: { readonly state: ShieldState }) {
   const [fill, edge] = state === "allow" ? ["#1E9E6A", "#0F6B47"] : state === "deny" ? ["#E04848", "#A12828"] : ["#D6517A", "#8E2A4C"];
   return (
     <g className={`shield shield-${state}`}>
@@ -142,34 +142,34 @@ export function Shield({ state }: { readonly state: ShieldState }) {
   );
 }
 
-/** Firewall 그림을 오른쪽으로 미는 양 (32 격자). 벽이 왼쪽으로 길어 치우쳐 보인다. 펭귄 층의 방패도 같이 민다 */
-export const FIREWALL_SHIFT = 1.2;
+/**
+ * 서버 아이콘 위 방패 배지의 자리 (32 격자). 방패 그림(가운데가 23.5, 17.5)을 줄여 이글루 오른쪽 위에 둔다.
+ * 펭귄 층이 같은 자리에 허용·차단 방패를 겹쳐 그리고, DROP된 물고기가 이리로 날아간다
+ */
+export const FILTER_BADGE = { x: 26.4, y: 11.4, scale: 0.6 } as const;
 
-/** Firewall (T14.2.3): 눈이 덮인 분홍 벽돌 벽과 방패 */
-function FireWall() {
+/** 필터 규칙을 건 서버의 방패 배지 (T0.21) */
+export function FilterBadge({ state }: { readonly state: ShieldState }) {
   return (
-    <g transform={`translate(${FIREWALL_SHIFT} 0)`}>
-      <rect x="3" y="14" width="17" height="11.8" rx="1.2" fill="#FFF1F5" stroke="#9C3557" strokeWidth="1.1" {...LINE} />
-      <path d="M3 18h17M3 22h17M9 14v4M15 14v4M6 18v4M12 18v4M18 18v4M9 22v3.8M15 22v3.8"
-        fill="none" stroke="#EE9AB5" strokeWidth="0.8" {...LINE} />
-      <path
-        d="M2.5 14.8c-.5-2.2 1.1-3.4 2.7-2.9.6-1.6 3-1.9 4.2-.6 1-1.4 3.6-1.4 4.6.1 1.3-.9 3.6-.6 4.4 1 1.6-.1 2.6 1.2 2.2 2.4h-5v1.8a.9.9 0 0 1-1.8 0v-1.8H7.4v1.1a.8.8 0 0 1-1.6 0v-1.1Z"
-        fill="#fff" stroke="#A9C6EC" strokeWidth="0.9" {...LINE}
-      />
-      <Shield state="idle" />
+    <g className="filter-badge" transform={`translate(${FILTER_BADGE.x} ${FILTER_BADGE.y}) scale(${FILTER_BADGE.scale}) translate(-23.5 -17.5)`}>
+      <Shield state={state} />
     </g>
   );
 }
 
 /**
  * `os`는 PC에만 쓴다 (T0.7). 캔버스는 `osOf`로 늘 넘긴다.
- * 넘기지 않으면 OS가 없는 원래 이글루다 (장비 목록)
+ * 넘기지 않으면 OS가 없는 원래 이글루다 (장비 목록).
+ * `filtering`: 필터 규칙을 건 서버다. 방패 배지를 단다 (T0.21)
  */
-export function DeviceIcon({ kind, os, ...box }: { readonly kind: DeviceKind; readonly os?: PcOsChoice } & Box) {
+export function DeviceIcon({ kind, os, filtering = false, ...box }: {
+  readonly kind: DeviceKind; readonly os?: PcOsChoice; readonly filtering?: boolean;
+} & Box) {
   const osClass = kind === "pc" && os !== undefined ? ` icon-os-${os}` : "";
   return (
     <svg className={`icon icon-${kind}${osClass}`} viewBox="0 0 32 32" aria-hidden="true" {...box}>
-      {kind === "pc" ? <Igloo os={os} /> : kind === "switch" ? <Signpost /> : kind === "router" ? <GateOpen /> : <FireWall />}
+      {kind === "pc" ? <Igloo os={os} /> : kind === "switch" ? <Signpost /> : <GateOpen />}
+      {kind === "pc" && filtering && <FilterBadge state="idle" />}
     </svg>
   );
 }

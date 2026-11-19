@@ -4,10 +4,11 @@
 // Router의 IPv4 전달(TTL 줄이기, 경로 찾기)은 이 모듈이 하지 않는다 (E4).
 
 import { BROADCAST_MAC, UNKNOWN_MAC, isIcmpError, isSameNetwork } from "@ping9/shared";
-import type { DeviceRef, FrameSnapshot, IcmpMessage, Ipv4Header } from "@ping9/shared";
+import type { DeviceRef, FrameSnapshot, IcmpMessage, Ipv4Header, PcFilter } from "@ping9/shared";
 
 import type { Frame, SimContext } from "../kernel";
 import type { ArpModule, PendingSend } from "./arp";
+import { evaluateChain, filterPacketOf } from "./filter";
 
 /** 포트 하나의 IP 구성 */
 export interface Ipv4Address {
@@ -28,6 +29,11 @@ export interface Ipv4HostConfig {
   isUp?(port: string): boolean;
   /** 이 장비가 내보내는 패킷의 TTL. 장비 모델이 OS로 고른다 (Windows 128, Linux 64) */
   readonly ttl: number;
+  /**
+   * 호스트의 필터 규칙 (T0.21, 서버의 iptables). 이 장비로 온 패킷은 INPUT을, 이 장비가 보내는 패킷은 OUTPUT을 지난다.
+   * 없으면 모두 지나간다. ARP는 보지 않는다
+   */
+  filter?(): PcFilter;
 }
 
 /** IPv4 위에 실리는 것 가운데 ICMP가 아닌 것 (T0.20) */
@@ -93,6 +99,7 @@ export class Ipv4Host {
       this.#dropUnsent(ctx, port, ipv4, layers, { code: "NO_GATEWAY", params: { device, targetIp } }, parentSeq);
       return;
     }
+    if (this.#blockedOut(ctx, port, ipv4, layers, parentSeq)) return;
     this.#arp.send(ctx, port, hop, {
       build: (destinationMac): FrameSnapshot => ({ ethernet: { sourceMac: macOf(port), destinationMac }, ipv4, ...layers }),
       onSend(context, frame, cause) {
@@ -112,6 +119,7 @@ export class Ipv4Host {
     const hop = nextHop(address, targetIp);
     if (hop === undefined) return;
     const ipv4: Ipv4Header = { sourceIp: address.ip, destinationIp: targetIp, ttl };
+    if (this.#blockedOut(ctx, port, ipv4, { icmp }, parentSeq)) return;
     this.#arp.send(ctx, port, hop, {
       build: (destinationMac): FrameSnapshot => ({ ethernet: { sourceMac: macOf(port), destinationMac }, ipv4, icmp }),
       onSend(context, frame, cause) {
@@ -157,6 +165,7 @@ export class Ipv4Host {
       return;
     }
 
+    if (this.#blockedOut(ctx, port, ipv4, { icmp })) return;
     this.#arp.send(ctx, port, hop, this.#pending(port, ipv4, icmp, "create"));
   }
 
@@ -190,6 +199,9 @@ export class Ipv4Host {
       return;
     }
 
+    // 이 장비로 온 패킷이다. 필터의 INPUT 체인을 먼저 지난다 (T0.21)
+    if (this.#blockedIn(ctx, port, frame)) return;
+
     // TCP·UDP는 전송 계층이 다룬다 (T0.20). RIP는 멀티캐스트라 여기까지 오지 않는다
     if (frame.snapshot.tcp !== undefined || frame.snapshot.udp !== undefined) {
       this.#transport?.onPacket(ctx, port, frame, address);
@@ -213,6 +225,69 @@ export class Ipv4Host {
       });
       this.#replies.push(icmp.sequence);
     }
+  }
+
+  /**
+   * 받은 패킷이 INPUT 체인에서 막히는지 (T0.21). 막히면 폐기를 기록하고 true.
+   * 어느 규칙이 막았는지는 폐기 사유의 `rule`에 남는다. REJECT면 보낸 쪽에 ICMP 도달 불가를 돌려준다
+   */
+  #blockedIn(ctx: SimContext, port: string, frame: Frame): boolean {
+    const filter = this.#config.filter?.();
+    const packet = filterPacketOf(frame.snapshot);
+    if (filter === undefined || packet === undefined) return false;
+    const verdict = evaluateChain(filter.INPUT, packet, { inPort: port });
+    if (verdict.target === "ACCEPT") return false;
+    const { device } = this.#config;
+    const dropped = ctx.record({
+      frame, deviceId: device.deviceId, inPort: port, layer: "L3", action: "drop",
+      reason: { code: "FIREWALL_BLOCKED", params: {
+        device, chain: "INPUT", target: verdict.target, ...(verdict.rule === undefined ? {} : { rule: verdict.rule }),
+      } },
+    });
+    if (verdict.target === "REJECT") this.#reject(ctx, port, frame, dropped);
+    return true;
+  }
+
+  /** REJECT한 패킷의 출발지에 ICMP 도달 불가를 보낸다. ICMP 오류, ping 응답, TCP의 RST에는 답하지 않는다 */
+  #reject(ctx: SimContext, port: string, frame: Frame, parentSeq: number): void {
+    const { ipv4, icmp, tcp, udp } = frame.snapshot;
+    if (ipv4 === undefined) return;
+    const base = { sourceIp: ipv4.sourceIp, destinationIp: ipv4.destinationIp };
+    if (icmp !== undefined) {
+      if (icmp.type !== "echo-request") return;
+      this.sendIcmpError(ctx, port, ipv4.sourceIp, {
+        type: "destination-unreachable", sequence: icmp.sequence, original: { ...base, sequence: icmp.sequence },
+      }, parentSeq);
+      return;
+    }
+    const transport = tcp ?? udp;
+    if (transport === undefined || tcp?.flags === "RST") return;
+    this.sendIcmpError(ctx, port, ipv4.sourceIp, { type: "destination-unreachable", sequence: 0, original: {
+      ...base, sequence: 0, protocol: tcp === undefined ? "udp" : "tcp", destinationPort: transport.destinationPort,
+    } }, parentSeq);
+  }
+
+  /**
+   * 보내려는 패킷이 OUTPUT 체인에서 막히는지 (T0.21). 막히면 링크로 나가지 않고 폐기만 기록한다
+   * (REJECT도 같다. 실제로는 보낸 프로그램에 오류가 돌아간다)
+   */
+  #blockedOut(
+    ctx: SimContext, port: string, ipv4: Ipv4Header, layers: Pick<FrameSnapshot, "icmp" | "tcp" | "udp" | "application">, parentSeq?: number,
+  ): boolean {
+    const filter = this.#config.filter?.();
+    const packet = filterPacketOf({ ipv4, ...layers });
+    if (filter === undefined || packet === undefined) return false;
+    const verdict = evaluateChain(filter.OUTPUT, packet, { outPort: port });
+    if (verdict.target === "ACCEPT") return false;
+    const { device } = this.#config;
+    const frame = ctx.createFrame({ ethernet: { sourceMac: this.#config.macOf(port), destinationMac: UNKNOWN_MAC }, ipv4, ...layers });
+    ctx.record({
+      frame, deviceId: device.deviceId, outPort: port, layer: "L3", action: "drop", ...(parentSeq === undefined ? {} : { parentSeq }),
+      reason: { code: "FIREWALL_BLOCKED", params: {
+        device, chain: "OUTPUT", target: verdict.target, ...(verdict.rule === undefined ? {} : { rule: verdict.rule }),
+      } },
+    });
+    return true;
   }
 
   /** 이번 회차에 받은 echo 응답의 sequence. 회차의 성공 판정은 T1.8.3이 한다 */
@@ -248,6 +323,7 @@ export class Ipv4Host {
       return;
     }
     // 응답의 부모는 받음 이벤트다 (예시 seq 8의 부모 7). ARP를 거치면 ARP 요청의 부모가 된다
+    if (this.#blockedOut(ctx, port, ipv4, { icmp: reply }, received)) return;
     this.#arp.send(ctx, port, hop, this.#pending(port, ipv4, reply, "reply"), received);
   }
 

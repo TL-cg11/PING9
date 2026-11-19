@@ -3,7 +3,7 @@ import { expect, test } from "vitest";
 
 import { DeviceIcon, GateClosedIcon } from "./device-icons";
 
-test.each(["pc", "switch", "router", "firewall"] as const)("%s 아이콘: 32×32 그림이고 종류 클래스가 붙는다", (kind) => {
+test.each(["pc", "switch", "router"] as const)("%s 아이콘: 32×32 그림이고 종류 클래스가 붙는다", (kind) => {
   const html = renderToString(<DeviceIcon kind={kind} />);
 
   expect(html).toMatch(new RegExp(`^<svg class="icon icon-${kind}( icon-os-windows)?" viewBox="0 0 32 32" aria-hidden="true">`));
@@ -34,11 +34,20 @@ test("OS를 주지 않으면 원래 이글루(노란 작은 창)다. 장비 목�
 });
 
 test("종류마다 다른 그림이다", () => {
-  const shapes = (["pc", "switch", "router", "firewall"] as const).map((kind) =>
+  const shapes = (["pc", "switch", "router"] as const).map((kind) =>
     renderToString(<DeviceIcon kind={kind} />).replace(/class="[^"]*"/, ""),
   );
 
-  expect(new Set(shapes).size).toBe(4);
+  expect(new Set(shapes).size).toBe(3);
+});
+
+test("필터 규칙을 건 서버는 방패 배지를 단다 (T0.21). PC가 아니면 달지 않는다", () => {
+  const plain = renderToString(<DeviceIcon kind="pc" os="server" />);
+  const filtering = renderToString(<DeviceIcon kind="pc" os="server" filtering />);
+  expect(plain).not.toContain("filter-badge");
+  expect(filtering).toContain('class="filter-badge"');
+  expect(filtering).toContain('class="shield shield-idle"');
+  expect(renderToString(<DeviceIcon kind="router" filtering />)).not.toContain("filter-badge");
 });
 
 test("크기와 자리를 받으면 svg에 그대로 붙는다 (캔버스 안의 중첩 svg)", () => {
