@@ -303,6 +303,19 @@ function FirewallShield({ device, view }: { readonly device: Position; readonly 
   );
 }
 
+/** 장비 하나가 누르기를 받는 네모 */
+export interface CardBox {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+const PICK_AREA = "penguin-pick-area";
+/** 캔버스 어디든 덮는 네모. 여기에 장비 카드를 겹쳐 evenodd로 빼낸다 */
+const EVERYWHERE = "M-100000 -100000h200000v200000h-200000Z";
+const cardPath = (card: CardBox) => `M${card.x} ${card.y}h${card.width}v${card.height}h${-card.width}Z`;
+
 function reducedMotion(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -320,6 +333,7 @@ export function PacketLayer({
   onPick,
   pickedKey,
   kindOf,
+  deviceCards,
 }: {
   readonly replays: readonly Replay[];
   readonly pathOf: (linkId: string) => LinkPath | undefined;
@@ -336,6 +350,8 @@ export function PacketLayer({
   readonly pickedKey?: string | undefined;
   /** 장비 종류. Firewall의 방패 장면에 쓴다. 없으면 방패를 바꾸지 않는다 */
   readonly kindOf?: (deviceId: string) => DeviceKind | undefined;
+  /** 장비마다 누르기를 받는 네모(카드). 펭귄을 누르는 자리에서 뺀다: 겹친 곳을 누르면 장비가 받는다 */
+  readonly deviceCards?: readonly CardBox[];
 }) {
   const [clock, setClock] = useState(time);
   const now = fixedNow ?? clock;
@@ -374,13 +390,24 @@ export function PacketLayer({
   );
   if (placed.length === 0 && shields.length === 0) return null;
 
+  // 다 흩어져 보이지 않는 펭귄(DROP 장면의 끝)은 누를 것이 없다
+  const pickable = (item: Placed) => onPick !== undefined && !(item.scene !== undefined && item.scene.progress >= 1);
+  const anyPickable = placed.some(pickable);
+
   return (
     <g className="packet-layer">
+      {anyPickable && (
+        // 펭귄을 누를 수 있는 영역: 캔버스 전체에서 장비 카드를 뺀 곳 (evenodd).
+        // 펭귄 그림은 장비보다 위에 그리지만, 장비와 겹친 곳을 누르면 장비가 받아 고르기·끌기·터미널 열기가 그대로 된다
+        <clipPath id={PICK_AREA}>
+          <path clipRule="evenodd" d={`${EVERYWHERE}${(deviceCards ?? []).map(cardPath).join("")}`} />
+        </clipPath>
+      )}
       {shields.map(({ deviceId, device, view }) => <FirewallShield key={deviceId} device={device} view={view} />)}
       {placed.map((item) => (
-        <g key={item.key} className={["penguin", onPick ? "pickable" : "", pickedKey === item.key ? "picked" : ""].filter(Boolean).join(" ")}
-          opacity={item.opacity} role={onPick ? "button" : "img"} aria-label={item.label}
-          {...(onPick ? {
+        <g key={item.key} className={["penguin", pickable(item) ? "pickable" : "", pickedKey === item.key ? "picked" : ""].filter(Boolean).join(" ")}
+          opacity={item.opacity} role={pickable(item) ? "button" : "img"} aria-label={item.label}
+          {...(onPick !== undefined && pickable(item) ? {
             tabIndex: 0,
             onPointerDown: (event: { stopPropagation: () => void }) => event.stopPropagation(),
             onClick: (event: { stopPropagation: () => void }) => {
@@ -388,6 +415,11 @@ export function PacketLayer({
               onPick({ key: item.key, traceId: item.traceId, seq: item.seq, linkId: item.linkId, at: item.at });
             },
           } : {})}>
+          {pickable(item) && (
+            // 누르는 자리. 그림(투명한 곳까지 네모 전체가 눌린다) 대신 이 네모만 누르기를 받는다
+            <rect className="penguin-hit" x={item.at.x - SIZE / 2} y={item.at.y - SIZE + FOOT} width={item.width} height={SIZE}
+              clipPath={`url(#${PICK_AREA})`} />
+          )}
           {item.scene !== undefined
             ? <Vanish item={item} scene={item.scene} />
             : <image href={item.href} x={item.at.x - SIZE / 2} y={item.at.y - SIZE + FOOT} width={item.width} height={SIZE}

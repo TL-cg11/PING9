@@ -42,10 +42,11 @@ async function lab(rule?: string): Promise<{ document: TopologyDocument; timelin
 }
 
 /** 재생을 시작한 지 `elapsed` ms 뒤의 캔버스 */
-const canvasAt = (document: TopologyDocument, timeline: Timeline, elapsed: number) =>
+const canvasAt = (document: TopologyDocument, timeline: Timeline, elapsed: number, pick = false) =>
   renderToString(
     <Canvas document={document} selectedDeviceId={null} onSelect={() => {}} onOpenTerminal={() => {}}
-      replays={[{ key: "fw", timeline, startedAt: performance.now() - elapsed }]} />,
+      replays={[{ key: "fw", timeline, startedAt: performance.now() - elapsed }]}
+      {...(pick ? { onPickPenguin: () => {} } : {})} />,
   ).replaceAll("<!-- -->", "");
 
 const walkWhere = (timeline: Timeline, match: (hop: Hop) => boolean) => timeline.walks.find((walk) => match(walk.hop))!;
@@ -97,4 +98,22 @@ test("규칙 없이 기본 정책으로 막으면 '기본 정책 차단'", async
   const drop = timeline.drops.find((candidate) => candidate.fall.blocked !== undefined)!;
   expect(drop.fall.blocked).toEqual({ target: "DROP" });
   expect(canvasAt(document, timeline, drop.start + FALL_MS * 0.3)).toContain(">기본 정책 차단</text>");
+});
+
+test("DROP으로 다 흩어져 보이지 않는 펭귄은 누를 수 없다 (T6.3.1 수정)", async () => {
+  const { document, timeline } = await lab("iptables -A FORWARD -p icmp -j DROP");
+  const drop = timeline.drops.find((candidate) => candidate.fall.blocked !== undefined)!;
+
+  // 흩어지는 동안에는 누를 수 있다
+  const during = canvasAt(document, timeline, drop.start + FALL_MS * 0.3, true);
+  expect(during).toMatch(/<g class="penguin pickable"[^>]*role="button"[^>]*aria-label="[^"]*Firewall이 막음 \(DROP\)"/);
+
+  // 다 흩어진 뒤에도 원인 폐기라 남아 있지만(방패는 계속 빨갛다) 보이지 않으므로 누르는 자리와 Tab 자리가 없다
+  const after = canvasAt(document, timeline, drop.start + FALL_MS + 300, true);
+  expect(after).toContain("fw-shield deny");
+  const sprite = /<g class="penguin[^"]*"[^>]*aria-label="[^"]*Firewall이 막음 \(DROP\)"[^>]*>/.exec(after)![0];
+  expect(sprite).toContain('role="img"');
+  expect(sprite).not.toContain("pickable");
+  expect(sprite).not.toContain("tabindex");
+  expect(after).not.toContain("penguin-hit");
 });

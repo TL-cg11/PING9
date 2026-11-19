@@ -119,6 +119,29 @@ test("펭귄은 onPick이 있을 때만 누를 수 있다", async () => {
   expect(draw(false)).toMatch(/<g class="penguin"[^>]*role="img"/);
 });
 
+test("펭귄을 누르는 자리는 장비 카드와 겹친 곳을 뺀다: 겹친 곳을 누르면 장비가 받는다 (T6.3.1 수정)", async () => {
+  const trace = await traceOf(twoPcSwitchDocument, TWO_PC_SWITCH.pc1.id, "ping -n 1 192.168.1.2");
+  const timeline = timelineOf(replaySteps(trace));
+  const draw = (pick: boolean) => renderToString(
+    <Canvas document={twoPcSwitchDocument} selectedDeviceId={null} onSelect={() => {}} onOpenTerminal={() => {}}
+      replays={[{ key: "r1", timeline, startedAt: performance.now() - 100, traceId: trace.id }]}
+      {...(pick ? { onPickPenguin: () => {} } : {})} />,
+  );
+
+  // 누르는 자리는 그림이 아니라 따로 둔 투명한 네모이고, 장비 카드를 뺀 영역으로 자른다
+  const html = draw(true);
+  expect(html).toMatch(/<rect class="penguin-hit"[^>]*clip-path="url\(#penguin-pick-area\)"/);
+  const area = /<clipPath id="penguin-pick-area">(.*?)<\/clipPath>/.exec(html)![1]!;
+  expect(area).toContain('clip-rule="evenodd"');
+  for (const device of twoPcSwitchDocument.devices) {
+    expect(area).toContain(`M${device.position.x - 40} ${device.position.y - 36}h80v72h-80Z`);
+  }
+
+  // 누를 수 없을 때(실시간)는 누르는 자리도 없다
+  expect(draw(false)).not.toContain("penguin-hit");
+  expect(draw(false)).not.toContain("penguin-pick-area");
+});
+
 test.each([
   { name: "GRE", document: greLabDocument, tag: "GRE", title: "GRE로 감싼 ping 요청" },
   { name: "ESP", document: ipsecLabDocument, tag: "ESP", title: "IPsec ESP" },

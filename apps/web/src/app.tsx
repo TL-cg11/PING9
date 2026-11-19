@@ -22,6 +22,7 @@ import { focusCanvasNode, focusTerminalInput } from "./focus";
 import { TopBar } from "./components/top-bar";
 import { CABLE_OFF, CABLE_READY, syncCableState } from "./cable-state";
 import type { CableState } from "./cable-state";
+import { cardStillShown, createCardPause } from "./card-pause";
 import type { DragCancelState } from "./canvas-interaction";
 import { availablePorts } from "./format/available-ports";
 import { formatError } from "./messages/errors";
@@ -269,22 +270,31 @@ export function App() {
   const [pickedTrace, setPickedTrace] = useState<number | null>(null);
   const [lastPlayed, setLastPlayed] = useState<number | null>(null);
   const [selectedSeq, setSelectedSeq] = useState<number | null>(null);
-  // 누른 펭귄 (T6.3.1). 누르면 시계를 멈추고, 카드를 닫거나 다시 실행하면 카드를 내린다
+  // 누른 펭귄 (T6.3.1). 누르면 시계를 멈추고 카드를 띄운다.
+  // 카드가 내려갈 때는 어느 길이든 `cardPause.close()`를 지난다: 카드가 멈춘 시계만 다시 돌리고, 사용자가 멈춘 시계는 그대로 둔다
   const [picked, setPicked] = useState<PenguinPick | null>(null);
+  const [cardPause] = useState(() => createCardPause(clock));
+  const eventOf = (pick: PenguinPick) => (pick.traceId === undefined ? undefined : simulator.getTrace(pick.traceId)?.events[pick.seq]);
+  const pickedEvent = picked === null ? undefined : eventOf(picked);
+  const closeCard = () => { setPicked(null); cardPause.close(); };
+  const hasPickedEvent = pickedEvent !== undefined;
   useEffect(() => {
-    if (!clockState.paused) setPicked(null);
-  }, [clockState.paused]);
-  useEffect(() => {
-    if (picked !== null && ![...replays.values()].some((replay) => picked.key.startsWith(`${replay.key}-`))) setPicked(null);
-  }, [replays, picked]);
+    if (picked === null) return;
+    // 사용자가 "다시 실행"을 눌렀거나(시계가 돈다), 그 펭귄의 재생이 지워졌거나(빈 곳 누르기, Ctrl+C, 장비 삭제, 가져오기, 다음 재생),
+    // 추적이 바뀌어 이벤트를 찾을 수 없으면 카드를 내린다
+    if (clockState.paused && cardStillShown(picked, replayList.map((replay) => replay.key), hasPickedEvent)) return;
+    setPicked(null);
+    cardPause.close();
+  }, [clockState.paused, replayList, picked, hasPickedEvent, cardPause]);
   const pickPenguin = (pick: PenguinPick) => {
     if (mode !== "simulation") return;
-    if (picked?.key === pick.key) { setPicked(null); clock.resume(); return; }
-    clock.pause();
+    if (picked?.key === pick.key) { closeCard(); return; }
+    // 보여 줄 이벤트가 없으면 카드도 없다. 시계만 멈추지 않게 그대로 둔다
+    if (eventOf(pick) === undefined) return;
+    cardPause.open();
     setPicked(pick);
     if (pick.traceId !== undefined) { setPickedTrace(pick.traceId); setSelectedSeq(pick.seq); }
   };
-  const pickedEvent = picked?.traceId === undefined ? undefined : simulator.getTrace(picked.traceId)?.events[picked.seq];
   // 이벤트 탭을 마지막으로 봤을 때의 최신 추적. 그 뒤에 새 기록이 생기면 탭에 점을 단다
   const [seenTrace, setSeenTrace] = useState<number | null>(null);
   const latestTrace = snapshot.traces[0]?.id ?? null;
@@ -560,7 +570,7 @@ export function App() {
             pickedPenguin={picked}
             penguinCard={picked !== null && pickedEvent !== undefined
               ? <PacketCard event={pickedEvent} document={document} linkId={picked.linkId}
-                  onClose={() => { setPicked(null); clock.resume(); }} />
+                  onClose={closeCard} />
               : undefined}
           />
           {ui.terminals.map((placement, index) => {
