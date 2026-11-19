@@ -18,6 +18,18 @@ export interface Hop {
   /** 내보낸 장비. 링크의 반대쪽 끝이 도착 장비다 */
   readonly fromDeviceId: string;
   readonly kind: FrameKind;
+  /** 장비가 받은 프레임을 그대로 넘겼다 (`forward`). Firewall이면 방패가 허용을 보인다 (T14.2.3) */
+  readonly forwarded?: true;
+  /** 도착 장비가 이 프레임을 다음에 넘긴다. Firewall이면 다가갈 때 방패가 허용을 보인다 */
+  readonly passesAt?: string;
+  /** Firewall의 REJECT가 돌려보낸 ICMP 오류. 펭귄이 돌아서서 걷는다 */
+  readonly rejected?: Blocked;
+}
+
+/** Firewall이 막음 (`FIREWALL_BLOCKED`). `rule`이 없으면 체인의 기본 정책 */
+export interface Blocked {
+  readonly target: "DROP" | "REJECT";
+  readonly rule?: number;
 }
 
 /** 프레임이 버려진 곳 */
@@ -32,6 +44,7 @@ export interface Fall {
    * 정상 폐기(`NOT_FOR_ME`)는 false
    */
   readonly primary: boolean;
+  readonly blocked?: Blocked;
 }
 
 export interface Step {
@@ -64,11 +77,25 @@ function incomingLink(trace: Trace, event: TraceEvent): string | undefined {
   return undefined;
 }
 
+function blockedOf(event: TraceEvent): Blocked | undefined {
+  if (event.reason.code !== "FIREWALL_BLOCKED") return undefined;
+  const { target, rule } = event.reason.params;
+  return rule === undefined ? { target } : { target, rule };
+}
+
 export function replaySteps(trace: Trace): Step[] {
   const cause = trace.result.primaryDropSeq === undefined ? undefined : trace.events[trace.result.primaryDropSeq];
   const isCause = (event: TraceEvent) =>
     cause !== undefined && event.deviceId === cause.deviceId && event.dropReason === cause.dropReason;
   const steps: { time: number; hops: Hop[]; falls: Fall[] }[] = [];
+  // 프레임마다 그 프레임을 넘긴 이벤트 (seq 순)
+  const forwards = new Map<number, TraceEvent[]>();
+  for (const event of trace.events) {
+    if (event.action !== "forward") continue;
+    const list = forwards.get(event.frameId);
+    if (list === undefined) forwards.set(event.frameId, [event]);
+    else list.push(event);
+  }
   for (const event of trace.events) {
     let step = steps.at(-1);
     if (step === undefined || step.time !== event.time) {
@@ -76,16 +103,26 @@ export function replaySteps(trace: Trace): Step[] {
       steps.push(step);
     }
     if (event.linkId !== undefined && event.action !== "drop") {
-      step.hops.push({ seq: event.seq, linkId: event.linkId, fromDeviceId: event.deviceId, kind: frameKind(event) });
+      const passer = forwards.get(event.frameId)?.find((later) => later.seq > event.seq && later.deviceId !== event.deviceId);
+      const parent = event.parentSeq === undefined ? undefined : trace.events[event.parentSeq];
+      const rejected = parent === undefined ? undefined : blockedOf(parent);
+      step.hops.push({
+        seq: event.seq, linkId: event.linkId, fromDeviceId: event.deviceId, kind: frameKind(event),
+        ...(event.action === "forward" ? { forwarded: true as const } : {}),
+        ...(passer === undefined ? {} : { passesAt: passer.deviceId }),
+        ...(rejected === undefined ? {} : { rejected }),
+      });
     }
     if (event.action === "drop") {
       const linkId = incomingLink(trace, event);
+      const blocked = blockedOf(event);
       step.falls.push({
         seq: event.seq,
         deviceId: event.deviceId,
         ...(linkId === undefined ? {} : { linkId }),
         kind: frameKind(event),
         primary: isCause(event),
+        ...(blocked === undefined ? {} : { blocked }),
       });
     }
   }
