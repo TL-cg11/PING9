@@ -30,6 +30,9 @@ const BASE_HEIGHT = 330;
 /** 노드(클릭 영역)의 크기. 장비의 위치는 클릭 영역의 가운데다 */
 const HALF_WIDTH = 40;
 const ABOVE = 36;
+/** 장비가 누르기를 받는 네모(`rect.card`)의 크기 */
+const CARD_WIDTH = 2 * HALF_WIDTH;
+const CARD_HEIGHT = 2 * ABOVE;
 /** 카드 아래쪽 끝(36)과 그 밑의 IP 글자까지 */
 const BELOW = 64;
 /** 기본 영역을 벗어난 쪽에 두는 여백 */
@@ -699,7 +702,7 @@ export function Canvas({
                 }
               }}
             >
-              <rect className="card" width="80" height="72" rx="16" />
+              <rect className="card" width={CARD_WIDTH} height={CARD_HEIGHT} rx="16" />
               {/* 선택했을 때만 보이는 파란 빛. 아이콘 뒤에 그린다 */}
               <circle className="halo" cx="40" cy="36" r="46" />
               {/* 키보드 포커스 표시: 아이콘 둘레의 옅은 점선 원. 선택 빛(퍼짐)과 모양이 달라 겹쳐도 구별된다 */}
@@ -722,7 +725,11 @@ export function Canvas({
         <PacketLayer replays={replays} pathOf={pathOf} positionOf={deviceId => positions.get(deviceId)}
           kindOf={deviceId => document.devices.find(device => device.id === deviceId)?.kind}
           {...(replayTime !== undefined ? { time: replayTime } : {})} paused={replayPaused}
-          {...(onPickPenguin ? { onPick: onPickPenguin } : {})} pickedKey={pickedPenguin?.key} />
+          {...(onPickPenguin ? { onPick: onPickPenguin } : {})} pickedKey={pickedPenguin?.key}
+          deviceCards={orderedDevices.flatMap(device => {
+            const position = positions.get(device.id);
+            return position === undefined ? [] : [{ x: position.x - HALF_WIDTH, y: position.y - ABOVE, width: CARD_WIDTH, height: CARD_HEIGHT }];
+          })} />
         {paletteDragKind !== null && cursor !== null && (
           <g className="placement-preview" transform={`translate(${cursor.x - 28},${cursor.y - 28})`}>
             <DeviceIcon kind={paletteDragKind} width={56} height={56} />
