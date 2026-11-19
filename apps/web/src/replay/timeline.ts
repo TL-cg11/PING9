@@ -139,7 +139,8 @@ export function exchangeTimeline(trace: Trace, lengthOf: (linkId: string) => num
 /** 시각 `elapsed`(재생 시작부터 ms)에 그릴 것 */
 export type Sprite =
   | { readonly type: "walk"; readonly hop: Hop; readonly progress: number; readonly stride: "a" | "b" }
-  | { readonly type: "drop"; readonly fall: Fall; readonly opacity: number }
+  /** `progress`: 놓침을 보이는 시간(FALL_MS) 가운데 지난 몫 (0~1). Firewall 장면이 쓴다 */
+  | { readonly type: "drop"; readonly fall: Fall; readonly opacity: number; readonly progress: number }
   | { readonly type: "fade"; readonly fall: Fall; readonly opacity: number };
 
 /**
@@ -159,7 +160,7 @@ export function spritesAt(timeline: Timeline, elapsed: number, reduced = false):
     if (fall.primary) {
       if (end !== undefined && elapsed >= end) continue;
       const opacity = end === undefined ? 1 : Math.min(1, (end - elapsed) / (VANISH_MS * timeScale));
-      sprites.push({ type: "drop", fall, opacity });
+      sprites.push({ type: "drop", fall, opacity, progress: Math.min(1, (elapsed - start) / (FALL_MS * timeScale)) });
     }
     else if (elapsed < start + FADE_MS * timeScale) sprites.push({ type: "fade", fall, opacity: 1 - (elapsed - start) / (FADE_MS * timeScale) });
   }
