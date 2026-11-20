@@ -1,3 +1,4 @@
+import { VPN_COMMANDS } from "./vpn-commands";
 // PC의 OS별로 달라지는 것 (T0.7). 명령 정의 목록, 프롬프트, 콘솔에 보이는 인터페이스 이름.
 // 네트워크 동작은 OS와 상관없이 같다. 문서 안의 포트 이름도 OS와 상관없이 `Ethernet0`이다.
 
@@ -43,6 +44,7 @@ function helpCommand(commands: () => readonly CommandDefinition[]): CommandDefin
 // ping과 ARP 명령어(T1.8.3), traceroute(T11.4.1)는 Runtime을 쓰므로 따로 정의하고 여기서 붙인다
 const WINDOWS_COMMANDS: readonly CommandDefinition[] = [
   ...WINDOWS_PC_COMMANDS,
+  ...VPN_COMMANDS,
   ...WINDOWS_FILE_COMMANDS,
   ...WINDOWS_NETWORK_COMMANDS,
   ...WINDOWS_TRACE_COMMANDS,
@@ -53,6 +55,7 @@ const WINDOWS_COMMANDS: readonly CommandDefinition[] = [
 // Linux는 실제처럼 대소문자를 구분한다 (T0.9). Windows는 구분하지 않는다
 const LINUX_COMMANDS: readonly CommandDefinition[] = [
   ...LINUX_PC_COMMANDS,
+  ...VPN_COMMANDS,
   ...LINUX_FILE_COMMANDS,
   ...LINUX_NETWORK_COMMANDS,
   ...LINUX_TRACE_COMMANDS,
@@ -62,6 +65,7 @@ const LINUX_COMMANDS: readonly CommandDefinition[] = [
 // 서버로 쓰는 PC (T0.20): Linux의 명령어에 서비스를 다루는 명령어를 더한다
 const SERVER_COMMANDS: readonly CommandDefinition[] = [
   ...LINUX_PC_COMMANDS,
+  ...VPN_COMMANDS,
   ...LINUX_FILE_COMMANDS,
   ...LINUX_NETWORK_COMMANDS,
   ...LINUX_TRACE_COMMANDS,

@@ -1,3 +1,4 @@
+import type { SslVpnClientConfig, SslVpnServerConfig } from "./ssl-vpn";
 // Document를 바꾸는 요청 (AD-3). 출처: 03 문서 3.4절 "Command 목록 (MVP)".
 // ping, show처럼 실행 중 상태만 다루는 동작은 Command가 아니라 ConsolePort.exec로 한다.
 // 장비와 링크의 ID는 web이 crypto.randomUUID()로 만들어 Command에 담는다 (AD-5).
@@ -9,6 +10,8 @@ import type {
 } from "./document";
 
 export type Command =
+  | { readonly type: "ssl-vpn/set-client"; readonly deviceId: string; readonly config: SslVpnClientConfig | null }
+  | { readonly type: "ssl-vpn/set-server"; readonly deviceId: string; readonly config: SslVpnServerConfig | null }
   | { readonly type: "router/set-cli-style"; readonly deviceId: string; readonly style: "ios" | "vyos" }
   | { readonly type: "router/commit-vyos"; readonly deviceId: string; readonly config: RouterConfig }
   | { readonly type: "router/set-vpn-mode"; readonly deviceId: string; readonly mode: VpnMode | null }
@@ -73,6 +76,8 @@ export type CommandOf<T extends CommandType> = Extract<Command, { readonly type:
 
 // Command를 추가하고 여기에 빠뜨리면 타입 오류가 난다
 const COMMAND_TYPE_SET = {
+  "ssl-vpn/set-client": true,
+  "ssl-vpn/set-server": true,
   "router/set-cli-style": true,
   "router/commit-vyos": true,
   "router/set-vpn-mode": true,

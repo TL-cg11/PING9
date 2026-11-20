@@ -21,6 +21,9 @@ export type PingRoundKind = "reply" | "unreachable" | "timeout" | "unsent" | "ic
  */
 export function pingRoundKind(trace: Trace, sourceId: string, sequence: number): PingRoundKind {
   const atSource = trace.events.filter((event) => event.deviceId === sourceId);
+  // VPN 제어 명령도 회차 UI를 재사용하지만 ICMP 응답으로 오인하지 않는다.
+  if (atSource.some(event => event.reason.code === "SSL_VPN_REJECTED")) return "icmp-error";
+  if (atSource.some(event => event.reason.code === "SSL_VPN_STATE_CHANGED" && ["connected","disconnected"].includes(event.reason.params.state))) return "reply";
   // 서비스 요청의 추적 (T0.20): 응답을 받았으면 성공, 연결을 거절당했거나(RST) ICMP 오류를 받았으면 오류
   if (atSource.some((event) => event.reason.code === "SERVICE_RESPONSE_RECEIVED")) return "reply";
   if (atSource.some((event) => (event.reason.code === "TCP_SEGMENT_RECEIVED" && event.frame.tcp?.flags === "RST") ||

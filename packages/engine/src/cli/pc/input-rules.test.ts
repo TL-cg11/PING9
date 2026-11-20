@@ -160,6 +160,9 @@ describe("help", () => {
       "tracert -h <hops> <ip>",
       "tracert <ip>",
       "type <path>",
+      "vpn connect <profile>",
+      "vpn disconnect",
+      "vpn status",
       "w32tm /stripchart <computer>",
     ]);
   });

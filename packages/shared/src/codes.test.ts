@@ -28,6 +28,7 @@ describe("코드 목록", () => {
   test("폐기 사유는 02 문서 FR-47의 표에 VLAN_INACTIVE, RIP_SOURCE_NOT_ON_LINK(T11.2.2), FIREWALL_BLOCKED(T14.2.1), PORT_CLOSED(T0.20)를 더한 것이다", () => {
     expect([...DROP_REASONS].sort()).toEqual(
       [
+        "SSL_VPN_REJECTED",
         "GRE_REJECTED",
         "IPSEC_REJECTED",
         "ARP_TIMEOUT",
@@ -60,7 +61,7 @@ describe("코드 목록", () => {
     const firewall = ["firewall/add-rule", "firewall/remove-rule", "firewall/flush-rules", "firewall/set-policy"];
     const server = ["pc/set-service", "pc/add-dns-record", "pc/remove-dns-record"];
     const vpn = (type: string) => type.startsWith("tunnel/") || type.startsWith("ipsec/") || type.startsWith("router/");
-    const added = [...rip, ...firewall, ...server];
+    const added = [...rip, ...firewall, ...server, "ssl-vpn/set-client", "ssl-vpn/set-server"];
     expect(COMMAND_TYPES.filter((type) => !added.includes(type) && !vpn(type))).toHaveLength(19);
     expect(COMMAND_TYPES).toEqual(expect.arrayContaining(added));
     expect(COMMAND_TYPES.filter(type => type.startsWith("tunnel/"))).toEqual(["tunnel/set", "tunnel/remove"]);

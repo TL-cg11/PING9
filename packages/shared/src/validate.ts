@@ -1,3 +1,4 @@
+import { checkSslVpn } from "./ssl-vpn";
 // Document의 유효성을 판정하는 유일한 곳 (AD-9).
 // web의 가져오기, api의 저장, engine의 불러오기가 모두 이 파일의 함수를 쓴다.
 // 어떤 값을 넣어도 예외를 던지지 않고, 틀리면 구별되는 오류 코드를 돌려준다.
@@ -242,6 +243,8 @@ function checkSemantics(document: ParsedDocument): ErrorInfo | null {
     kinds.set(device.id, device.kind);
   }
 
+  const sslError = checkSslVpn(document);
+  if (sslError !== null) return sslError;
   const usedPorts = new Set<string>();
   for (const link of document.links) {
     if (!isUuid(link.id)) return errorInfo("INVALID_ID", { id: link.id });
@@ -476,6 +479,11 @@ export function validateTrace(input: unknown): TraceCheckResult {
         return traceError(`${path}.parentSeq`);
       }
 
+      const frame = event.frame;
+      if (Array.isArray(frame.tcp?.flags) || frame.ipv4?.protocol === 6) {
+        if (frame.tcp === undefined || frame.ipv4?.protocol !== 6 || frame.arp !== undefined || frame.icmp !== undefined ||
+          frame.udp !== undefined || frame.rip !== undefined || frame.gre !== undefined || frame.esp !== undefined) return traceError(`${path}.frame.tcp`);
+      }
       const isDrop = event.action === "drop";
       if (isDrop !== (event.dropReason !== undefined)) return traceError(`${path}.dropReason`);
       if (isDrop && event.dropReason !== event.reason.code) {

@@ -17,6 +17,10 @@ const ICMP_ERROR_LABEL = { "destination-unreachable": "닿을 수 없음", "time
 
 /** 목록 한 줄의 설명. 장비 이름은 줄의 장비 칸에 따로 나온다 */
 export const EVENT_TEXT: { readonly [C in ReasonCode]: (params: ReasonParamsByCode[C]) => string } = {
+  SSL_VPN_STATE_CHANGED: ({state,detail}) => `교육용 SSL VPN ${state}: ${detail}`,
+  SSL_VPN_REJECTED: ({detail}) => `교육용 SSL VPN 접속 거절: ${detail}`,
+  TCP_SIM_SEGMENT_SENT: ({ targetIp, destinationPort }) => `${targetIp}:${destinationPort}로 교육용 TCP 세그먼트를 보냄`,
+  TCP_SIM_SEGMENT_RECEIVED: ({ sourceIp, sourcePort }) => `${sourceIp}:${sourcePort}의 교육용 TCP 세그먼트를 받음`,
   GRE_ENCAPSULATED: ({ tunnel, peer }) => `${tunnel}에서 GRE로 감싸 ${peer}로 보냄`,
   GRE_DECAPSULATED: ({ tunnel, peer }) => `${peer}에서 받은 GRE를 ${tunnel}에서 복원`,
   IPSEC_PROTECTED: ({ profile, peer, spi, sequence }) => `${profile}: ${peer}행 교육용 ESP (SPI ${spi}, 순서 ${sequence} · 실제 암호화 없음)`,
@@ -87,6 +91,7 @@ export interface Cause {
 const dev = (params: { readonly device: { readonly deviceName: string } }) => params.device.deviceName;
 
 export const CAUSE_TEXT: { readonly [R in DropReason]: (params: DropParamsByReason[R]) => Cause } = {
+  SSL_VPN_REJECTED: q => ({text:q.detail,fix:"VPN 서버 주소·신뢰 식별자·사용자 설정과 가상 IP 풀을 확인하세요"}),
   GRE_REJECTED: (q) => ({ text: `${dev(q)}에서 GRE 전달을 거절했어요: ${q.detail}`, fix: "양쪽 터널의 source·remote 주소, 활성 상태와 물리 경로를 확인하세요" }),
   IPSEC_REJECTED: (q) => ({ text: `${dev(q)}의 ${q.profile}에서 IPsec 전달을 거절했어요: ${q.detail}`, fix: "양쪽 peer·보호 대역·실습 키·인증 ID·정책과 SA 상태를 확인하세요" }),
   NO_LINK: (q) => ({ text: `${dev(q)}의 ${p(q.port)}에 케이블이 연결되어 있지 않아요`, fix: `케이블 도구로 ${p(q.port)}를 연결하세요` }),

@@ -1,5 +1,5 @@
 import { BROADCAST_MAC, PORT_NAMES, RIP_MULTICAST_MAC, UNKNOWN_MAC, checkHostIpv4, checkInterfaceAddress, isIcmpError, isSameNetwork, isTunnelName, routerInterfaces, greEnabled } from "@ping9/shared";
-import type { FrameSnapshot, IcmpErrorType, IcmpMessage, Ipv4Header, Reason, RouterDevice, RouterView, TopologyDocument } from "@ping9/shared";
+import type { TcpSegment, FrameSnapshot, IcmpErrorType, IcmpMessage, Ipv4Header, Reason, RouterDevice, RouterView, TopologyDocument } from "@ping9/shared";
 
 import type { Frame, SimContext, TimerRef } from "../../kernel";
 import { ArpModule } from "../../protocols/arp";
@@ -29,6 +29,25 @@ export class RouterModel implements DeviceModel {
   readonly #rip: RipModule;
   readonly #ipsec: IpsecModule;
   readonly #now: () => number;
+
+  #tcpReceiver?: (ctx: SimContext, frame: Frame) => void;
+  setTcpReceiver(receiver: (ctx: SimContext, frame: Frame) => void): void { this.#tcpReceiver = receiver; }
+
+  /** SSL 접속 제어용 교육 세그먼트. endpoint까지는 물리 경로만 사용한다. */
+  sendTcp(ctx: SimContext, sourceIp: string, targetIp: string, tcp: TcpSegment): boolean {
+    const device = this.#device(), decision = this.#decision(targetIp);
+    if (decision === null || isTunnelName(decision.port) || !Object.values(device.config.interfaces).some(iface=>iface.adminUp && iface.ip===sourceIp)) return false;
+    const {port,nextHop}=decision;
+    this.#arps.get(port)!.send(ctx,port,nextHop,{
+      build: destinationMac => ({ethernet:{sourceMac:portMac(device,port),destinationMac},ipv4:{sourceIp,destinationIp:targetIp,ttl:ROUTER_TTL,protocol:6},tcp}),
+      onSend:(context,frame,cause)=>{
+        const linkId=portLink(this.#getDocument(),{deviceId:device.id,port})?.linkId;
+        context.record({frame,deviceId:device.id,outPort:port,...(linkId?{linkId}:{}),...(cause===undefined?{}:{parentSeq:cause}),
+          layer:"TCP",action:"create",reason:{code:"TCP_SIM_SEGMENT_SENT",params:{device:deviceRef(device),sourceIp,targetIp,sourcePort:tcp.sourcePort,destinationPort:tcp.destinationPort}}});
+      },
+    });
+    return true;
+  }
 
   constructor(deviceId: string, getDocument: () => TopologyDocument, now: () => number = () => 0) {
     this.deviceId = deviceId;
@@ -110,6 +129,12 @@ export class RouterModel implements DeviceModel {
     const local = Object.entries(routerInterfaces(device.config)).some(([name, iface]) =>
       (!isTunnelName(name) || greEnabled(device.config)) && iface.adminUp && iface.ip === ipv4.destinationIp);
     if (local) {
+      const tcp = frame.snapshot.tcp;
+      if (ipv4.protocol === 6 && tcp !== undefined && "sequence" in tcp) {
+        ctx.record({frame,deviceId:device.id,inPort:port,layer:"TCP",action:"receive",parentSeq:received,
+          reason:{code:"TCP_SIM_SEGMENT_RECEIVED",params:{device:ref,sourceIp:ipv4.sourceIp,targetIp:ipv4.destinationIp,sourcePort:tcp.sourcePort,destinationPort:tcp.destinationPort}}});
+        this.#tcpReceiver?.(ctx,frame); return;
+      }
       if (frame.snapshot.esp !== undefined || ipv4.protocol === 50) { this.#unprotect(ctx, port, frame, received); return; }
       if (frame.snapshot.gre !== undefined || ipv4.protocol === 47) { this.#decapsulate(ctx, port, frame, received); return; }
       if (icmp?.type === "echo-request") {

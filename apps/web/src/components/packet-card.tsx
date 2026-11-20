@@ -23,6 +23,7 @@ const TITLE: Readonly<Record<FrameKind, string>> = {
   "gre-request": "GRE로 감싼 ping 요청",
   "gre-reply": "GRE로 감싼 ping 응답",
   "esp": "IPsec ESP",
+  "tcp": "교육용 TCP",
   "tcp-request": "TCP 요청",
   "tcp-response": "TCP 응답",
   "udp-request": "UDP 요청",
@@ -41,6 +42,7 @@ const COLOR: Readonly<Record<FrameKind, string>> = {
   "gre-request": "#4A8CF0",
   "gre-reply": "#E8B21E",
   "esp": "#4A8CF0",
+  "tcp": "#4A8CF0",
   "tcp-request": "#4A8CF0",
   "tcp-response": "#E8B21E",
   "udp-request": "#4A8CF0",
@@ -170,7 +172,7 @@ export function PacketCard({ event, document, linkId, onClose }: {
       <Box layer="l4" tag="L4" title="TCP">
         <dl>
           <dt>출발 포트</dt><dd>{tcp.sourcePort}</dd><dt>도착 포트</dt><dd>{tcp.destinationPort}</dd>
-          <dt>플래그</dt><dd>{tcp.flags}</dd>
+          <dt>플래그</dt><dd>{typeof tcp.flags === "string" ? tcp.flags : tcp.flags.join(" ")}</dd>
         </dl>
         {inner}
       </Box>

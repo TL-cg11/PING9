@@ -386,7 +386,7 @@ export function App() {
           isHop: (traceId) => {
             const summary = simulator.getSnapshot().traces.find((candidate) => candidate.id === traceId);
             // 서비스 요청(T0.20)도 회차가 하나라, 멈추면 ping 통계 없이 `^C`만 찍는다
-            return summary?.kind === "ping" && (summary.hop !== undefined || summary.service !== undefined);
+            return summary?.kind === "vpn" || summary?.kind === "ping" && (summary.hop !== undefined || summary.service !== undefined);
           },
           os: device?.kind === "pc" ? osOf(device.config) : "windows",
           // 실시간이면 재생하지 않는다. 0을 돌려주면 회차 줄이 실제 OS처럼 바로 뜬다 (응답 없는 회차는 4초)

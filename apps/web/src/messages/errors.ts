@@ -27,6 +27,7 @@ const FIREWALL_RULE_REASONS: Readonly<Record<ErrorParamsByCode["FIREWALL_RULE_IN
 };
 
 export const ERROR_MESSAGES: { readonly [C in ErrorCode]: (params: ErrorParamsByCode[C]) => string } = {
+  SSL_VPN_INVALID_CONFIG: ({detail}) => `SSL VPN 설정 오류: ${detail}`,
   IPSEC_INVALID_CONFIG: ({ detail }) => `IPsec 설정을 확인해 주세요: ${detail}`,
   TUNNEL_INVALID_CONFIG: ({ detail }) => `GRE 설정을 확인해 주세요: ${detail}`,
   // 값 하나의 형식

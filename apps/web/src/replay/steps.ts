@@ -8,7 +8,7 @@ import type { Trace, TraceEvent } from "@ping9/shared";
 // T0.20: TCP와 UDP 서비스. 클라이언트 포트(큰 수)에서 서버 포트로 가는 것이 요청, 돌아오는 것이 응답이다
 export type FrameKind =
   | "arp-request" | "arp-reply" | "icmp-request" | "icmp-reply" | "icmp-error" | "rip-request" | "rip-response" | "gre-request" | "gre-reply" | "esp"
-  | "tcp-request" | "tcp-response" | "udp-request" | "udp-response";
+  | "tcp-request" | "tcp-response" | "udp-request" | "udp-response" | "tcp";
 
 /** 케이블 위를 지나가는 프레임 하나 */
 export interface Hop {
@@ -57,6 +57,7 @@ export interface Step {
 
 export function frameKind(event: TraceEvent): FrameKind {
   const { arp, icmp, rip, gre, esp, tcp, udp } = event.frame;
+  if (Array.isArray(tcp?.flags)) return "tcp";
   if (esp !== undefined) return "esp";
   if (gre !== undefined) return gre.payload.icmp.type === "echo-reply" ? "gre-reply" : "gre-request";
   if (arp !== undefined) return arp.operation === "request" ? "arp-request" : "arp-reply";

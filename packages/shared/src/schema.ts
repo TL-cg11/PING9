@@ -24,7 +24,21 @@ const positionSchema = z.object({ x: coordinate, y: coordinate });
 
 const portRefSchema = z.object({ deviceId: shortString, port: shortString });
 
+const sslVpnServerSchema = z.object({
+  enabled: z.boolean(), listenAddress: shortString, listenPort: integer.min(1).max(65535),
+  serverName: shortString, caId: shortString, certificateExpiresAtSeconds: integer.min(1).max(86400),
+  poolNetwork: shortString, poolMask: shortString, tunnelIp: shortString,
+  allowedNetworks: z.array(z.object({network:shortString,mask:shortString})).min(1).max(4),
+  users: z.array(z.object({name:shortString,authId:shortString})).min(1).max(8),
+  lifetimeSeconds: integer.min(1).max(86400), maxClients: integer.min(1).max(4),
+});
+const sslVpnClientSchema = z.object({
+  enabled:z.boolean(), name:shortString, serverIp:shortString, serverPort:integer.min(1).max(65535),
+  expectedServerName:shortString, trustCaId:shortString, username:shortString, authId:shortString,
+});
+
 const pcConfigSchema = z.object({
+  sslVpn: sslVpnClientSchema.optional(),
   ip: shortString.optional(),
   mask: shortString.optional(),
   gateway: shortString.optional(),
@@ -68,6 +82,7 @@ const ripConfigSchema = z.object({
 });
 
 const routerConfigSchema = z.object({
+  sslVpn: sslVpnServerSchema.optional(),
   cliStyle: z.enum(["ios", "vyos"]).optional(),
   vyos: z.record(z.string().max(256), shortString).refine(value => Object.keys(value).length <= 512).optional(),
   vpnMode: z.enum(VPN_MODES).optional(),
@@ -135,7 +150,7 @@ export type ParsedDocument = z.infer<typeof topologyDocumentSchema>;
 const reasonCodes = new Set<string>(REASON_CODES);
 const dropReasons = new Set<string>(DROP_REASONS);
 
-const ipv4Schema = z.object({ sourceIp: shortString, destinationIp: shortString, ttl: integer, protocol: z.union([z.literal(47), z.literal(50)]).optional() });
+const ipv4Schema = z.object({ sourceIp: shortString, destinationIp: shortString, ttl: integer, protocol: z.union([z.literal(6), z.literal(47), z.literal(50)]).optional() });
 const icmpSchema = z.discriminatedUnion("type", [
     z.object({ type: z.enum(["echo-request", "echo-reply"]), sequence: integer }),
     z.object({ type: z.enum(["destination-unreachable", "time-exceeded"]), sequence: integer,
@@ -168,7 +183,12 @@ const frameSnapshotSchema = z.object({
   }).optional(),
   icmp: icmpSchema.optional(),
   udp: z.object({ sourcePort: integer, destinationPort: integer }).optional(),
-  tcp: z.object({ sourcePort: integer, destinationPort: integer, flags: z.enum(TCP_FLAGS) }).optional(),
+  tcp: z.union([z.object({ sourcePort: integer, destinationPort: integer, flags: z.enum(TCP_FLAGS) }), z.object({
+    sourcePort: integer.min(1).max(65535), destinationPort: integer.min(1).max(65535),
+    sequence: integer.min(0).max(0xffffffff), acknowledgement: integer.min(0).max(0xffffffff).optional(),
+    flags: z.array(z.enum(["SYN", "ACK", "FIN", "RST", "PSH"])).max(5).refine(flags => new Set(flags).size === flags.length),
+    payload: z.string().max(512).optional(),
+  })]).optional(),
   application: z.object({
     service: z.enum(SERVICE_KINDS), message: shortString, data: z.string().max(MAX_APPLICATION_DATA).optional(),
   }).optional(),

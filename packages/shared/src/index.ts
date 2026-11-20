@@ -29,3 +29,5 @@ export {
   validateTrace,
 } from "./validate";
 export type { DocumentResult, ExportFileResult, TraceCheckResult } from "./validate";
+
+export * from "./ssl-vpn";

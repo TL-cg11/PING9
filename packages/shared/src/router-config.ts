@@ -39,6 +39,7 @@ export function normalizeStaticRoute(route: StaticRoute): StaticRoute {
 /** 생략된 포트도 기본 꺼짐으로 채우고 전체 포트 순서대로 정규화한다. */
 export function normalizeRouterConfig(config: RouterConfig): RouterConfig {
   return {
+    ...(config.sslVpn === undefined ? {} : { sslVpn: config.sslVpn }),
     ...(config.cliStyle === undefined ? {} : { cliStyle: config.cliStyle }),
     ...(config.vyos === undefined ? {} : { vyos: config.vyos }),
     ...(config.vpnMode === undefined ? {} : { vpnMode: config.vpnMode }),

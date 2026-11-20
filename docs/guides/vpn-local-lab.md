@@ -1,5 +1,17 @@
 # VyOS 1.4 방식 GRE·IPsec 로컬 실습
 
+R1·R2·R3 이름과 `198.168.x.x` 주소로 연습하려면 아래 새 실습을 따른다. 이 문서 아래의 기존 예제는 이전 주소 계획을 사용한다.
+
+새 가이드에는 입력 순서·현재 모드·명령 한 줄씩 설명이 있다. 지금 1.1.1.x/2.2.2.x 주소로 연습 중이면 [사진 주소용 GRE 안내](gre-custom-address-lab.md)를 따른다.
+
+| 실습 | 따라 하는 가이드 | 완성 파일 |
+|---|---|---|
+| 공통 물리망 준비 | [R1·R2·R3 물리망](vpn-three-routers-lab.md) | [VPN 설정 전 JSON](vpn-three-routers-underlay.ping9.json) |
+| GRE | [GRE 실습](gre-three-routers-lab.md) | [GRE 완성 JSON](gre-three-routers.ping9.json) |
+| IPsec | [IPsec 실습](ipsec-three-routers-lab.md) | [IPsec 완성 JSON](ipsec-three-routers.ping9.json) |
+| SSL VPN | [SSL 실습](ssl-vpn-from-scratch.md) | [SSL 세션 JSON](ssl-vpn-three-routers.ping9.json) |
+
+
 PING9 라우터에서 **VyOS 1.4의 일부 명령어**로 GRE와 IPsec을 각각 실습한다. 실제 VyOS OS 전체를 실행하는 것은 아니다. 기존 IOS 명령어는 호환용으로 유지하며, 장비 속성의 **라우터 CLI 형식 → VyOS 1.4 · VPN 실습**을 선택하면 아래 문법을 쓴다. PC와 Switch의 CLI는 바뀌지 않는다.
 
 IPsec은 사용자가 선택한 **교육용 시뮬레이션**이다. `aes256`, `sha256`, PSK 등은 양쪽 정책이 맞는지 검사하기 위한 설정이다. 실제 암호화·해시 인증·키 교환·IKE 패킷은 생성하지 않는다. 공개 실습 식별자 `LAB_SHARED`를 사용하며 실제 비밀번호를 넣지 않는다. GRE+IPsec, SSL VPN은 이번 범위에 없다.

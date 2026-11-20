@@ -81,8 +81,10 @@ export class Ipv4Host {
   sendTransport(
     ctx: SimContext, port: string, targetIp: string, layers: TransportLayers,
     record: (ctx: SimContext, frame: Frame, sent: SentBase, ipv4: Ipv4Header) => void, parentSeq?: number,
+    options: { readonly ttl?: number; readonly protocol?: Ipv4Header["protocol"] } = {},
   ): void {
-    const { device, macOf, linkOf, ttl } = this.#config;
+    const { device, macOf, linkOf } = this.#config;
+    const ttl = options.ttl ?? this.#config.ttl;
     const address = this.#config.addressOf(port);
     if (this.#config.isUp?.(port) === false) {
       this.#dropUnsent(ctx, port, { sourceIp: address?.ip ?? "", destinationIp: targetIp, ttl }, layers,
@@ -93,7 +95,7 @@ export class Ipv4Host {
       this.#dropUnsent(ctx, port, { sourceIp: "", destinationIp: targetIp, ttl }, layers, { code: "NO_IP", params: { device } }, parentSeq);
       return;
     }
-    const ipv4: Ipv4Header = { sourceIp: address.ip, destinationIp: targetIp, ttl };
+    const ipv4: Ipv4Header = { sourceIp: address.ip, destinationIp: targetIp, ttl, ...(options.protocol === undefined ? {} : { protocol: options.protocol }) };
     const hop = nextHop(address, targetIp);
     if (hop === undefined) {
       this.#dropUnsent(ctx, port, ipv4, layers, { code: "NO_GATEWAY", params: { device, targetIp } }, parentSeq);
@@ -261,7 +263,7 @@ export class Ipv4Host {
       return;
     }
     const transport = tcp ?? udp;
-    if (transport === undefined || tcp?.flags === "RST") return;
+    if (transport === undefined || tcp?.flags === "RST" || Array.isArray(tcp?.flags) && tcp.flags.includes("RST")) return;
     this.sendIcmpError(ctx, port, ipv4.sourceIp, { type: "destination-unreachable", sequence: 0, original: {
       ...base, sequence: 0, protocol: tcp === undefined ? "udp" : "tcp", destinationPort: transport.destinationPort,
     } }, parentSeq);

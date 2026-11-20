@@ -120,3 +120,14 @@ Task 하나를 진행할 때마다 이 폴더에 기록 문서를 **새로** 만
 | T6.4.2 캔버스 "보기" 메뉴(대역·포트 주소·포트 이름·VLAN·장비 IP 켜고 끄기, 전체)와 Router 포트의 전체 주소/길이 (계획에 없는 새 ID. T6.4.1 후속) | [T6.4.2-canvas-view-menu.md](T6.4.2-canvas-view-menu.md) | 화면 | yysong1249 | [PR #69](https://github.com/TL-cg11/PING9/pull/69) 리뷰 대기. PC 쪽 케이블의 주소를 뺌 — 팀 확인 필요 |
 | T6.3.1 버그 수정: 패킷 카드를 닫아도 재생이 멈춰 있고, 펭귄이 장비 누르기를 가로챔 | [T6.3.1-card-pause-and-pick.md](T6.3.1-card-pause-and-pick.md) | 화면 | SDY | 병합됨 ([PR #70](https://github.com/TL-cg11/PING9/pull/70), 팀원 검토 없이). T6.3.1 담당의 파일을 고쳐 확인 필요 |
 | T0.21 Firewall 장비를 없애고 iptables를 서버(종류가 Server인 PC)로 옮김 (계획에 없는 새 ID. T14.2.1·T14.2.2·T14.2.3을 대신함) | [T0.21-server-iptables.md](T0.21-server-iptables.md) | 공통, 엔진, 화면 | SDY | 병합됨 ([PR #71](https://github.com/TL-cg11/PING9/pull/71), 팀원 검토 없이). Firewall 장비·그림을 지우고 방패 장면을 서버로 옮겼고 PC·Router 담당의 파일을 고쳐 팀 확인 필요 |
+| T15.3.0 SSL VPN 원격 접속 계획 | [T15.3.0-ssl-vpn-plan.md](T15.3.0-ssl-vpn-plan.md) | 설계·문서 | ssunyoung2 | [PR #72](https://github.com/TL-cg11/PING9/pull/72) 리뷰 대기 |
+| T15.3.2 SSL VPN 선행 TCP 전달 기반 | [T15.3.2-ssl-vpn-transport.md](T15.3.2-ssl-vpn-transport.md) | 공통·엔진·화면·테스트 | ssunyoung2 | [PR #72](https://github.com/TL-cg11/PING9/pull/72) 리뷰 대기 |
+| T15.3.3 Goorm 작업 폴더 이전과 최신 main 통합 | [T15.3.3-goorm-workspace.md](T15.3.3-goorm-workspace.md) | 통합·검증 | ssunyoung2 | [PR #72](https://github.com/TL-cg11/PING9/pull/72) 리뷰 대기 |
+| T15.3.4 SSL VPN 교육용 접속·세션 | [T15.3.4-ssl-vpn-sessions.md](T15.3.4-ssl-vpn-sessions.md) | 공통·엔진·CLI·화면·테스트 | ssunyoung2 | [PR #72](https://github.com/TL-cg11/PING9/pull/72) 리뷰 대기 |
+| T15.3.5 빈 캔버스부터 SSL VPN 실습 | [T15.3.5-ssl-vpn-from-scratch.md](T15.3.5-ssl-vpn-from-scratch.md) | 문서·검증 | ssunyoung2 | [PR #72](https://github.com/TL-cg11/PING9/pull/72) 리뷰 대기 |
+| T15.3.6 SSL VPN 주소·Router 3대 실습 | [T15.3.6-ssl-vpn-address-plan.md](T15.3.6-ssl-vpn-address-plan.md) | 문서·예제·검증 | ssunyoung2 | [PR #72](https://github.com/TL-cg11/PING9/pull/72) 리뷰 대기 |
+| T15.3.7 최신 main과 SSL VPN 통합 | [T15.3.7-ssl-main-sync.md](T15.3.7-ssl-main-sync.md) | 통합·엔진·공통·화면·검증 | ssunyoung2 | [PR #72](https://github.com/TL-cg11/PING9/pull/72) 리뷰 대기 |
+| T15.3.8 SSL VPN R1·R2·R3 이름 통일 | [T15.3.8-ssl-router-names.md](T15.3.8-ssl-router-names.md) | 문서·예제·검증 | ssunyoung2 | [PR #72](https://github.com/TL-cg11/PING9/pull/72) 리뷰 대기 |
+| T15.3.9 GRE·IPsec 실습 보관 | [T15.3.9-vpn-practice-examples.md](T15.3.9-vpn-practice-examples.md) | 문서·예제·검증 | ssunyoung2 | [PR #72](https://github.com/TL-cg11/PING9/pull/72) 리뷰 대기 |
+| T15.3.10 VPN 명령 뜻·입력 순서 | [T15.3.10-vpn-command-walkthrough.md](T15.3.10-vpn-command-walkthrough.md) | 문서·검증 | ssunyoung2 | [PR #72](https://github.com/TL-cg11/PING9/pull/72) 리뷰 대기 |
+| T15.3.11 SSL VPN 세션·실습 문서 PR | [T15.3.11-ssl-vpn-pr.md](T15.3.11-ssl-vpn-pr.md) | 검증·Git·문서 | ssunyoung2 | [PR #72](https://github.com/TL-cg11/PING9/pull/72) 리뷰 대기 |
