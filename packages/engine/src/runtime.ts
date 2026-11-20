@@ -1,3 +1,5 @@
+import { SslVpnSessions } from "./vpn/ssl-sessions";
+import type { SslVpnAction, SslVpnRun } from "@ping9/shared";
 // T1.8.3: Runtime. kernel 하나와 장비별 모델, 보관 중인 추적을 들고 있다 (03 문서 3.4절).
 // Document는 Simulator가 들고 있고, Runtime은 매번 getDocument()로 읽는다.
 // PC·Switch·Router 모델을 함께 보관한다.
@@ -80,6 +82,7 @@ export interface TracerouteRequest {
 }
 
 export interface Runtime {
+  sslVpn(deviceId: string, action: SslVpnAction, docVersion: number): SslVpnRun;
   /** 문서를 새로 열었다. kernel 시각과 추적 번호, 모델, 추적 목록을 처음으로 */
   reset(): void;
   /** Document가 바뀌었다. 모델에 알리고 사라진 장비의 모델을 버린다. ARP·MAC 테이블이 바뀌었으면 true */
@@ -179,6 +182,19 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     return models;
   };
 
+  const ssl = new SslVpnSessions(getDocument, () => kernel.now(), (ctx,id,sourceIp,targetIp,segment) => {
+    const pc=pcModel(id); if(pc) return pc.tcp.send(ctx,PC_PORT,targetIp,segment);
+    return routerModel(id)?.sendTcp(ctx,sourceIp,targetIp,segment) ?? false;
+  });
+  const sslModels = () => {
+    const models=runModels();
+    for(const [id,model] of models){
+      if(model instanceof PcModel) model.tcp.setReceiver((ctx,frame)=>ssl.onClient(ctx,id,frame));
+      if(model instanceof RouterModel) model.setTcpReceiver((ctx,frame)=>ssl.onServer(ctx,id,frame));
+    }
+    return models;
+  };
+
   /** 문서의 모든 Router가 지금 라우팅 테이블에 쓰는 RIP 경로. RIP를 끈 Router도 넣어 사라진 경로가 보이게 한다 */
   const currentRipRoutes = (): RipRoutes => {
     const result = new Map<string, ReadonlyMap<string, RipRouteHop>>();
@@ -252,8 +268,24 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
   };
 
   return {
+    sslVpn(deviceId,action,docVersion) {
+      const current = ssl.status(deviceId);
+      if(action==="status" || action==="connect" && current.state==="connected") return {session:current};
+      const source=findDevice(getDocument(),deviceId);
+      if(source?.kind!=="pc") return {session:{state:"failed",detail:"VPN client must be a PC"}};
+      const models=sslModels();startModels();
+      const run=deviceRun({docVersion,models,start:ctx=>ssl.begin(ctx,deviceId,action),outcome:()=>{
+        const state=ssl.status(deviceId).state;
+        return (action==="connect"?state==="connected":state==="disconnected")?"success":"failed";
+      }});
+      const trace=kernel.run({...run,onTimer:(ctx,timer)=>{if(!ssl.onTimer(ctx,timer))run.onTimer(ctx,timer);}});
+      const session=ssl.finish(deviceId);
+      store({trace,summary:{id:trace.id,docVersion,kind:"vpn",status:trace.result.status,eventCount:trace.events.length,source:deviceRef(source),targetIp:source.config.sslVpn?.serverIp??"0.0.0.0"}});
+      return {session,traceId:trace.id};
+    },
     reset() {
       kernel.reset();
+      ssl.reset();
       pcs.clear();
       routers.clear();
       switches.clear();
@@ -262,7 +294,7 @@ export function createRuntime(getDocument: () => TopologyDocument): Runtime {
     },
 
     configChanged(previous, document) {
-      let changed = false;
+      let changed = ssl.configChanged(previous, document);
       for (const [deviceId, model] of routers) {
         const before = model.arpTable();
         if (findDevice(document, deviceId)?.kind !== "router") { routers.delete(deviceId); changed ||= before.length > 0; continue; }

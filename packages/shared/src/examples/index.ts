@@ -34,3 +34,5 @@ export const EXAMPLE_DOCUMENTS: readonly {
 ];
 
 export { withRouterLabSwitches, switchedStaticRoutingLabDocument } from "./router-lab";
+
+export * from "./ssl-vpn-lab";

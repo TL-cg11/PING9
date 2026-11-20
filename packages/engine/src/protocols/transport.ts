@@ -108,6 +108,7 @@ export class TransportHost {
   #asClient(ctx: SimContext, port: string, frame: Frame, request: ServiceExchange): void {
     const { device } = this.#config;
     const { ipv4, tcp, application } = frame.snapshot;
+    if (tcp !== undefined && typeof tcp.flags !== "string") return;
     if (ipv4 === undefined) return;
     const elapsed = () => ctx.now() - this.#exchange!.startedAt;
     const base = { frame, deviceId: device.deviceId, inPort: port, action: "receive" as const };
@@ -140,6 +141,7 @@ export class TransportHost {
   #asServer(ctx: SimContext, port: string, frame: Frame, address: Ipv4Address): void {
     const { device, ipv4: host } = this.#config;
     const { ipv4, tcp, udp, application } = frame.snapshot;
+    if (tcp !== undefined && typeof tcp.flags !== "string") return; // SSL 선행 세그먼트는 별도 호스트가 처리한다.
     if (ipv4 === undefined) return;
     const base = { frame, deviceId: device.deviceId, inPort: port };
     const peer = ipv4.sourceIp;

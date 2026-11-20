@@ -7,6 +7,7 @@ import type { DeviceView, PcDevice, TopologyDocument } from "@ping9/shared";
 
 import type { Frame, SimContext, TimerRef } from "../../kernel";
 import { ArpModule } from "../../protocols/arp";
+import { TcpSegmentHost } from "../../protocols/tcp-segment";
 import { Ipv4Host } from "../../protocols/ipv4-host";
 import { TransportHost } from "../../protocols/transport";
 import type { Ipv4Address } from "../../protocols/ipv4-host";
@@ -38,6 +39,7 @@ export class PcModel implements DeviceModel {
   readonly ipv4: Ipv4Host;
   /** TCP·UDP와 서비스 (T0.20). 서버로 쓰는 PC는 듣고, 모든 PC가 요청을 보낸다 */
   readonly transport: TransportHost;
+  readonly tcp: TcpSegmentHost;
   readonly #getDocument: () => TopologyDocument;
 
   constructor(deviceId: string, getDocument: () => TopologyDocument) {
@@ -91,9 +93,16 @@ export class PcModel implements DeviceModel {
       respond: (service, message) => serviceResponse(pc(), service, message),
     });
     this.ipv4.setTransport({
-      onPacket: (ctx, port, frame, address) => { this.transport.onPacket(ctx, port, frame, address); },
+      onPacket: (ctx, port, frame, address) => {
+        if (!this.tcp.onFrame(ctx, port, frame)) this.transport.onPacket(ctx, port, frame, address);
+      },
       onIcmpError: (ctx, frame) => { this.transport.onIcmpError(ctx, frame); },
     });
+    this.tcp = new TcpSegmentHost({
+      get device() { return deviceRef(pc()); }, addressOf: () => addressOf(pc()),
+      macOf, linkOf, isUp: port => isAdminUp(pc(), port),
+      get ttl() { return TTL_BY_OS[osOf(pc().config)]; },
+    }, this.ipv4);
   }
 
   onFrame(ctx: SimContext, port: string, frame: Frame): void {
@@ -126,7 +135,10 @@ export class PcModel implements DeviceModel {
     const addressChanged = before.config.ip !== after.config.ip || before.config.mask !== after.config.mask;
     const linkChanged = portLink(change.previous, ref)?.linkId !== portLink(change.document, ref)?.linkId;
     const adminChanged = isAdminUp(before, PC_PORT) !== isAdminUp(after, PC_PORT);
-    if (addressChanged || linkChanged || adminChanged) this.arp.onPortChanged(PC_PORT);
+    if (addressChanged || linkChanged || adminChanged) {
+      this.arp.onPortChanged(PC_PORT);
+      this.tcp.startRun();
+    }
   }
 
   /** 회차를 시작할 때 Runtime이 모든 PC에 부른다. 지난 회차의 대기열과 응답 목록을 비운다 */
@@ -134,6 +146,7 @@ export class PcModel implements DeviceModel {
     this.arp.discardPending();
     this.ipv4.startRun();
     this.transport.startRun();
+    this.tcp.startRun();
   }
 
   view(): DeviceView {

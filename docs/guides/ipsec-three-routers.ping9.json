@@ -1,0 +1,312 @@
+{
+  "kind": "topology-export",
+  "name": "IPSEC · R1-R2-R3",
+  "document": {
+    "schemaVersion": 1,
+    "devices": [
+      {
+        "id": "00000000-0000-4000-8000-000000000500",
+        "name": "PC_A",
+        "position": {
+          "x": 100,
+          "y": 240
+        },
+        "kind": "pc",
+        "config": {
+          "ip": "198.168.0.2",
+          "mask": "255.255.255.0",
+          "gateway": "198.168.0.1",
+          "os": "windows",
+          "adminUp": true
+        }
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000501",
+        "name": "R1",
+        "position": {
+          "x": 300,
+          "y": 240
+        },
+        "kind": "router",
+        "config": {
+          "cliStyle": "vyos",
+          "vyos": {
+            "interfaces ethernet eth0 address 198.168.0.1/24": "",
+            "interfaces ethernet eth1 address 198.168.1.1/30": "",
+            "interfaces ethernet eth2 disable": "",
+            "interfaces ethernet eth3 disable": "",
+            "protocols static route 198.168.2.0/30 next-hop 198.168.1.2": "",
+            "protocols static route 198.168.3.0/24 next-hop 198.168.1.2": "",
+            "vpn ipsec authentication psk LAB id 198.168.1.1": "",
+            "vpn ipsec authentication psk LAB id 198.168.2.2": "",
+            "vpn ipsec authentication psk LAB secret": "LAB_SHARED",
+            "vpn ipsec esp-group ESP lifetime": "3600",
+            "vpn ipsec esp-group ESP mode": "tunnel",
+            "vpn ipsec esp-group ESP pfs": "enable",
+            "vpn ipsec esp-group ESP proposal 10 encryption": "aes256",
+            "vpn ipsec esp-group ESP proposal 10 hash": "sha256",
+            "vpn ipsec ike-group IKE key-exchange": "ikev2",
+            "vpn ipsec ike-group IKE lifetime": "28800",
+            "vpn ipsec ike-group IKE proposal 10 dh-group": "14",
+            "vpn ipsec ike-group IKE proposal 10 encryption": "aes256",
+            "vpn ipsec ike-group IKE proposal 10 hash": "sha256",
+            "vpn ipsec interface eth1": "",
+            "vpn ipsec site-to-site peer R3 authentication mode": "pre-shared-secret",
+            "vpn ipsec site-to-site peer R3 default-esp-group": "ESP",
+            "vpn ipsec site-to-site peer R3 ike-group": "IKE",
+            "vpn ipsec site-to-site peer R3 local-address": "198.168.1.1",
+            "vpn ipsec site-to-site peer R3 remote-address": "198.168.2.2",
+            "vpn ipsec site-to-site peer R3 tunnel 0 local prefix": "198.168.0.0/24",
+            "vpn ipsec site-to-site peer R3 tunnel 0 remote prefix": "198.168.3.0/24"
+          },
+          "interfaces": {
+            "GigabitEthernet0/0": {
+              "adminUp": true,
+              "ip": "198.168.0.1",
+              "mask": "255.255.255.0"
+            },
+            "GigabitEthernet0/1": {
+              "adminUp": true,
+              "ip": "198.168.1.1",
+              "mask": "255.255.255.252"
+            },
+            "GigabitEthernet0/2": {
+              "adminUp": false
+            },
+            "GigabitEthernet0/3": {
+              "adminUp": false
+            }
+          },
+          "staticRoutes": [
+            {
+              "network": "198.168.2.0",
+              "mask": "255.255.255.252",
+              "nextHop": "198.168.1.2"
+            },
+            {
+              "network": "198.168.3.0",
+              "mask": "255.255.255.0",
+              "nextHop": "198.168.1.2"
+            }
+          ],
+          "ipsec": {
+            "R3": {
+              "bypassWhenDisabled": true,
+              "policy": "{\"ike\":\"ikev2\",\"ikeEncryption\":\"aes256\",\"ikeHash\":\"sha256\",\"dh\":\"14\",\"espEncryption\":\"aes256\",\"espHash\":\"sha256\",\"pfs\":\"enable\"}",
+              "localId": "198.168.1.1",
+              "remoteId": "198.168.2.2",
+              "adminUp": true,
+              "interface": "GigabitEthernet0/1",
+              "peer": "198.168.2.2",
+              "keyId": "LAB_SHARED",
+              "local": {
+                "network": "198.168.0.0",
+                "mask": "255.255.255.0"
+              },
+              "remote": {
+                "network": "198.168.3.0",
+                "mask": "255.255.255.0"
+              },
+              "inboundSpi": 1730832677,
+              "outboundSpi": 439774357,
+              "lifetimeSeconds": 3600
+            }
+          }
+        }
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000502",
+        "name": "R2",
+        "position": {
+          "x": 500,
+          "y": 240
+        },
+        "kind": "router",
+        "config": {
+          "cliStyle": "ios",
+          "interfaces": {
+            "GigabitEthernet0/0": {
+              "adminUp": true,
+              "ip": "198.168.1.2",
+              "mask": "255.255.255.252"
+            },
+            "GigabitEthernet0/1": {
+              "adminUp": true,
+              "ip": "198.168.2.1",
+              "mask": "255.255.255.252"
+            },
+            "GigabitEthernet0/2": {
+              "adminUp": false
+            },
+            "GigabitEthernet0/3": {
+              "adminUp": false
+            }
+          },
+          "staticRoutes": []
+        }
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000503",
+        "name": "R3",
+        "position": {
+          "x": 700,
+          "y": 240
+        },
+        "kind": "router",
+        "config": {
+          "cliStyle": "vyos",
+          "vyos": {
+            "interfaces ethernet eth0 address 198.168.2.2/30": "",
+            "interfaces ethernet eth1 address 198.168.3.1/24": "",
+            "interfaces ethernet eth2 disable": "",
+            "interfaces ethernet eth3 disable": "",
+            "protocols static route 198.168.0.0/24 next-hop 198.168.2.1": "",
+            "protocols static route 198.168.1.0/30 next-hop 198.168.2.1": "",
+            "vpn ipsec authentication psk LAB id 198.168.1.1": "",
+            "vpn ipsec authentication psk LAB id 198.168.2.2": "",
+            "vpn ipsec authentication psk LAB secret": "LAB_SHARED",
+            "vpn ipsec esp-group ESP lifetime": "3600",
+            "vpn ipsec esp-group ESP mode": "tunnel",
+            "vpn ipsec esp-group ESP pfs": "enable",
+            "vpn ipsec esp-group ESP proposal 10 encryption": "aes256",
+            "vpn ipsec esp-group ESP proposal 10 hash": "sha256",
+            "vpn ipsec ike-group IKE key-exchange": "ikev2",
+            "vpn ipsec ike-group IKE lifetime": "28800",
+            "vpn ipsec ike-group IKE proposal 10 dh-group": "14",
+            "vpn ipsec ike-group IKE proposal 10 encryption": "aes256",
+            "vpn ipsec ike-group IKE proposal 10 hash": "sha256",
+            "vpn ipsec interface eth0": "",
+            "vpn ipsec site-to-site peer R1 authentication mode": "pre-shared-secret",
+            "vpn ipsec site-to-site peer R1 default-esp-group": "ESP",
+            "vpn ipsec site-to-site peer R1 ike-group": "IKE",
+            "vpn ipsec site-to-site peer R1 local-address": "198.168.2.2",
+            "vpn ipsec site-to-site peer R1 remote-address": "198.168.1.1",
+            "vpn ipsec site-to-site peer R1 tunnel 0 local prefix": "198.168.3.0/24",
+            "vpn ipsec site-to-site peer R1 tunnel 0 remote prefix": "198.168.0.0/24"
+          },
+          "interfaces": {
+            "GigabitEthernet0/0": {
+              "adminUp": true,
+              "ip": "198.168.2.2",
+              "mask": "255.255.255.252"
+            },
+            "GigabitEthernet0/1": {
+              "adminUp": true,
+              "ip": "198.168.3.1",
+              "mask": "255.255.255.0"
+            },
+            "GigabitEthernet0/2": {
+              "adminUp": false
+            },
+            "GigabitEthernet0/3": {
+              "adminUp": false
+            }
+          },
+          "staticRoutes": [
+            {
+              "network": "198.168.1.0",
+              "mask": "255.255.255.252",
+              "nextHop": "198.168.2.1"
+            },
+            {
+              "network": "198.168.0.0",
+              "mask": "255.255.255.0",
+              "nextHop": "198.168.2.1"
+            }
+          ],
+          "ipsec": {
+            "R1": {
+              "bypassWhenDisabled": true,
+              "policy": "{\"ike\":\"ikev2\",\"ikeEncryption\":\"aes256\",\"ikeHash\":\"sha256\",\"dh\":\"14\",\"espEncryption\":\"aes256\",\"espHash\":\"sha256\",\"pfs\":\"enable\"}",
+              "localId": "198.168.2.2",
+              "remoteId": "198.168.1.1",
+              "adminUp": true,
+              "interface": "GigabitEthernet0/0",
+              "peer": "198.168.1.1",
+              "keyId": "LAB_SHARED",
+              "local": {
+                "network": "198.168.3.0",
+                "mask": "255.255.255.0"
+              },
+              "remote": {
+                "network": "198.168.0.0",
+                "mask": "255.255.255.0"
+              },
+              "inboundSpi": 439774357,
+              "outboundSpi": 1730832677,
+              "lifetimeSeconds": 3600
+            }
+          }
+        }
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000504",
+        "name": "PC_B",
+        "position": {
+          "x": 900,
+          "y": 240
+        },
+        "kind": "pc",
+        "config": {
+          "ip": "198.168.3.2",
+          "mask": "255.255.255.0",
+          "gateway": "198.168.3.1"
+        }
+      }
+    ],
+    "links": [
+      {
+        "id": "00000000-0000-4000-8000-000000000600",
+        "ends": [
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000500",
+            "port": "Ethernet0"
+          },
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000501",
+            "port": "GigabitEthernet0/0"
+          }
+        ]
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000601",
+        "ends": [
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000501",
+            "port": "GigabitEthernet0/1"
+          },
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000502",
+            "port": "GigabitEthernet0/0"
+          }
+        ]
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000602",
+        "ends": [
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000502",
+            "port": "GigabitEthernet0/1"
+          },
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000503",
+            "port": "GigabitEthernet0/0"
+          }
+        ]
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000603",
+        "ends": [
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000503",
+            "port": "GigabitEthernet0/1"
+          },
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000504",
+            "port": "Ethernet0"
+          }
+        ]
+      }
+    ]
+  }
+}

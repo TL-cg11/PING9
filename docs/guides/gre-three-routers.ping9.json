@@ -1,0 +1,252 @@
+{
+  "kind": "topology-export",
+  "name": "GRE · R1-R2-R3",
+  "document": {
+    "schemaVersion": 1,
+    "devices": [
+      {
+        "id": "00000000-0000-4000-8000-000000000500",
+        "name": "PC_A",
+        "position": {
+          "x": 100,
+          "y": 240
+        },
+        "kind": "pc",
+        "config": {
+          "ip": "198.168.0.2",
+          "mask": "255.255.255.0",
+          "gateway": "198.168.0.1",
+          "os": "windows",
+          "adminUp": true
+        }
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000501",
+        "name": "R1",
+        "position": {
+          "x": 300,
+          "y": 240
+        },
+        "kind": "router",
+        "config": {
+          "cliStyle": "vyos",
+          "vyos": {
+            "interfaces ethernet eth0 address 198.168.0.1/24": "",
+            "interfaces ethernet eth1 address 198.168.1.1/30": "",
+            "interfaces ethernet eth2 disable": "",
+            "interfaces ethernet eth3 disable": "",
+            "interfaces tunnel tun0 address 198.168.4.1/30": "",
+            "interfaces tunnel tun0 encapsulation": "gre",
+            "interfaces tunnel tun0 remote": "198.168.2.2",
+            "interfaces tunnel tun0 source-address": "198.168.1.1",
+            "protocols static route 198.168.2.0/30 next-hop 198.168.1.2": "",
+            "protocols static route 198.168.3.0/24 next-hop 198.168.4.2": ""
+          },
+          "interfaces": {
+            "GigabitEthernet0/0": {
+              "adminUp": true,
+              "ip": "198.168.0.1",
+              "mask": "255.255.255.0"
+            },
+            "GigabitEthernet0/1": {
+              "adminUp": true,
+              "ip": "198.168.1.1",
+              "mask": "255.255.255.252"
+            },
+            "GigabitEthernet0/2": {
+              "adminUp": false
+            },
+            "GigabitEthernet0/3": {
+              "adminUp": false
+            }
+          },
+          "staticRoutes": [
+            {
+              "network": "198.168.2.0",
+              "mask": "255.255.255.252",
+              "nextHop": "198.168.1.2"
+            },
+            {
+              "network": "198.168.3.0",
+              "mask": "255.255.255.0",
+              "nextHop": "198.168.4.2"
+            }
+          ],
+          "tunnels": {
+            "Tunnel0": {
+              "adminUp": true,
+              "ip": "198.168.4.1",
+              "mask": "255.255.255.252",
+              "mode": "gre",
+              "source": "GigabitEthernet0/1",
+              "destination": "198.168.2.2"
+            }
+          }
+        }
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000502",
+        "name": "R2",
+        "position": {
+          "x": 500,
+          "y": 240
+        },
+        "kind": "router",
+        "config": {
+          "cliStyle": "ios",
+          "interfaces": {
+            "GigabitEthernet0/0": {
+              "adminUp": true,
+              "ip": "198.168.1.2",
+              "mask": "255.255.255.252"
+            },
+            "GigabitEthernet0/1": {
+              "adminUp": true,
+              "ip": "198.168.2.1",
+              "mask": "255.255.255.252"
+            },
+            "GigabitEthernet0/2": {
+              "adminUp": false
+            },
+            "GigabitEthernet0/3": {
+              "adminUp": false
+            }
+          },
+          "staticRoutes": []
+        }
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000503",
+        "name": "R3",
+        "position": {
+          "x": 700,
+          "y": 240
+        },
+        "kind": "router",
+        "config": {
+          "cliStyle": "vyos",
+          "vyos": {
+            "interfaces ethernet eth0 address 198.168.2.2/30": "",
+            "interfaces ethernet eth1 address 198.168.3.1/24": "",
+            "interfaces ethernet eth2 disable": "",
+            "interfaces ethernet eth3 disable": "",
+            "interfaces tunnel tun0 address 198.168.4.2/30": "",
+            "interfaces tunnel tun0 encapsulation": "gre",
+            "interfaces tunnel tun0 remote": "198.168.1.1",
+            "interfaces tunnel tun0 source-address": "198.168.2.2",
+            "protocols static route 198.168.0.0/24 next-hop 198.168.4.1": "",
+            "protocols static route 198.168.1.0/30 next-hop 198.168.2.1": ""
+          },
+          "interfaces": {
+            "GigabitEthernet0/0": {
+              "adminUp": true,
+              "ip": "198.168.2.2",
+              "mask": "255.255.255.252"
+            },
+            "GigabitEthernet0/1": {
+              "adminUp": true,
+              "ip": "198.168.3.1",
+              "mask": "255.255.255.0"
+            },
+            "GigabitEthernet0/2": {
+              "adminUp": false
+            },
+            "GigabitEthernet0/3": {
+              "adminUp": false
+            }
+          },
+          "staticRoutes": [
+            {
+              "network": "198.168.1.0",
+              "mask": "255.255.255.252",
+              "nextHop": "198.168.2.1"
+            },
+            {
+              "network": "198.168.0.0",
+              "mask": "255.255.255.0",
+              "nextHop": "198.168.4.1"
+            }
+          ],
+          "tunnels": {
+            "Tunnel0": {
+              "adminUp": true,
+              "ip": "198.168.4.2",
+              "mask": "255.255.255.252",
+              "mode": "gre",
+              "source": "GigabitEthernet0/0",
+              "destination": "198.168.1.1"
+            }
+          }
+        }
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000504",
+        "name": "PC_B",
+        "position": {
+          "x": 900,
+          "y": 240
+        },
+        "kind": "pc",
+        "config": {
+          "ip": "198.168.3.2",
+          "mask": "255.255.255.0",
+          "gateway": "198.168.3.1"
+        }
+      }
+    ],
+    "links": [
+      {
+        "id": "00000000-0000-4000-8000-000000000600",
+        "ends": [
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000500",
+            "port": "Ethernet0"
+          },
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000501",
+            "port": "GigabitEthernet0/0"
+          }
+        ]
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000601",
+        "ends": [
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000501",
+            "port": "GigabitEthernet0/1"
+          },
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000502",
+            "port": "GigabitEthernet0/0"
+          }
+        ]
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000602",
+        "ends": [
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000502",
+            "port": "GigabitEthernet0/1"
+          },
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000503",
+            "port": "GigabitEthernet0/0"
+          }
+        ]
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000603",
+        "ends": [
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000503",
+            "port": "GigabitEthernet0/1"
+          },
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000504",
+            "port": "Ethernet0"
+          }
+        ]
+      }
+    ]
+  }
+}

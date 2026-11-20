@@ -33,6 +33,7 @@ export function filterPacketOf(snapshot: Pick<FrameSnapshot, "ipv4" | "icmp" | "
   const { ipv4, icmp, udp, tcp } = snapshot;
   if (ipv4 === undefined) return undefined;
   const base = { sourceIp: ipv4.sourceIp, destinationIp: ipv4.destinationIp };
+  if (ipv4.protocol === 6 && tcp !== undefined) return { ...base, protocol: "tcp", sourcePort: tcp.sourcePort, destinationPort: tcp.destinationPort };
   if (icmp !== undefined) return { ...base, protocol: "icmp", icmpType: icmp.type };
   if (tcp !== undefined) return { ...base, protocol: "tcp", sourcePort: tcp.sourcePort, destinationPort: tcp.destinationPort };
   if (udp !== undefined) return { ...base, protocol: "udp", sourcePort: udp.sourcePort, destinationPort: udp.destinationPort };

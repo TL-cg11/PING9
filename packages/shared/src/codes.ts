@@ -17,6 +17,7 @@ export interface DeviceRef {
 // ---------------------------------------------------------------------------
 
 export interface ErrorParamsByCode {
+  SSL_VPN_INVALID_CONFIG: { readonly detail: string };
   IPSEC_INVALID_CONFIG: { readonly detail: string };
   TUNNEL_INVALID_CONFIG: { readonly detail: string };
   // 값 하나의 형식 (shared의 값 검증 함수. CLI 해석기와 reducer가 함께 씀)
@@ -182,6 +183,7 @@ export function errorInfo<C extends ErrorCode>(
 }
 
 const ERROR_CODE_SET = {
+  SSL_VPN_INVALID_CONFIG: true,
   IPSEC_INVALID_CONFIG: true,
   TUNNEL_INVALID_CONFIG: true,
   INVALID_IPV4: true,
@@ -286,6 +288,7 @@ export const NOTICE_CODES = Object.keys(NOTICE_CODE_SET) as readonly NoticeCode[
 // ---------------------------------------------------------------------------
 
 export interface DropParamsByReason {
+  SSL_VPN_REJECTED: { readonly device: DeviceRef; readonly detail: string };
   IPSEC_REJECTED: { readonly device: DeviceRef; readonly profile: string; readonly detail: string };
   GRE_REJECTED: { readonly device: DeviceRef; readonly detail: string };
   /** 보내려는 포트에 링크가 없음 */
@@ -340,6 +343,7 @@ export interface DropParamsByReason {
 export type DropReason = keyof DropParamsByReason;
 
 const DROP_REASON_SET = {
+  SSL_VPN_REJECTED: true,
   IPSEC_REJECTED: true,
   GRE_REJECTED: true,
   NO_LINK: true,
@@ -368,6 +372,9 @@ export const DROP_REASONS = Object.keys(DROP_REASON_SET) as readonly DropReason[
 // ---------------------------------------------------------------------------
 
 export interface EventParamsByCode {
+  SSL_VPN_STATE_CHANGED: { readonly device: DeviceRef; readonly state: string; readonly detail: string };
+  TCP_SIM_SEGMENT_SENT: { readonly device: DeviceRef; readonly sourceIp: string; readonly targetIp: string; readonly sourcePort: number; readonly destinationPort: number };
+  TCP_SIM_SEGMENT_RECEIVED: { readonly device: DeviceRef; readonly sourceIp: string; readonly targetIp: string; readonly sourcePort: number; readonly destinationPort: number };
   IPSEC_PROTECTED: { readonly device: DeviceRef; readonly profile: string; readonly peer: string; readonly spi: number; readonly sequence: number };
   IPSEC_UNPROTECTED: { readonly device: DeviceRef; readonly profile: string; readonly peer: string; readonly spi: number; readonly sequence: number };
   GRE_ENCAPSULATED: { readonly device: DeviceRef; readonly tunnel: string; readonly peer: string };
@@ -508,6 +515,9 @@ export type Reason<C extends ReasonCode = ReasonCode> = {
 }[C];
 
 const EVENT_CODE_SET = {
+  SSL_VPN_STATE_CHANGED: true,
+  TCP_SIM_SEGMENT_SENT: true,
+  TCP_SIM_SEGMENT_RECEIVED: true,
   IPSEC_PROTECTED: true,
   IPSEC_UNPROTECTED: true,
   GRE_ENCAPSULATED: true,

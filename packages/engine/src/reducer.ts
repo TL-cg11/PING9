@@ -1,3 +1,4 @@
+import { setSslClient, setSslServer } from "./reducer/ssl-vpn";
 // Document reducer: Command를 검증하고 새 Document를 만든다 (AD-3).
 // Document를 바꾸는 경로는 여기 하나다. 화면과 CLI는 Command를 만들어 dispatch할 뿐이다.
 //
@@ -48,6 +49,8 @@ export type CommandHandler<T extends CommandType> = (
 
 // 처리기의 본문은 reducer/ 폴더의 각자 파일에 두고, 여기에는 자기 Command의 줄만 더한다
 const handlers: { readonly [T in CommandType]?: CommandHandler<T> } = {
+  "ssl-vpn/set-client": setSslClient,
+  "ssl-vpn/set-server": setSslServer,
   "router/set-cli-style": setCliStyle,
   "router/commit-vyos": commitVyos,
   "router/set-vpn-mode": setVpnMode,

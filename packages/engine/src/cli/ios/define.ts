@@ -1,3 +1,4 @@
+import type { SslVpnAction, SslVpnRun } from "@ping9/shared";
 // IOS 방식 CLI의 명령 정의 형태 (AD-8). 명령어 하나는 정의 하나다.
 // 이 폴더(cli/ios)는 장비 종류를 모른다. Switch와 Router가 각자의 정의 목록을 얹어 쓴다.
 // 출처: docs/superpowers/specs/2026-11-05-switch-vlan-design.md 7절.
@@ -96,6 +97,7 @@ export interface FileAccess {
  * (03 문서: Command가 아니라 ConsolePort.exec로)
  */
 export interface RuntimeAccess {
+  sslVpn?(deviceId: string, action: SslVpnAction): SslVpnRun;
   ping(request: PingRequest): PingRun;
   /** traceroute (T11.4.1). hop마다 추적 하나 */
   traceroute(request: TracerouteRequest): PingRun;

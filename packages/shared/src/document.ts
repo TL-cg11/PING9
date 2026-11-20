@@ -1,3 +1,4 @@
+import type { SslVpnClientConfig, SslVpnServerConfig } from "./ssl-vpn";
 // 저장되는 문서(Document)의 형태. 출처: docs/project-plan/03-system-design.md 3.4절 "Document 형태", AD-9.
 // 모든 값은 변경 불가능한 단순 JSON 자료다 (AD-16). 바꿀 때는 새 객체를 만든다.
 
@@ -83,6 +84,7 @@ export interface DnsRecord {
  * `os`는 IP와 상관없이 따로 있고, 없으면 `DEFAULT_OS`다
  */
 export interface PcConfig {
+  readonly sslVpn?: SslVpnClientConfig;
   readonly ip?: string;
   readonly mask?: string;
   readonly gateway?: string;
@@ -189,6 +191,7 @@ export const VPN_MODES = ["off", "gre", "ipsec"] as const;
 export type VpnMode = (typeof VPN_MODES)[number];
 
 export interface RouterConfig {
+  readonly sslVpn?: SslVpnServerConfig;
   readonly cliStyle?: "ios" | "vyos";
   /** 적용된 VyOS 지원 설정. candidate는 저장하지 않는다. */
   readonly vyos?: Readonly<Record<string, string>>;

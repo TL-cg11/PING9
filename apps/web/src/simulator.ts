@@ -3,7 +3,7 @@
 
 import { createSimulator } from "@ping9/engine";
 import type { Simulator } from "@ping9/engine";
-import { greLabDocument, ipsecLabDocument, vpnUnderlayDocument } from "@ping9/shared/examples";
+import { greLabDocument, ipsecLabDocument, vpnUnderlayDocument, sslVpnSessionLabDocument } from "@ping9/shared/examples";
 import type { Snapshot } from "@ping9/shared";
 import { useSyncExternalStore } from "react";
 
@@ -11,6 +11,7 @@ export const simulator: Simulator = createSimulator();
 
 /** 지금 보여 주는 토폴로지의 이름. 토폴로지 이름은 Document가 아니라 서버가 가진 값이라 지금은 고정이다 */
 const lab = import.meta.env.DEV && typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("lab") : null;
+if (lab === "ssl") simulator.load(sslVpnSessionLabDocument);
 if (lab === "vpn") simulator.load(vpnUnderlayDocument);
 if (lab === "gre") simulator.load(greLabDocument);
 if (lab === "ipsec") simulator.load(ipsecLabDocument);
@@ -19,7 +20,7 @@ if (lab === "vpn" || lab === "gre" || lab === "ipsec") {
     if (device.kind === "router" && device.name !== "ISP") simulator.dispatch({ type: "router/set-cli-style", deviceId: device.id, style: "vyos" });
   }
 }
-export const TOPOLOGY_NAME = lab === "vpn" ? "VPN 설정 실습" : lab === "gre" ? "GRE 실습" : lab === "ipsec" ? "IPsec 실습 (암호화 없음)" : "새 토폴로지";
+export const TOPOLOGY_NAME = lab === "ssl" ? "SSL VPN 세션 실습 (TLS·데이터 터널 없음)" : lab === "vpn" ? "VPN 설정 실습" : lab === "gre" ? "GRE 실습" : lab === "ipsec" ? "IPsec 실습 (암호화 없음)" : "새 토폴로지";
 
 /** 현재 스냅샷. engine의 상태가 바뀌면 다시 그린다 */
 export function useSnapshot(): Snapshot {

@@ -100,6 +100,7 @@ export function createSimulator(): Simulator {
 
   // 콘솔의 ping과 ARP 명령어가 쓰는 것. Document는 바꾸지 않고 Runtime만 바꾼다
   const runtimeAccess: RuntimeAccess = {
+    sslVpn(deviceId, action) { const result = runtime.sslVpn(deviceId,action,docVersion); runtimeChanged(); return result; },
     ping(request) {
       const run = runtime.ping(request, docVersion);
       if (run.ok && run.rounds.length > 0) runtimeChanged();

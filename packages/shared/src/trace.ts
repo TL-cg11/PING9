@@ -38,8 +38,8 @@ export interface Ipv4Header {
   readonly sourceIp: string;
   readonly destinationIp: string;
   readonly ttl: number;
-  /** GRE/ESP 전달 IPv4 헤더에는 각각 프로토콜 47/50을 명시한다. 옛 ICMP/RIP 자료는 생략 가능 */
-  readonly protocol?: 47 | 50;
+  /** 교육용 TCP/GRE/ESP의 IPv4 헤더에는 각각 프로토콜 6/47/50을 명시한다. 옛 ICMP/RIP 자료는 생략 가능 */
+  readonly protocol?: 6 | 47 | 50;
 }
 
 /** UDP 헤더. 지금은 RIP(520)만 쓴다 (T11.2.2, E11 결정 2). 포트별 처리는 E8.1이 넓힌다 */
@@ -128,6 +128,16 @@ export interface EspPacket {
   readonly payload: { readonly ipv4: Ipv4Header; readonly icmp: IcmpMessage };
 }
 
+/** 교육용 TCP 세그먼트. 실제 TCP 연결/재전송/혼잡 제어나 TLS는 구현하지 않는다. */
+export interface TcpSegment {
+  readonly sourcePort: number;
+  readonly destinationPort: number;
+  readonly sequence: number;
+  readonly acknowledgement?: number;
+  readonly flags: readonly ("SYN" | "ACK" | "FIN" | "RST" | "PSH")[];
+  readonly payload?: string;
+}
+
 export interface FrameSnapshot {
   readonly ethernet: EthernetHeader;
   readonly gre?: GrePacket;
@@ -139,7 +149,7 @@ export interface FrameSnapshot {
   readonly udp?: UdpHeader;
   readonly rip?: RipPacket;
   /** TCP 서비스(HTTP, FTP)일 때 (T0.20) */
-  readonly tcp?: TcpHeader;
+  readonly tcp?: TcpHeader | TcpSegment;
   /** 서비스의 요청이나 응답 (T0.20) */
   readonly application?: ApplicationData;
 }
@@ -194,7 +204,7 @@ interface TraceSummaryBase {
 /** 추적 목록의 한 줄. ping 회차 또는 경로 교환 (T11.2.3) */
 export type TraceSummary =
   | (TraceSummaryBase & {
-      readonly kind: "ping";
+      readonly kind: "ping" | "vpn";
       /** 통신을 시작한 장비 */
       readonly source: DeviceRef;
       /** 목적지 IP */

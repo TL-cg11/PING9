@@ -1,0 +1,192 @@
+{
+  "kind": "topology-export",
+  "name": "VPN 물리망 · R1-R2-R3 · 설정 전",
+  "document": {
+    "schemaVersion": 1,
+    "devices": [
+      {
+        "id": "00000000-0000-4000-8000-000000000500",
+        "name": "PC_A",
+        "position": {
+          "x": 100,
+          "y": 240
+        },
+        "kind": "pc",
+        "config": {
+          "os": "windows",
+          "adminUp": true,
+          "ip": "198.168.0.2",
+          "mask": "255.255.255.0",
+          "gateway": "198.168.0.1"
+        }
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000501",
+        "name": "R1",
+        "position": {
+          "x": 300,
+          "y": 240
+        },
+        "kind": "router",
+        "config": {
+          "interfaces": {
+            "GigabitEthernet0/0": {
+              "adminUp": true,
+              "ip": "198.168.0.1",
+              "mask": "255.255.255.0"
+            },
+            "GigabitEthernet0/1": {
+              "adminUp": true,
+              "ip": "198.168.1.1",
+              "mask": "255.255.255.252"
+            },
+            "GigabitEthernet0/2": {
+              "adminUp": false
+            },
+            "GigabitEthernet0/3": {
+              "adminUp": false
+            }
+          },
+          "staticRoutes": [
+            {
+              "network": "198.168.2.0",
+              "mask": "255.255.255.252",
+              "nextHop": "198.168.1.2"
+            }
+          ],
+          "cliStyle": "vyos"
+        }
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000502",
+        "name": "R2",
+        "position": {
+          "x": 500,
+          "y": 240
+        },
+        "kind": "router",
+        "config": {
+          "interfaces": {
+            "GigabitEthernet0/0": {
+              "adminUp": true,
+              "ip": "198.168.1.2",
+              "mask": "255.255.255.252"
+            },
+            "GigabitEthernet0/1": {
+              "adminUp": true,
+              "ip": "198.168.2.1",
+              "mask": "255.255.255.252"
+            },
+            "GigabitEthernet0/2": {
+              "adminUp": false
+            },
+            "GigabitEthernet0/3": {
+              "adminUp": false
+            }
+          },
+          "staticRoutes": [],
+          "cliStyle": "ios"
+        }
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000503",
+        "name": "R3",
+        "position": {
+          "x": 700,
+          "y": 240
+        },
+        "kind": "router",
+        "config": {
+          "cliStyle": "vyos",
+          "interfaces": {
+            "GigabitEthernet0/0": {
+              "adminUp": true,
+              "ip": "198.168.2.2",
+              "mask": "255.255.255.252"
+            },
+            "GigabitEthernet0/1": {
+              "adminUp": true,
+              "ip": "198.168.3.1",
+              "mask": "255.255.255.0"
+            }
+          },
+          "staticRoutes": [
+            {
+              "network": "198.168.1.0",
+              "mask": "255.255.255.252",
+              "nextHop": "198.168.2.1"
+            }
+          ]
+        }
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000504",
+        "name": "PC_B",
+        "position": {
+          "x": 900,
+          "y": 240
+        },
+        "kind": "pc",
+        "config": {
+          "ip": "198.168.3.2",
+          "mask": "255.255.255.0",
+          "gateway": "198.168.3.1"
+        }
+      }
+    ],
+    "links": [
+      {
+        "id": "00000000-0000-4000-8000-000000000600",
+        "ends": [
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000500",
+            "port": "Ethernet0"
+          },
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000501",
+            "port": "GigabitEthernet0/0"
+          }
+        ]
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000601",
+        "ends": [
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000501",
+            "port": "GigabitEthernet0/1"
+          },
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000502",
+            "port": "GigabitEthernet0/0"
+          }
+        ]
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000602",
+        "ends": [
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000502",
+            "port": "GigabitEthernet0/1"
+          },
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000503",
+            "port": "GigabitEthernet0/0"
+          }
+        ]
+      },
+      {
+        "id": "00000000-0000-4000-8000-000000000603",
+        "ends": [
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000503",
+            "port": "GigabitEthernet0/1"
+          },
+          {
+            "deviceId": "00000000-0000-4000-8000-000000000504",
+            "port": "Ethernet0"
+          }
+        ]
+      }
+    ]
+  }
+}
